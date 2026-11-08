@@ -46,14 +46,14 @@ export class SenderSupervisor {
   private readonly healthState = signal<SenderHealthState>('idle');
   private started = false;
 
-  /** Where the machine stands, for the dev badge. */
+  /** Where the machine stands, for the dev bench. */
   readonly state: Signal<SenderHealthState> = this.healthState.asReadonly();
 
   /**
    * Installed once, in the injector context — `DeckBindings.installEffects`' pattern. The effect
    * feeds the machine `midi-granted` the first time the mixer's MIDI access reads `granted`; until
    * then nothing opens, so an app that is never granted MIDI never loads the helper. Dev builds
-   * also get the sender's bench keys and badge.
+   * also get the sender's bench keys and commands.
    */
   start(): void {
     if (this.started || this.link === null) {

@@ -62,10 +62,6 @@ describe('sender bench', () => {
   const commands = (): BenchCommands =>
     (globalThis as unknown as { djBench: BenchCommands }).djBench;
   const settle = (): Promise<void> => new Promise((resolve) => setTimeout(resolve));
-  const badges = (): string[] =>
-    Array.from(document.querySelectorAll('div[aria-hidden="true"]'))
-      .map((element) => element.textContent ?? '')
-      .filter((text) => text.startsWith('SEND:'));
 
   function press(init: KeyboardEventInit): void {
     window.dispatchEvent(
@@ -218,7 +214,7 @@ describe('sender bench', () => {
   });
 
   describe('install', () => {
-    it('leaves exactly one listener and one badge after a second install', () => {
+    it('leaves exactly one listener after a second install', () => {
       const flip = vi.fn();
       const stub = { state: () => 'up' as const, flip, breakOnPurpose: vi.fn() };
       TestBed.runInInjectionContext(() => {
@@ -229,28 +225,12 @@ describe('sender bench', () => {
       press({ key: 'i' });
 
       expect(flip).toHaveBeenCalledTimes(1);
-      expect(badges()).toHaveLength(1);
     });
-  });
 
-  describe('badge', () => {
-    it('follows the route and the health state', async () => {
-      TestBed.flushEffects();
-      expect(badges()).toEqual(['SEND: MIXER · idle']);
-
+    it('puts no visible element on the page', async () => {
       await bringUp();
-      TestBed.flushEffects();
-      expect(badges()).toEqual(['SEND: SENDER']);
 
-      press({ key: 'i' });
-      TestBed.flushEffects();
-      expect(badges()).toEqual(['SEND: MIXER · parked']);
-
-      press({ key: 'i' });
-      frameLoads();
-      press({ key: 'b' });
-      TestBed.flushEffects();
-      expect(badges()).toEqual(['SEND: MIXER · down']);
+      expect(document.body.textContent).not.toContain('SEND:');
     });
   });
 

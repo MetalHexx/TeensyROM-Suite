@@ -1,4 +1,3 @@
-import { effect } from '@angular/core';
 import { milliseconds } from '@sidablist/core';
 import type {
   CartridgeTiming,
@@ -23,7 +22,7 @@ export interface SenderBenchDeps {
 }
 
 export interface SenderBench {
-  /** Removes the key listener, the badge and the commands this bench added. */
+  /** Removes the key listener and the commands this bench added. */
   uninstall(): void;
 }
 
@@ -46,28 +45,13 @@ let installed: SenderBench | null = null;
 
 /**
  * Dev builds only, from inside an injection context: the sender's bench tools — the `i` and `b`
- * keys, the path badge, and `djBench.sender()`, `lookahead` and `reset` on the handle the runtime
+ * keys, and `djBench.sender()`, `lookahead` and `reset` on the handle the runtime
  * installed. One bench lives per window: installing again first removes the earlier one.
  */
 export function installSenderBench(deps: SenderBenchDeps): SenderBench {
   installed?.uninstall();
 
   const { supervisor, route, runtime, link } = deps;
-
-  const badge = document.createElement('div');
-  badge.setAttribute('aria-hidden', 'true');
-  badge.style.cssText =
-    'position:fixed;left:8px;bottom:8px;z-index:2147483647;pointer-events:none;' +
-    'font:11px monospace;color:#fff;background:rgba(0,0,0,0.7);padding:2px 6px;border-radius:3px';
-  const renderBadge = (): void => {
-    const state = supervisor.state();
-    badge.textContent =
-      `SEND: ${route.path() === 'sender' ? 'SENDER' : 'MIXER'}` +
-      (state === 'up' ? '' : ` · ${state}`);
-  };
-  renderBadge();
-  document.body.appendChild(badge);
-  const badgeEffect = effect(renderBadge);
 
   const onKeyDown = (event: KeyboardEvent): void => {
     if (event.key !== 'i' && event.key !== 'b') {
@@ -139,8 +123,6 @@ export function installSenderBench(deps: SenderBenchDeps): SenderBench {
   const handle: SenderBench = {
     uninstall(): void {
       window.removeEventListener('keydown', onKeyDown, true);
-      badgeEffect.destroy();
-      badge.remove();
       restores.forEach((restore) => restore());
       if (installed === handle) {
         installed = null;

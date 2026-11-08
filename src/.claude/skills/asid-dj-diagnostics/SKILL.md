@@ -51,7 +51,7 @@ frame clock (ScriptProcessor, main thread: callbacks in back-to-back pairs every
 
 Key files (teensyrom-web `src/libs/application/src/lib/dj/`): `deck-runtime.ts` (schedule-ahead,
 port façade, delivery probes), `sender/` (the send route, the sender's health machine and supervisor),
-`bench/sender-bench.ts` (the sender's keys, badge and readings), `deck.service.ts` (`watchPositions`), `live-paint-pacer.ts`,
+`bench/sender-bench.ts` (the sender's keys and readings), `deck.service.ts` (`watchPositions`), `live-paint-pacer.ts`,
 `live-paint-clock.ts`, `playhead-painter.ts`, `sid-panel-painter.ts`, `bench/deck-bench.ts`,
 `bench/delivery-probe.ts`; `../with-devtools.ts` (DevTools gated to dev). sidablist:
 `libs/asid/src/sink/asid-sink.ts`, `libs/asid/src/wire/`. Firmware (read only):
@@ -98,9 +98,8 @@ djBench.help()
 inputs, dialogs and buttons with focus are left alone): `i` flips between the sender and today's
 sending, so the operator can compare them by ear with DevTools closed (from `up` it parks on the mixer,
 from `parked` it reopens the sender and takes a moment to come back); `b` breaks the sender on purpose,
-the self-heal drill (badge to `SEND: MIXER · down` with the down alert, then back to `SEND: SENDER`
-with the back alert on its own). A badge at the bottom left reads `SEND: SENDER` or `SEND: MIXER`, plus the
-health state when it is not `up`.
+the self-heal drill (`djBench.sender()` reads `path mixer`, `state down` with the down alert, then
+`path sender`, `state up` with the back alert on its own).
 `await djBench.sender()` prints and returns `{ path, state, marginMs, wake, decks, timeline, visibility }`:
 the sender's record per deck (`decks.A` / `decks.B`, empty with no cartridge), its wake lateness and
 margin, a timeline and the hidden/visible changes. The record is bounded and safe to read mid-run.

@@ -1477,8 +1477,8 @@ exists there); click an empty part of the page before pressing `i` or `b`.
   - [ ] The own-thread test in the log. There is no `djBench` there.
 - [ ] **4. The self-heal drill.** `b` while both decks play, more than 10 s after load:
   - [ ] the down alert shows;
-  - [ ] the decks keep playing on today's sending;
-  - [ ] the sender comes back by itself;
+  - [ ] the decks keep playing on today's sending (`await djBench.sender()` reads `path` `mixer`, `state` `down`);
+  - [ ] the sender comes back by itself (`path` `sender`, `state` `up`);
   - [ ] the back alert shows.
 - [ ] **5. Every press behaves as before, 15 ms later:** play, stop, pause, loops and live loops, cues,
   tempo changes, slip landings and the hand.
