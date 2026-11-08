@@ -227,7 +227,7 @@ describe('SenderHealth', () => {
       expect(m.health.state).toBe('down');
     });
 
-    it('fails a page that loads and never says hello, once a second of steady time has passed', () => {
+    it('fails a page that loads and never says hello, within a second of steady time', () => {
       const m = harness();
       m.grant();
       m.feed({ kind: 'loaded' });
@@ -239,6 +239,26 @@ describe('SenderHealth', () => {
 
       expect(names(commands)).toEqual(['close', 'log']);
       expect(m.health.state).toBe('down');
+    });
+
+    it('fails a page that loads just after a tick and never says hello within a second of loading', () => {
+      const m = harness();
+      m.grant();
+      m.tick();
+      m.advance(1);
+      m.feed({ kind: 'loaded' });
+      const loadedAt = m.now();
+      m.advance(-1); // the next tick lands 249 ms after the load: the worst case on a 250 ms grid
+
+      let noticedAfter: number | null = null;
+      for (let waited = 0; waited < 2000 && noticedAfter === null; waited += TICK_MS) {
+        if (m.tick().length > 0) {
+          noticedAfter = m.now() - loadedAt;
+        }
+      }
+
+      expect(noticedAfter).not.toBeNull();
+      expect(noticedAfter).toBeLessThan(1000);
     });
 
     it('fails a hello that never gets a ready only after the MIDI timeout', () => {

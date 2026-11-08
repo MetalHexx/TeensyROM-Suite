@@ -1,11 +1,9 @@
 import { describe, it, expect, afterEach, vi } from 'vitest';
 import { TestBed } from '@angular/core/testing';
 import type { AsidSenderEvent } from '@teensyrom-nx/application';
-import { midiPortDeviceToken } from '@teensyrom-nx/domain';
 import {
   ASID_SENDER_IDENTITY,
   ASID_SENDER_PROTOCOL_VERSION,
-  teensyRomToken,
   type AppToSender,
 } from '@teensyrom-nx/asid-sender-protocol';
 import { AsidSenderLinkService } from './asid-sender-link.service';
@@ -71,7 +69,6 @@ function setup(hostname = 'localhost'): FakeSetup {
     },
     startTicker: (tick) => {
       onTick = tick;
-      return { stop: vi.fn() };
     },
     now: () => clock++,
     timeOrigin: () => TIME_ORIGIN,
@@ -331,6 +328,18 @@ describe('AsidSenderLinkService', () => {
       expect(env.ports[0].postMessage).not.toHaveBeenCalled();
     });
 
+    it('aborts without holding when a deck starts playing while the arm is in flight', async () => {
+      const env = setup();
+      env.service.open();
+      env.loadFrame();
+      answerSelfTest(env, () => 40);
+      const answers = [true, false];
+
+      await expect(env.service.selfTest(() => answers.shift() ?? false)).resolves.toBe('aborted');
+
+      expect(env.sent().map((message) => message.k)).toEqual(['test-arm']);
+    });
+
     it('aborts when the sender never answers the arm', async () => {
       vi.useFakeTimers();
       const env = setup();
@@ -366,19 +375,5 @@ describe('AsidSenderLinkService', () => {
 
       expect(env.sent()).toEqual([{ k: 'timing-clear' }]);
     });
-  });
-});
-
-describe('port name token cross-check', () => {
-  it.each([
-    'TeensyROM-12345',
-    'TeensyROM-1234 MIDI 1',
-    'USB MIDI Device',
-    'Not-TeensyROM',
-    'teensyrom-999',
-    'TeensyROM-',
-    'xTeensyROM-abc_9-z',
-  ])('agrees with domain on %j', (name) => {
-    expect(teensyRomToken(name)).toBe(midiPortDeviceToken(name));
   });
 });

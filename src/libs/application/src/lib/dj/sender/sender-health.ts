@@ -9,10 +9,12 @@ import type { SendPath } from './deck-send-route';
 export const TICK_MS = 250;
 /** A gap between two ticks longer than this means the app's own thread stalled. */
 export const STALL_GAP_MS = 400;
-/** A sender that has answered no ping for this long, in steady time, has stopped. */
+/** A sender that has answered no ping for this long, in steady time, has stopped. Judged on
+ *  `TICK_MS` ticks, so 750 puts the worst-case noticing just under 1 s. */
 export const HEALTH_TIMEOUT_MS = 750;
-/** The sender answers `connect` at once; a loaded page that has not by now is not the sender. */
-export const HELLO_TIMEOUT_MS = 1000;
+/** The sender answers `connect` at once; a loaded page that has not by now is not the sender. Under
+ *  1 s for the same tick-grid reason as `HEALTH_TIMEOUT_MS`. */
+export const HELLO_TIMEOUT_MS = 750;
 /** From the sender's `hello` to its MIDI start-up resolving. */
 export const MIDI_TIMEOUT_MS = 3000;
 /** From `open` to the frame firing `load`. */

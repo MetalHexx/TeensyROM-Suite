@@ -6,7 +6,7 @@ export interface SenderPage {
   appendFrame(src: string): HTMLIFrameElement;
   createChannel(): MessageChannel;
   /** Starts the steady ticker; `onTick` runs on every beat, whether or not the page is hidden. */
-  startTicker(onTick: () => void): { stop(): void };
+  startTicker(onTick: () => void): void;
   /** This page's `performance.now()`. */
   now(): number;
   /** This page's `performance.timeOrigin`. */
@@ -29,12 +29,11 @@ function appendHiddenFrame(src: string): HTMLIFrameElement {
   return frame;
 }
 
-function startWorkerTicker(onTick: () => void): { stop(): void } {
+function startWorkerTicker(onTick: () => void): void {
   const worker = new Worker(new URL('./sender-ticker.worker', import.meta.url), {
     type: 'module',
   });
   worker.onmessage = onTick;
-  return { stop: () => worker.terminate() };
 }
 
 const browserSenderPage: SenderPage = {

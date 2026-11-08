@@ -133,7 +133,7 @@ export class AsidSenderLinkService implements IAsidSenderLink {
       const id = ++this.requestId;
       const armed = this.request('test-armed', id, SELF_TEST_REPLY_TIMEOUT_MS);
       this.post({ k: 'test-arm', id });
-      if ((await armed) === null) {
+      if ((await armed) === null || !canHold()) {
         return 'aborted';
       }
 
