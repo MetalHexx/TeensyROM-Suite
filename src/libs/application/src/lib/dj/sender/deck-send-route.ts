@@ -60,8 +60,7 @@ export class DeckSendRoute {
   }
 
   /** Replaces one path's lookahead until the page reloads; the decks take it up the next time they
-   *  are routed onto that path. Meant for the dev bench's `lookahead` once it goes through here:
-   *  until then it sets the sinks directly, and the next switch overwrites what it set. */
+   *  are routed onto that path. The dev bench's `lookahead` sets the live path's value here. */
   setLookahead(path: SendPath, ms: Milliseconds): void {
     this.lookaheads[path] = ms;
   }

@@ -230,6 +230,12 @@ export class DeckRuntime {
     }
   }
 
+  /** The schedule-ahead this slot's sink settled on, in ms (it caps the value asked for); 0 for a
+   *  slot not built. */
+  scheduleAheadOf(slot: Slot): number {
+    return this.slots.get(slot)?.sink.capabilities.scheduleAheadMs ?? 0;
+  }
+
   /** Puts every register this deck last sent on the wire at once, unstamped, so the chip matches the
    *  deck after a change of path. Does nothing for a deck that is not sending frames.
    *

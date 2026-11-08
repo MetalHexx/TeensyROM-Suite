@@ -4,12 +4,14 @@ import {
   Signal,
   effect,
   inject,
+  isDevMode,
   runInInjectionContext,
   signal,
   untracked,
 } from '@angular/core';
 import { ALERT_SERVICE, type IAlertService } from '@teensyrom-nx/domain';
 import { logInfo, logWarn, LogType } from '@teensyrom-nx/utils';
+import { installSenderBench } from '../bench/sender-bench';
 import { DeckRuntime } from '../deck-runtime';
 import { ASID_SENDER_LINK, MIDI_ACCESS } from '../ports';
 import type { AsidSenderEvent, IMidiAccess } from '../ports';
@@ -50,7 +52,8 @@ export class SenderSupervisor {
   /**
    * Installed once, in the injector context — `DeckBindings.installEffects`' pattern. The effect
    * feeds the machine `midi-granted` the first time the mixer's MIDI access reads `granted`; until
-   * then nothing opens, so an app that is never granted MIDI never loads the helper.
+   * then nothing opens, so an app that is never granted MIDI never loads the helper. Dev builds
+   * also get the sender's bench keys and badge.
    */
   start(): void {
     if (this.started || this.link === null) {
@@ -71,6 +74,11 @@ export class SenderSupervisor {
         );
       });
     });
+    if (isDevMode()) {
+      runInInjectionContext(this.injector, () =>
+        installSenderBench({ supervisor: this, route: this.route, runtime: this.runtime, link })
+      );
+    }
   }
 
   /** The dev flip: the sender if the decks are on the mixer, the mixer if they are on the sender. */

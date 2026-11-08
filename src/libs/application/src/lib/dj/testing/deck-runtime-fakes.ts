@@ -156,6 +156,8 @@ export class FakeSenderLink implements IAsidSenderLink {
   starts = 0;
   opens = 0;
   closes = 0;
+  timing: SenderTimingReport | null = null;
+  timingClears = 0;
   private listener: ((event: AsidSenderEvent) => void) | null = null;
   private selfTestSettlers: ((result: SelfTestResult) => void)[] = [];
 
@@ -193,11 +195,11 @@ export class FakeSenderLink implements IAsidSenderLink {
   }
 
   readTiming(): Promise<SenderTimingReport | null> {
-    return Promise.resolve(null);
+    return Promise.resolve(this.timing);
   }
 
   clearTiming(): void {
-    // the bench is not under test
+    this.timingClears++;
   }
 
   /** Raises an event as the helper's frame would. */
