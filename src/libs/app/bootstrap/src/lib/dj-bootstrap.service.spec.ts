@@ -7,6 +7,7 @@ import {
   MidiControllers,
   MidiInputRouter,
   MixerApplier,
+  SenderSupervisor,
 } from '@teensyrom-nx/application';
 import { logWarn } from '@teensyrom-nx/utils';
 import { DjBootstrapService } from './dj-bootstrap.service';
@@ -23,6 +24,7 @@ describe('DjBootstrapService', () => {
   let mappingsHydrateMock: ReturnType<typeof vi.fn>;
   let routerStartMock: ReturnType<typeof vi.fn>;
   let setsHydrateMock: ReturnType<typeof vi.fn>;
+  let startMock: ReturnType<typeof vi.fn>;
 
   function configure(): DjBootstrapService {
     TestBed.configureTestingModule({
@@ -34,6 +36,7 @@ describe('DjBootstrapService', () => {
         { provide: MidiControllers, useValue: { hydrate: mappingsHydrateMock } },
         { provide: MidiInputRouter, useValue: { start: routerStartMock } },
         { provide: DjSets, useValue: { hydrate: setsHydrateMock } },
+        { provide: SenderSupervisor, useValue: { start: startMock } },
       ],
     });
     return TestBed.inject(DjBootstrapService);
@@ -46,7 +49,30 @@ describe('DjBootstrapService', () => {
     mappingsHydrateMock = vi.fn().mockResolvedValue(undefined);
     routerStartMock = vi.fn();
     setsHydrateMock = vi.fn().mockResolvedValue(undefined);
+    startMock = vi.fn();
     vi.mocked(logWarn).mockClear();
+  });
+
+  it('init starts the sender supervisor exactly once', () => {
+    const service = configure();
+
+    service.init();
+
+    expect(startMock).toHaveBeenCalledTimes(1);
+  });
+
+  it('a throwing sender supervisor start logs a warning, never throws, and still hydrates', () => {
+    startMock.mockImplementationOnce(() => {
+      throw new Error('no effects');
+    });
+    const service = configure();
+
+    expect(() => service.init()).not.toThrow();
+
+    expect(vi.mocked(logWarn)).toHaveBeenCalledWith(
+      'DjBootstrap: sender supervisor failed to start — no effects'
+    );
+    expect(hydrateMock).toHaveBeenCalledTimes(1);
   });
 
   it('init constructs the service (building both runtimes via DeckService) and calls hydrate', () => {

@@ -1,12 +1,13 @@
 import { Injectable, inject, isDevMode } from '@angular/core';
+import { midiPortDeviceToken } from '@teensyrom-nx/domain';
 import { logWarn } from '@teensyrom-nx/utils';
 import {
   createSidPlayer,
   parseSidFile,
   frames,
   clamp,
-  milliseconds,
   playCallIntervalUs,
+  SID_REGISTER_COUNT,
 } from '@sidablist/core';
 import type {
   ActiveLoop,
@@ -16,10 +17,12 @@ import type {
   PlayerSnapshot,
   Frames,
   FrameClock,
+  Milliseconds,
   ReplayRunner,
   JumpSettings,
   ShadowCount,
   SidField,
+  SidFrame,
   SidModel,
   VarispeedLoopStart,
   VarispeedRateSource,
@@ -39,23 +42,11 @@ import type { RegisterRecorder } from './ports';
 import type { Slot } from './slot';
 import { DeliveryProbe } from './bench/delivery-probe';
 import { installDeckBench } from './bench/deck-bench';
+import { DeckSendRoute } from './sender/deck-send-route';
 
 /** How many seconds of play a tune's register record covers beyond the longest position the
  *  transport can show, so a hand has room to run past the end of the bar. */
 const RECORD_MARGIN_SECONDS = 5;
-
-/**
- * How far past its due time each frame is stamped for the MIDI stack: not at all, so Chrome sends
- * each frame the moment the clock hands it over, and nothing a deck does is delayed. The clock
- * releases frames in bursts — the audio device runs in ~10.7 ms periods — so at zero a frame pair
- * now and then lands on the same instant, where stamping ahead would put every frame on the grid.
- *
- * Bench and ear on InSID3 Out at 1×, real hardware, once the page stopped blocking the main thread:
- * collapsed pairs 3.8% at 0 against 0% at 12 and 20 ms (17% at 0 before), yet the three sounded
- * about the same by ear and 0 the best. The ASID sink caps it at 40 ms for a port that cannot
- * cancel; `djBench.lookahead(ms)` tries another value in a dev build.
- */
-const DECK_SCHEDULE_AHEAD_MS = milliseconds(0);
 
 /** One deck slot's whole engine bundle: the core player, its ASID sink, the audio-graph clock
  *  driving it, the two replay threads it uses — one for jumps, one for prepared builds — and the
@@ -89,18 +80,47 @@ function engineLoopOf(loop: EngineLoop): Exclude<ActiveLoop, null> {
   };
 }
 
-/** The façade's mutable target: which port id a slot currently points at, and whether the
- *  "nothing bound" warning has already fired for the unbound stretch in progress. */
+/** The façade's mutable target: which port id a slot currently points at, the `TeensyRom-<id>`
+ *  token of the cartridge behind it (what the timing helper lists), whether the "nothing bound"
+ *  warning has already fired for the unbound stretch in progress, and whether the next packet
+ *  must leave unstamped. */
 interface FacadeState {
   portId: string | null;
+  token: string | null;
   warned: boolean;
+  unstampedOnce: boolean;
+}
+
+/** The registers a slot's deck last sent, as one frame carrying all of them. Built once per slot:
+ *  `sendRegisterImage` refills `sent` and nothing else changes. */
+interface RegisterImage {
+  readonly written: Uint8Array;
+  readonly sent: Uint8Array;
+  readonly frame: SidFrame;
+}
+
+function createRegisterImage(): RegisterImage {
+  const written = new Uint8Array(SID_REGISTER_COUNT);
+  const sent = new Uint8Array(SID_REGISTER_COUNT);
+  return {
+    written,
+    sent,
+    frame: {
+      count: SID_REGISTER_COUNT,
+      registers: Uint8Array.from({ length: SID_REGISTER_COUNT }, (_, register) => register),
+      values: sent,
+      offsetsUs: new Int32Array(SID_REGISTER_COUNT),
+    },
+  };
 }
 
 /**
  * Owns one engine bundle per deck slot — built once, torn down once — and the MIDI port façade
  * each bundle's sink sends through. Lifted from the POC's `DeckHostComponent` providers and
  * `DeckMidiBinding.createOutputPort`, collapsed onto two slots instead of one deck host per
- * component instance.
+ * component instance. The façade sends through the mixer's own MIDI access or, when `DeckSendRoute`
+ * says so, through the timing helper; the supervisor owns that decision and this class only acts
+ * on it.
  *
  * `build` creates no `AudioContext`: the clock's graph starts on the first `play`, inside the
  * factory-supplied `FrameClock`'s own `start()` — never here.
@@ -111,9 +131,11 @@ export class DeckRuntime {
   private readonly replayFactory = inject(REPLAY_RUNNER_FACTORY);
   private readonly recorderFactory = inject(REGISTER_RECORDER_FACTORY);
   private readonly midiAccess = inject(MIDI_ACCESS);
+  private readonly route = inject(DeckSendRoute);
 
   private readonly slots = new Map<Slot, SlotRuntime>();
   private readonly facades = new Map<Slot, FacadeState>();
+  private readonly images = new Map<Slot, RegisterImage>();
   /** The chip model of the tune each slot last loaded — what `resync` hands the sink's `begin`. */
   private readonly chipModels = new Map<Slot, SidModel>();
   /** Bumped by every `load`: a record scan that comes back after a newer load is stale. */
@@ -143,16 +165,18 @@ export class DeckRuntime {
       return;
     }
 
-    const facade: FacadeState = { portId: null, warned: false };
+    const facade: FacadeState = { portId: null, token: null, warned: false, unstampedOnce: false };
     this.facades.set(slot, facade);
+    this.images.set(slot, createRegisterImage());
+    const scheduleAheadMs = this.route.lookaheadFor(this.route.path());
     if (isDevMode()) {
       const probe = new DeliveryProbe();
-      probe.setScheduleAhead(DECK_SCHEDULE_AHEAD_MS);
+      probe.setScheduleAhead(scheduleAheadMs);
       this.probes.set(slot, probe);
     }
 
     const port = this.createOutputPort(slot, facade);
-    const sink = createAsidSink(port, { scheduleAheadMs: DECK_SCHEDULE_AHEAD_MS });
+    const sink = createAsidSink(port, { scheduleAheadMs });
     const clock = this.clockFactory();
     const replay = this.replayFactory();
     const prepare = this.replayFactory();
@@ -164,12 +188,74 @@ export class DeckRuntime {
   }
 
   /** Re-targets this slot's port façade. The sink and player are never rebuilt — only the id the
-   *  façade resolves against on the next send changes. Resets the unbound-stretch warning so an
-   *  unbound slot warns again the next time it drops bytes. */
+   *  façade resolves against on the next send changes. Also records the cartridge token in the
+   *  port's name, which is how the timing helper addresses it. Resets the unbound-stretch warning
+   *  so an unbound slot warns again the next time it drops bytes. */
   setPort(slot: Slot, portId: string | null): void {
     const facade = this.requireFacade(slot);
     facade.portId = portId;
+    facade.token = portId === null ? null : this.tokenOfPort(portId);
     facade.warned = false;
+  }
+
+  /** The `TeensyRom-<id>` token of the cartridge this slot's port belongs to, or null with no port
+   *  bound, a port whose name carries none, or a slot not built. */
+  deviceToken(slot: Slot): string | null {
+    return this.facades.get(slot)?.token ?? null;
+  }
+
+  /** Whether this slot's deck is sending frames: playing, or in varispeed, where the hand runs the
+   *  clock while the transport still reads `paused`. False for a slot not built. */
+  isPlaying(slot: Slot): boolean {
+    const entry = this.slots.get(slot);
+    if (entry === undefined) {
+      return false;
+    }
+    const { transport, tempo } = entry.player.getSnapshot();
+    return transport === 'playing' || tempo.varispeed;
+  }
+
+  /** Sets how far past its due time this slot's sink stamps each frame, and in dev builds points the
+   *  delivery probe at the value the sink settled on. Does nothing for a slot not built. */
+  setScheduleAhead(slot: Slot, ms: Milliseconds): void {
+    const entry = this.slots.get(slot);
+    if (entry === undefined) {
+      return;
+    }
+    entry.sink.setScheduleAhead(ms);
+    const probe = this.probes.get(slot);
+    if (probe !== undefined) {
+      probe.setScheduleAhead(entry.sink.capabilities.scheduleAheadMs ?? 0);
+      probe.reset();
+    }
+  }
+
+  /** Puts every register this deck last sent on the wire at once, unstamped, so the chip matches the
+   *  deck after a change of path. Does nothing for a deck that is not sending frames.
+   *
+   *  Unstamped on either path: on a port that cannot cancel the sink would stamp it just behind the
+   *  last frame it stamped, which outlives a switch — coming off the sender that is still about
+   *  15 ms ahead, so frames stamped for now would go first and the late image would put back what
+   *  they wrote. The path now live holds nothing earlier for this deck. */
+  sendRegisterImage(slot: Slot): void {
+    const entry = this.slots.get(slot);
+    const facade = this.facades.get(slot);
+    const image = this.images.get(slot);
+    if (
+      entry === undefined ||
+      facade === undefined ||
+      image === undefined ||
+      !this.isPlaying(slot)
+    ) {
+      return;
+    }
+    entry.player.readRegisters(image.written, image.sent);
+    facade.unstampedOnce = true;
+    try {
+      entry.sink.deliverNow(image.frame);
+    } finally {
+      facade.unstampedOnce = false;
+    }
   }
 
   /** Re-sends the ASID start handshake — SID type, then start — to this slot's cartridge. A
@@ -520,10 +606,22 @@ export class DeckRuntime {
    * the id per call, not re-wrap it. Nothing bound drops the bytes and warns once per unbound
    * stretch, not per send — production plays a dropped tune whether or not a port is bound, and a
    * per-call warning would fire fifty times a second.
+   *
+   * On the sender path a packet goes to the timing helper instead, addressed by the cartridge's
+   * token, and only when the helper lists that cartridge; otherwise it is dropped, warning once per
+   * stretch. The helper cannot withdraw a frame it holds, so on that path the façade never claims
+   * it can cancel.
    */
   private createOutputPort(slot: Slot, facade: FacadeState): MidiOutputPort {
     const resolve = (): MidiOutputPort | null =>
       facade.portId === null ? null : this.midiAccess.outputPortFor(facade.portId);
+    const onSender = (): boolean => this.route.path() === 'sender';
+    const warnOnce = (why: string): void => {
+      if (!facade.warned) {
+        facade.warned = true;
+        logWarn(`DeckRuntime: slot ${slot} ${why} — dropping bytes.`);
+      }
+    };
     // Recorded before the port resolves, so a deck with nothing bound still measures its timing.
     const probe = this.probes.get(slot) ?? null;
 
@@ -532,24 +630,45 @@ export class DeckRuntime {
         return facade.portId;
       },
       get supportsCancel(): boolean {
-        return resolve()?.supportsCancel ?? false;
+        return !onSender() && (resolve()?.supportsCancel ?? false);
       },
-      send: (bytes: Uint8Array, timestampMs?: number): void => {
+      send: (bytes: Uint8Array, requestedTimestampMs?: number): void => {
+        let timestampMs = requestedTimestampMs;
+        if (facade.unstampedOnce) {
+          facade.unstampedOnce = false;
+          timestampMs = undefined;
+        }
         if (probe !== null && timestampMs !== undefined) {
           probe.record(timestampMs);
         }
-        const resolved = resolve();
-        if (resolved === null) {
-          if (!facade.warned) {
-            facade.warned = true;
-            logWarn(`DeckRuntime: slot ${slot} has no MIDI port bound — dropping bytes.`);
+
+        if (!onSender()) {
+          const resolved = resolve();
+          if (resolved === null) {
+            warnOnce('has no MIDI port bound');
+            return;
           }
+          resolved.send(bytes, timestampMs);
           return;
         }
-        resolved.send(bytes, timestampMs);
+
+        if (facade.portId === null) {
+          warnOnce('has no MIDI port bound');
+        } else if (facade.token !== null && this.route.isListedBySender(facade.token)) {
+          this.route.sendToSender(facade.token, bytes, timestampMs);
+        } else {
+          warnOnce('has no cartridge the timing helper lists');
+        }
       },
-      cancelPending: (): boolean => resolve()?.cancelPending() ?? false,
+      cancelPending: (): boolean => !onSender() && (resolve()?.cancelPending() ?? false),
     };
+  }
+
+  /** The cartridge token in the name of the enumerated port `portId`, or null when the port is not
+   *  enumerated or its name carries none. */
+  private tokenOfPort(portId: string): string | null {
+    const name = this.midiAccess.ports().find((port) => port.id === portId)?.name;
+    return name === undefined ? null : midiPortDeviceToken(name);
   }
 
   private requireSlot(slot: Slot): SlotRuntime {
