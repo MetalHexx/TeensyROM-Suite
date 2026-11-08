@@ -1495,4 +1495,9 @@ exists there); click an empty part of the page before pressing `i` or `b`.
 
 ### Verdict
 
-Pending the operator.
+Operator, 2026-11-08, after the bench test: it looks fine. Some drops and audio slurs remain, but it is much better than
+before the sender, and the operator accepts it for this project.
+
+The individual checks above were not reported back, so their boxes stay unticked and no readings are recorded here. Add them
+if they were taken. Where the remaining drops come from is not known; the hand-over for the next performance iteration is in
+the project's requirements document, section *Outcome and Handover*.
