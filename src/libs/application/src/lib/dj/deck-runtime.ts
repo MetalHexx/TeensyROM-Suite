@@ -275,6 +275,12 @@ export class DeckRuntime {
     }
   }
 
+  /** Re-sends the ASID stop message the sink sends when a deck ends or pauses, to this slot's
+   *  cartridge. Stopping twice is harmless. Does nothing for a slot not built. */
+  sendStop(slot: Slot): void {
+    this.slots.get(slot)?.sink.end();
+  }
+
   /** Hands a resolved tune to this slot's player: loads it, selects its subtune, lands whatever
    *  structure the tune's index carries, and asks the slot's recorder for the tune's register
    *  record, which the player takes when it arrives. The one funnel for a tune load and a subtune

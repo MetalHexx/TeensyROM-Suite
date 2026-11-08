@@ -15,7 +15,7 @@ import { installSenderBench } from '../bench/sender-bench';
 import { DeckRuntime } from '../deck-runtime';
 import { ASID_SENDER_LINK, MIDI_ACCESS } from '../ports';
 import type { AsidSenderEvent, IMidiAccess } from '../ports';
-import { DECK_SLOTS } from '../slot';
+import { DECK_SLOTS, type Slot } from '../slot';
 import { DeckSendRoute, type SendPath } from './deck-send-route';
 import {
   SenderHealth,
@@ -45,6 +45,9 @@ export class SenderSupervisor {
   private readonly health = new SenderHealth();
   private readonly healthState = signal<SenderHealthState>('idle');
   private started = false;
+  /** Whether each deck was playing the last time the cartridges were known to be in step with it:
+   *  when the decks moved onto the sender, and at every answer it has given since. */
+  private readonly playingWhenInStep = new Map<Slot, boolean>();
 
   /** Where the machine stands, for the dev bench. */
   readonly state: Signal<SenderHealthState> = this.healthState.asReadonly();
@@ -106,6 +109,12 @@ export class SenderSupervisor {
         return;
       case 'outputs':
         this.onOutputs(event.tokens);
+        return;
+      case 'pong':
+        if (this.route.path() === 'sender') {
+          this.noteDecksInStep();
+        }
+        this.feed(event);
         return;
       default:
         this.feed(event);
@@ -179,13 +188,51 @@ export class SenderSupervisor {
    *  order a frame the sender still held could leave after today's sending had started, and the
    *  image would be undone by a late frame. */
   private routeTo(path: SendPath): void {
+    const leavingTheSender = path === 'mixer' && this.route.path() === 'sender';
     this.route.setPath(path);
     const lookahead = this.route.lookaheadFor(path);
     for (const slot of DECK_SLOTS) {
       this.runtime.setScheduleAhead(slot, lookahead);
     }
+    if (leavingTheSender) {
+      this.replayTransportThatMayHaveBeenLost();
+    }
     for (const slot of DECK_SLOTS) {
       this.runtime.sendRegisterImage(slot);
+    }
+    if (path === 'sender') {
+      this.noteDecksInStep();
+    }
+  }
+
+  /** Records which decks are playing now, at a moment the cartridges are known to match them. */
+  private noteDecksInStep(): void {
+    for (const slot of DECK_SLOTS) {
+      this.playingWhenInStep.set(slot, this.runtime.isPlaying(slot));
+    }
+  }
+
+  /**
+   * A sender that has hung is only noticed up to a second later, and what the decks sent it in
+   * between — a start, a stop, a pause — may never have reached a cartridge. The register image
+   * below restores a deck that is playing; nothing else restores one whose transport changed in
+   * that window. So a deck that began since the sender last answered hears the start handshake it
+   * missed (before the image and the frames, which follow), and one that ended hears the stop. A
+   * deck whose transport did not change is sent nothing extra, so a healthy playing deck is not
+   * restarted. The pause's gate-off frame belongs to the player and is not rebuilt here.
+   */
+  private replayTransportThatMayHaveBeenLost(): void {
+    for (const slot of DECK_SLOTS) {
+      const was = this.playingWhenInStep.get(slot);
+      if (was === undefined) {
+        continue;
+      }
+      const playing = this.runtime.isPlaying(slot);
+      if (!was && playing) {
+        this.runtime.resync(slot);
+      } else if (was && !playing) {
+        this.runtime.sendStop(slot);
+      }
     }
   }
 

@@ -42,6 +42,7 @@ export class Session {
   private readonly midi: MidiOutputs;
   private readonly waiter: Waiter;
   private readonly selfTest: SelfTest;
+  private alarmFailed = false;
 
   constructor(private readonly deps: SessionDeps) {
     const { port } = deps;
@@ -99,7 +100,9 @@ export class Session {
         this.onPacket(data.token, data.bytes, data.due);
         break;
       case 'ping':
-        this.post({ k: 'pong', seq: data.seq });
+        if (!this.alarmFailed) {
+          this.post({ k: 'pong', seq: data.seq });
+        }
         this.timing.ping(this.deps.now());
         break;
       case 'test-arm':
@@ -136,6 +139,16 @@ export class Session {
 
   onProbe(seq: number): void {
     this.waiter.onProbe(seq);
+  }
+
+  /**
+   * The alarm worker failed to load or died. Nothing held would ever leave on time, but this page's
+   * main thread still runs and would keep answering pings, so the app would trust a sender that
+   * silently holds every frame. Stop answering: the app sees a sender that has stopped, tears it
+   * down and sends from the mixer, then retries.
+   */
+  onAlarmFailed(): void {
+    this.alarmFailed = true;
   }
 
   onVisibility(state: 'visible' | 'hidden'): void {

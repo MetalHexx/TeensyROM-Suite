@@ -70,6 +70,7 @@ function connect(port: MessagePort): void {
 
   turns.port2.onmessage = () => session.onTurn();
   ticks.port2.onmessage = () => session.onTick();
+  worker.onerror = () => session.onAlarmFailed();
   worker.onmessage = ({ data }: MessageEvent<AlarmReply>) => {
     if ('alarm' in data) {
       session.onAlarm(data.alarm);

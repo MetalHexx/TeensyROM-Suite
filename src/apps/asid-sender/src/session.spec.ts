@@ -141,6 +141,19 @@ describe('Session', () => {
       ]);
     });
 
+    it('stops answering pings once its alarm worker has failed, so the app sees it has stopped', async () => {
+      const r = rig();
+      await r.session.start();
+      r.session.onMessage({ k: 'ping', seq: 1 });
+      r.toApp.length = 0;
+
+      r.session.onAlarmFailed();
+      r.session.onMessage({ k: 'ping', seq: 2 });
+      r.session.onMessage({ k: 'ping', seq: 3 });
+
+      expect(r.toApp).toEqual([]);
+    });
+
     it("records the app's quiet time and never acts on it", async () => {
       const r = rig();
       await r.session.start();

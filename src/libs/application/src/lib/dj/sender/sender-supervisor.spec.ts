@@ -335,6 +335,68 @@ describe('SenderSupervisor', () => {
 
       expect(route.path()).toBe('mixer');
     });
+
+    describe('what the decks sent in the moments before the sender was noticed', () => {
+      const STOP = [0xf0, 0x2d, 0x4d, 0xf7];
+      const START = [0xf0, 0x2d, 0x4c, 0xf7];
+      const heardSince = (slot: Slot, mark: number): number[][] =>
+        ports[slot].sent.slice(mark).map((packet) => Array.from(packet));
+
+      it('sends the stop of a deck that ended after the sender last answered, since the sender may never have played it', async () => {
+        await upWithBothDecksPlaying();
+        elapse(TICK_MS);
+        runtime.pause('A');
+        const markA = ports.A.sent.length;
+        const markB = ports.B.sent.length;
+
+        fail();
+
+        expect(heardSince('A', markA)).toEqual([STOP]);
+        expect(heardSince('B', markB)).toHaveLength(1);
+      });
+
+      it('sends the start handshake of a deck that began after the sender last answered, ahead of its image', async () => {
+        await bringUp();
+        elapse(TICK_MS);
+        await startPlaying('A');
+        const mark = ports.A.sent.length;
+
+        fail();
+
+        const heard = heardSince('A', mark);
+        expect(heard).toHaveLength(3);
+        expect(heard[0].slice(0, 3)).toEqual([0xf0, 0x2d, 0x32]);
+        expect(heard[1]).toEqual(START);
+        expect(heard[2].length).toBeGreaterThan(START_PACKET_LENGTH);
+      });
+
+      it('sends a deck whose transport did not change nothing but its image', async () => {
+        await upWithBothDecksPlaying();
+        elapse(TICK_MS);
+        const markA = ports.A.sent.length;
+        const markB = ports.B.sent.length;
+
+        fail();
+
+        expect(heardSince('A', markA)).toHaveLength(1);
+        expect(heardSince('B', markB)).toHaveLength(1);
+      });
+
+      it('replays nothing for a failure before the decks were on the sender, since they sent from the mixer', async () => {
+        supervisor.start();
+        TestBed.flushEffects();
+        frameLoads();
+        elapse(TICK_MS);
+        await startPlaying('A');
+        const mark = ports.A.sent.length;
+
+        fail();
+
+        const heard = heardSince('A', mark);
+        expect(heard).not.toContainEqual(START);
+        expect(heard).not.toContainEqual(STOP);
+      });
+    });
   });
 
   describe('cartridges coming back', () => {
