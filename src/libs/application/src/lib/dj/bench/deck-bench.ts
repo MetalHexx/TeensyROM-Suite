@@ -14,8 +14,10 @@ export interface BenchDeck {
 
 const HELP = `djBench — deck timing bench (dev builds only)
   djBench.report()               timing per playing deck since the last reset
-  djBench.reset()                clears the probes and long-task count (clock and player stats reset on play)
-  djBench.lookahead(ms)          sets both decks' schedule-ahead (the sink caps it at 40 ms)
+  djBench.reset()                clears the probes and long-task count (clock and player stats reset on play); with the sender, also its timing record
+  djBench.lookahead(ms)          sets the live send path's schedule-ahead on both decks (the sink caps it at 40 ms); the other path keeps its own value for this page load
+  djBench.sender()               Promise: the sender's path, health, margin, wake lateness and per-deck timing (empty decks with no cartridge)
+  keys i / b                     with nothing focused: i flips between the sender and today's sending; b breaks the sender on purpose (the self-heal drill); djBench.sender() shows the path and state
   djBench.waves(false|true)      the whole waveform feature off (the baseline) or on, with the hand-off timed
   djBench.history(on)            only the engine's delivery history, on both decks (64) or off; use with waves(false)
   djBench.waveReport()           Promise: feed counters (paints, entries, dropped, pool misses, hand-off ms) and the worker's draws`;

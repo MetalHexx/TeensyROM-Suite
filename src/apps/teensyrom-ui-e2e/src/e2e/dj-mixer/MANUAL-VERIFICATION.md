@@ -1330,3 +1330,174 @@ with it.
 ### Verdict
 
 Pending the operator.
+
+## The sender (ASID-DJ-21)
+
+The timing helper that now carries the decks' packets: the checks that need no cartridge, run and
+recorded here, and the five checks that need the operator's PC and both cartridges, left unticked.
+Nothing below claims a listening result, a wire timing or a `djBench` reading from real hardware; the
+verdict is the operator's. No code was changed by these checks: none of them found anything broken.
+
+**How this was driven.** The automated commands ran from `src/` with `pnpm nx`; `nx` did not hang this
+time, so no command fell back to running `vitest` or `eslint` by hand. The browser checks were driven
+through the DevTools protocol by small throwaway scripts (not committed) against headless Edge
+157.0.4341.42 on a throwaway profile: the dev server (`pnpm nx run teensyrom-ui:serve`, `localhost:4200`)
+and the production build on `pnpm nx run teensyrom-ui:serve-static` (also port 4200). Both servers were
+started by this session and stopped by process id afterwards. The API was not running and no cartridge
+or MIDI device was attached, so the page logged its usual failed `/api/` calls (settings, devices, the
+log hub, the version); those are not related to the sender.
+
+**The MIDI limit on this machine, and the stub.** `navigator.requestMIDIAccess({ sysex: true })` never
+resolved on this machine, with the permission reading `granted` through `navigator.permissions.query`.
+It timed out after 6 to 8 s in headless Edge, in headless Chrome 156, in a headed Edge window, and in a
+tab opened in the connected Edge through Claude in Chrome (a new tab on `localhost:4200`, used only to
+read the badge and make that one call, no deck playing, closed afterwards; the tab already open on
+`localhost:4393` was not touched). So every browser check below that needs MIDI ran with
+`navigator.requestMIDIAccess` replaced by a stub that returns a MIDI access with no ports: injected into
+the app page at document start, and into the sender frame by serving the sender's `index.html` with the
+stub inlined first. What that changes: the supervisor, the frame, the messages, the own-thread test, the
+retry timing and the alerts are the real code; the MIDI start-up is not (it is instant). Hence the
+start-up time below is not measured.
+
+### Automated commands
+
+| command | result |
+| --- | --- |
+| `pnpm nx run-many -t test -p application,infrastructure,app-bootstrap,asid-sender,asid-sender-protocol,teensyrom-ui` | all six passed in 1 m 44 s. `application` 102 files, 2795 tests. `infrastructure` 40 files passed, 2 skipped (687 tests passed, 2 skipped). `app-bootstrap` 2 files, 16 tests. `asid-sender` 8 files, 120 tests. `asid-sender-protocol` 4 files, 102 tests. `teensyrom-ui` 1 file, 1 test. The error lines in the output (failed settings loads, launch failures and the like) are the specs' own expected failures |
+| `pnpm nx run-many -t lint -p application,infrastructure,app-bootstrap,asid-sender,asid-sender-protocol,teensyrom-ui` | 0 errors on all six. 13 warnings: 10 in `application` and 3 in `infrastructure`, all unused variables or non-null assertions in files this task did not touch (`player/actions/*`, `player-context*`, `worker-tune-indexer.spec.ts`). `app-bootstrap` and `teensyrom-ui` were read from the nx cache ("existing outputs match the cache"), not re-run |
+| `pnpm nx run-many -t typecheck -p asid-sender,asid-sender-protocol` | `asid-sender` passed (`tsc --noEmit -p tsconfig.app.json`). `asid-sender-protocol` has no `typecheck` target, so nx ran nothing for it. Run by hand instead from `libs/asid-sender-protocol`: `tsc --noEmit -p tsconfig.lib.json` is clean; `tsc --noEmit -p tsconfig.spec.json` fails with one TS2769 in `vite.config.mts` (the test reporters array does not match vitest's type), and nothing in the library's sources or specs. Not touched here: it is the test config's typing, and the library's tests pass |
+| `pnpm nx build teensyrom-ui --configuration=production` | built, 50 s (three of its four tasks read from the cache). Initial total **2.46 MB raw (506.70 kB transfer)**, over the 2.00 MB budget by **460.17 kB** (a warning; budgets in `project.json` unchanged). The last reading in this file is in the live loops section above: 2.44 MB raw (500.71 kB transfer), over by 437.62 kB. So +22.55 kB overage and +5.99 kB transfer since; the sections between that reading and this one recorded no bundle size, so the growth cannot be split between the iterations. The sender is in the bundle as `asid-sender/index.html`, `asid-sender/assets/index-CVd4ELPx.js` (16,434 bytes) and `asid-sender/assets/alarm.worker-CuHvwMaF.js` (243 bytes), and the app's own `sender-ticker-worker` (40 bytes) is a lazy chunk |
+| `git status` in the `SIDablist` sibling | on `main`, up to date with `origin/main`, nothing changed (checked after the tests and the build, and again at the end) |
+
+### Browser checks, without a cartridge
+
+All with the stubbed MIDI above, headless Edge 157, nothing playing. Times are the page's own clock
+(`performance.now()`, ms since the page loaded); the sender log lines are the `ASID sender:` lines in the
+console. Hello and ready times were read when the app's port received each message.
+
+**Dev server.**
+- The sender comes up: `idle -> opening: MIDI granted`, `opening -> testing: ready; own-thread test next`,
+  `testing -> up: own-thread test passed`, 0.5 to 0.8 s after the grant. The own-thread test passed in each
+  of the 3 dev loads where the stub reached the frame.
+- The frame is its own target: the protocol lists `iframe http://127.0.0.1:4200/asid-sender/index.html?v=1`
+  as a separate target beside the page `http://localhost:4200/dj-mixer`.
+- The badge read `SEND: SENDER` with nothing playing. `djBench.sender()` read `path sender`, `state up`,
+  wake margin 3 ms (now and max), no wake samples and no decks (nothing was sending), one visible entry.
+- **The frame's MIDI start-up time, hello to ready: not measured.** With the stub it read 0.3 to 2.8 ms,
+  which says nothing about MIDI. It needs the real `requestMIDIAccess`, so it is the operator's reading.
+
+**Production build** on `serve-static`.
+- `curl` on `http://localhost:4200/asid-sender/index.html` and `http://127.0.0.1:4200/asid-sender/index.html`:
+  both 200, `text/html; charset=UTF-8`, 217 bytes, the sender page (title `ASID sender`, module script
+  `./assets/index-CVd4ELPx.js`).
+- The sender comes up in the browser: the same three log lines, own-thread test passed, the frame an
+  `iframe` target on `127.0.0.1:4200`.
+- `typeof window.djBench` is `undefined`, there is no `SEND:` text anywhere on the page and no fixed badge
+  element. After `b` and then `i` (nothing focused) the frame was neither removed nor re-added, no alert
+  showed and no new log line appeared: the keys do nothing.
+
+**The wrong page** (dev server, two ways of making the sender page not the sender).
+- *Unreachable* (the request for the sender page refused): the frame loaded the browser's error page and
+  said nothing, and the supervisor logged `opening -> down: not the sender: the page loaded and never said hello`
+  about 1 s after each open, removed the frame, and reopened it after 1.0, 2.0, 4.0, 8.3, 16.0 and 30.2 s
+  (the 1, 2, 4, 8, 16, 30 s ladder). The down alert showed once, at 10.95 s: the 10 s grace after MIDI was
+  granted. The badge read `SEND: MIXER · down` or `opening` throughout. The frame made no request except
+  the error page's own images.
+- *The app's own page served at the sender's address* (the dev server's fallback copy of the app): the same
+  cycle and ladder (1.0, 2.0, 4.3, 8.2, 16.0 s), the down alert once at 10.94 s. The copy loaded its
+  scripts, stylesheets and fonts (and its stores logged their set-up), and made **no** other request: no
+  XHR, no fetch and no `/api/` call (0 of 1,254 requests in the 40 s run; the request types seen were
+  `Script`, `Stylesheet` and `Font` only).
+
+**The break drill** (dev build, no deck playing, page 13 s old so the grace had passed). `b` at 13.04 s:
+- the frame was removed at 13.04 s, the badge went to `SEND: MIXER · down`, and the down alert showed at
+  13.14 s: "Timing helper stopped. Playing with reduced timing while it recovers.";
+- 1.2 s later the supervisor reopened the frame; the back alert showed at 14.33 s ("Timing helper is back.
+  Full timing restored.") and the badge returned to `SEND: SENDER` at 14.58 s, on its own;
+- the log read `up -> down: broken on purpose`, `down -> opening: retrying`, `opening -> up: ready`
+  (no second own-thread test: it passes once per page).
+- Pressed at 7 s instead (inside the 10 s grace), the same drill ran with the badge and the log, but no
+  down alert and, with it, no back alert. That is the grace period working; press `b` more than 10 s after
+  loading.
+
+**Not run, and why**
+- **The real MIDI start-up** (above): `requestMIDIAccess` does not resolve here.
+- **Playback of any kind**: no cartridge and no tune loaded, so no packets crossed the frame.
+  `djBench.report()`, the per-deck figures of `djBench.sender()`, the sender's wake lateness under load and
+  the schedule-ahead on the sender path were not read.
+- **Edge's task manager** (one core, a process of its own): the browser's own UI; the target list above is
+  the only evidence of a separate frame here.
+- **Hidden-tab behaviour and the API-served build**: bench checks 2 and 3 below. A cartridge dropping out is
+  covered by automated tests only.
+
+### The isolation test
+
+`node run.mjs` from a copy of `reference/frame-isolation-test` (a copy, so the run's `results.json` did not
+land in the reference folder), Edge 157.0.4341.42 and Chrome 156.0.8078.81, each with the parent page on
+`localhost` and on `127.0.0.1` (4 runs of 6 cases). Against `results-2026-11-07-windows.json`, same browser
+versions:
+
+| case | 2026-11-07 | 2026-11-08 (this run) |
+| --- | --- | --- |
+| same address (control) | shares the parent thread in 4 of 4 (0 ticks in the freeze, gap 400.6 to 401.4 ms) | the same, 4 of 4 (gap 400.5 to 401.3 ms) |
+| other port | shares the parent thread in 4 of 4 (gap 400.6 to 401.3 ms) | the same, 4 of 4 (gap 400.4 to 400.7 ms) |
+| **other name, same port (the plan)** | **own thread in 4 of 4**: at least 607 ticks in the freeze, longest gap 6.8 to 14 ms | **own thread in 4 of 4**: at least 591 ticks, longest gap 7.2 to 10.5 ms. Every run also saw a separate-process target |
+| other name, other port (console rig) | own thread in 4 of 4 | own thread in 4 of 4 |
+| other port + Origin-Agent-Cluster | own thread in 3, mixed in 1 (Edge on 127.0.0.1, gap 62.5 ms) | own thread in 3, mixed in 1 (Edge on localhost, gap 67 ms) |
+| sender.localhost, same port | own thread in 2, mixed in 2 (gaps 60.9 and 57.8 ms) | own thread in 3, mixed in 1 (Edge on localhost, gap 58.9 ms) |
+
+The plan's case holds as it did the day before: the pass mark (own thread in every run) is met. The two
+cases that are not the plan's flip between own thread and mixed (a longest gap just over the 50 ms line)
+from run to run on both days, so neither day says anything about them.
+
+### Bench checklist (operator, real hardware)
+
+Conditions, as the timing protocol in the `asid-dj-diagnostics` skill asks: the operator's display;
+Ableton and OBS running; DevTools closed while listening (open it only to read); both cartridges
+connected; a freshly loaded page (say how old it was); both decks at 1.00x unless the check says
+otherwise (`djBench.report()` `intervalMs` 9.98 for InSID3 Out). Dev build for 1, 2, 4 and 5 (`djBench`
+exists there); click an empty part of the page before pressing `i` or `b`.
+
+- [ ] **1. Two decks, mixer showing, about 10 minutes.** Aces High at 1x on one deck and InSID3 Out at 2x on
+  the other, all voices.
+  - [ ] By ear: at least as clean as the console tests.
+  - [ ] `await djBench.sender()`: gaps within 1 ms of the median, against 98.0 to 99.2% on deck A and 95.7 to
+    96.5% on deck B. A reading below that is a finding to explain, and the ear decides.
+  - [ ] `djBench.report()`: each deck's own delivery probe (mixer lag p99 and max, long tasks) against the
+    console tests, mixer lag p99 about 13.4 to 15.8 ms. Handing frames over must read no worse.
+  - [ ] The sender under one core and in a process of its own in Edge's task manager (Shift+Esc; a subframe
+    on `127.0.0.1`).
+  - [ ] The own-thread test passed in the log (`testing -> up: own-thread test passed`).
+  - [ ] The frame's MIDI start-up on a cold load, read from the time between the log lines
+    `idle -> opening: MIDI granted` and `opening -> testing: ready; own-thread test next` (frame load,
+    hello and MIDI start-up together, so an upper bound on hello to ready). The code waits 3 s for the
+    MIDI start-up after hello (`MIDI_TIMEOUT_MS`) and 5 s for the frame to load (`LOAD_TIMEOUT_MS`). If
+    that time is not comfortably under 3 s, raise `MIDI_TIMEOUT_MS` before the ear test, or the sender
+    reloads forever on the 1, 2, 4, 8, 16, 30 s ladder. Confirm that 3 s and 5 s is the reading of
+    "does not come up" you want.
+- [ ] **2. Mixer hidden behind another tab for 30 minutes**, with no break. Afterwards read the
+  `djBench.sender()` timeline and its hidden and shown log.
+- [ ] **3. A production build served by the API.** `pnpm run build:frontend`, `trom api stop`,
+  `trom api start`, then `http://localhost:10213/dj-mixer`.
+  - [ ] A shorter run of check 1, by ear.
+  - [ ] The sender's own process and its CPU in Edge's task manager.
+  - [ ] The own-thread test in the log. There is no `djBench` there.
+- [ ] **4. The self-heal drill.** `b` while both decks play, more than 10 s after load:
+  - [ ] the down alert shows;
+  - [ ] the decks keep playing on today's sending (`await djBench.sender()` reads `path` `mixer`, `state` `down`);
+  - [ ] the sender comes back by itself (`path` `sender`, `state` `up`);
+  - [ ] the back alert shows.
+- [ ] **5. Every press behaves as before, 15 ms later:** play, stop, pause, loops and live loops, cues,
+  tempo changes, slip landings and the hand.
+- [ ] If deck B's C64 crashes on its own during the bench, record what happened.
+- Do not power a C64 or a MIDI device off to test a dropout: it freezes Edge (a known Chromium bug). A
+  cartridge dropping out is covered by automated tests only.
+
+### Verdict
+
+Operator, 2026-11-08, after the bench test: it looks fine. Some drops and audio slurs remain, but it is much better than
+before the sender, and the operator accepts it for this project.
+
+The individual checks above were not reported back, so their boxes stay unticked and no readings are recorded here. Add them
+if they were taken. Where the remaining drops come from is not known; the hand-over for the next performance iteration is in
+the project's requirements document, section *Outcome and Handover*.

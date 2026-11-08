@@ -20,6 +20,7 @@ export * from './lib/dj/selectors/sets';
 export * from './lib/dj/cartridge-options';
 export * from './lib/dj/load-source';
 export * from './lib/dj/deck-runtime';
+export * from './lib/dj/sender/sender-supervisor';
 export * from './lib/dj/deck-grid';
 export * from './lib/dj/grid/beat-math';
 export * from './lib/dj/tune-loader';

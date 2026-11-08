@@ -1,6 +1,6 @@
 ---
 name: asid-dj-diagnostics
-description: 'Measure and tune the DJ mixer''s ASID playback timing: stutter, dropped drums, "wooden block" pops, main-thread jank, the deck paint loop and its frame cadence, schedule-ahead (lookahead), the frame clock and what reaches the MIDI port. Use when playback in /dj-mixer (or the /dev/dj-poc POC) stutters, pops or drops notes; before changing the frame clock, DECK_SCHEDULE_AHEAD_MS, LivePaintPacer, the painters or anything that runs on the main thread during playback; when asked to "bench", "trace", "profile playback", "check the lookahead", "why does it pop", or compare the mixer with the POC. Includes the djBench console bench, in-page probes (frame timer and CSS A/B, frame log, send capture with pop marking and analysis), DevTools trace analysis scripts and tune register-stream scripts.'
+description: 'Measure and tune the DJ mixer''s ASID playback timing: stutter, dropped drums, "wooden block" pops, main-thread jank, the deck paint loop and its frame cadence, schedule-ahead (lookahead), the frame clock and what reaches the MIDI port. Use when playback in /dj-mixer (or the /dev/dj-poc POC) stutters, pops or drops notes; before changing the frame clock, the send path's schedule-ahead, LivePaintPacer, the painters or anything that runs on the main thread during playback; when asked to "bench", "trace", "profile playback", "check the lookahead", "why does it pop", or compare the mixer with the POC. Includes the djBench console bench, in-page probes (frame timer and CSS A/B, frame log, send capture with pop marking and analysis), DevTools trace analysis scripts and tune register-stream scripts.'
 ---
 
 # ASID-DJ Diagnostics
@@ -18,8 +18,8 @@ Pairs with `chrome-devtools-mcp` / Claude in Chrome (driving the page) and `devi
 ## When to Use This Skill
 
 - The operator hears stutter, dropped kicks/snares, or a "wooden block" pop during DJ playback
-- Before and after any change to the frame clock, the ASID sink, `DECK_SCHEDULE_AHEAD_MS`,
-  `LivePaintPacer`, the painters, the deck column's live DOM, or anything else on the main thread
+- Before and after any change to the frame clock, the ASID sink, the send path's schedule-ahead
+  (`MIXER_SCHEDULE_AHEAD_MS`, `SENDER_SCHEDULE_AHEAD_MS`), `LivePaintPacer`, the painters, the deck column's live DOM, or anything else on the main thread
 - Comparing the mixer with the POC (`/dev/dj-poc`), dev with prod, one deck with two
 - Checking what a tune actually writes around a moment the operator points at
 
@@ -38,8 +38,10 @@ frame clock (ScriptProcessor, main thread: callbacks in back-to-back pairs every
   Competitors: the deck paint loop (`DeckService.watchPositions` + `LivePaintPacer`, ~30 paints/s),
   Angular change detection (should be **zero** during playback), the dev build's Redux DevTools
   tracker, browser extensions' content scripts, DevTools itself, Claude in Chrome's debugger.
-- **Schedule-ahead** (`DECK_SCHEDULE_AHEAD_MS` in `deck-runtime.ts`, default **0**): stamps each
-  frame ahead so Chrome sends it on the grid. 0 / 12 / 20 sounded alike; 0 adds no delay.
+- **Schedule-ahead** (two constants in `sender/deck-send-route.ts`: `SENDER_SCHEDULE_AHEAD_MS`, **15** ms
+  when the timing helper's hidden frame sends, and `MIXER_SCHEDULE_AHEAD_MS`, **0** on today's sending
+  from the mixer page): stamps each frame ahead so Chrome sends it on the grid. On the mixer path 0 / 12 / 20
+  sounded alike and 0 adds no delay; the sender path needs 15 to hold its grid.
 - **Frame clock bursts.** 10.7 ms callback pairs against a 9.975 ms play call (2× PAL) put a frame
   pair on the same instant now and then at 0 (≈3.8% on InSID3 Out). Stamping ahead fixes the grid;
   it did not remove the pop.
@@ -48,7 +50,8 @@ frame clock (ScriptProcessor, main thread: callbacks in back-to-back pairs every
   the cheapest shape; a frame that changes nothing is ~0.45 ms.
 
 Key files (teensyrom-web `src/libs/application/src/lib/dj/`): `deck-runtime.ts` (schedule-ahead,
-port façade, delivery probes), `deck.service.ts` (`watchPositions`), `live-paint-pacer.ts`,
+port façade, delivery probes), `sender/` (the send route, the sender's health machine and supervisor),
+`bench/sender-bench.ts` (the sender's keys and readings), `deck.service.ts` (`watchPositions`), `live-paint-pacer.ts`,
 `live-paint-clock.ts`, `playhead-painter.ts`, `sid-panel-painter.ts`, `bench/deck-bench.ts`,
 `bench/delivery-probe.ts`; `../with-devtools.ts` (DevTools gated to dev). sidablist:
 `libs/asid/src/sink/asid-sink.ts`, `libs/asid/src/wire/`. Firmware (read only):
@@ -84,9 +87,27 @@ Chrome's `javascript_tool`):
 ```
 djBench.reset()        // clear the probes and the long-task count; wait ~10 s
 djBench.report()       // per playing deck, since the reset
-djBench.lookahead(ms)  // both decks' schedule-ahead now (sink caps it at 40 ms); not persisted
+djBench.lookahead(ms)  // both decks' schedule-ahead on the live send path (sink caps it at 40 ms); the other path keeps its own value; not persisted across reloads
+await djBench.sender() // the timing helper's own numbers per deck (see below)
 djBench.help()
 ```
+
+`djBench.reset()` also clears the sender's timing record.
+
+**The sender (dev builds).** Two keys act with nothing focused (click an empty part of the page first;
+inputs, dialogs and buttons with focus are left alone): `i` flips between the sender and today's
+sending, so the operator can compare them by ear with DevTools closed (from `up` it parks on the mixer,
+from `parked` it reopens the sender and takes a moment to come back); `b` breaks the sender on purpose,
+the self-heal drill (`djBench.sender()` reads `path mixer`, `state down` with the down alert, then
+`path sender`, `state up` with the back alert on its own). Press `b` more than 10 s after the page
+loads: inside that start-up grace the path and state change and the log shows it, but no alert is
+raised, so it looks like a dead tool.
+`await djBench.sender()` prints and returns `{ path, state, answered, marginMs, wake, decks, timeline, visibility }`:
+the sender's record per deck (`decks.A` / `decks.B`, empty with no cartridge), its wake lateness and
+margin, a timeline and the hidden/visible changes. The record is bounded and safe to read mid-run.
+When the sender is closed or down it sends no record: `answered` is `false`, `marginMs` and `wake` are
+`null` and the lists are empty. That is "no reading", not zeros; read `path` and `state` to see why.
+The sender runs in its own process: Edge's task manager (Shift+Esc) lists it as a subframe on `127.0.0.1`.
 
 (`waves`, `history` and `waveReport` also live on `djBench`; see *Voice waves A/B*.)
 

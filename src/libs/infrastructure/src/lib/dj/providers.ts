@@ -9,6 +9,7 @@ import {
   MidiSettingsApiService,
 } from '@teensyrom-nx/data-access/api-client';
 import {
+  ASID_SENDER_LINK,
   BEAT_GRID_STORE,
   DJ_LIBRARY_STATE_REPOSITORY,
   FRAME_CLOCK_FACTORY,
@@ -35,6 +36,7 @@ import { WorkerRegisterRecorder } from './analysis/worker-register-recorder';
 import { WorkerTuneIndexer } from './analysis/worker-tune-indexer';
 import { MidiAccessService } from './midi/midi-access.service';
 import { MidiInputService } from './midi/midi-input.service';
+import { AsidSenderLinkService } from './sender/asid-sender-link.service';
 import { ScriptProcessorFrameClock } from './clock/script-processor-frame-clock';
 
 /**
@@ -95,6 +97,7 @@ export const DJ_STORAGE_PROVIDERS: Provider[] = [
 export const DJ_ENGINE_PROVIDERS: Provider[] = [
   { provide: MIDI_ACCESS, useExisting: MidiAccessService },
   { provide: MIDI_INPUT, useExisting: MidiInputService },
+  { provide: ASID_SENDER_LINK, useExisting: AsidSenderLinkService },
   { provide: FRAME_CLOCK_FACTORY, useValue: (): FrameClock => new ScriptProcessorFrameClock() },
   {
     provide: REPLAY_RUNNER_FACTORY,

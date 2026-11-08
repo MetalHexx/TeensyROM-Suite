@@ -5,7 +5,7 @@
   "prefix": "app",
   "sourceRoot": "apps/teensyrom-ui/src",
   "tags": ["scope:app", "type:application"],
-  "implicitDependencies": [],
+  "implicitDependencies": ["asid-sender"],
   "targets": {
     "build": {
       "executor": "@angular-devkit/build-angular:application",
@@ -21,6 +21,11 @@
           {
             "glob": "**/*",
             "input": "apps/teensyrom-ui/public"
+          },
+          {
+            "glob": "**/*",
+            "input": "dist/apps/asid-sender",
+            "output": "asid-sender"
           }
         ],
         "styles": ["apps/teensyrom-ui/src/styles.scss"],
@@ -56,6 +61,7 @@
     "serve": {
       "continuous": true,
       "executor": "@angular-devkit/build-angular:dev-server",
+      "dependsOn": [{ "projects": ["asid-sender"], "target": "build" }],
       "options": {
         "host": "0.0.0.0",
         "prebundle": {
@@ -106,6 +112,7 @@
       "executor": "@nx/web:file-server",
       "options": {
         "buildTarget": "teensyrom-ui:build",
+        "host": "0.0.0.0",
         "port": 4200,
         "staticFilePath": "dist/apps/teensyrom-ui/browser",
         "spa": true

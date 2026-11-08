@@ -5,6 +5,10 @@ const MIDI_PORT_TOKEN = /TeensyROM-([A-Za-z0-9_-]+)/;
 /**
  * The token after "TeensyROM-" in a MIDI port name — the chip ID of the cartridge behind the port —
  * or `null` when the name carries none.
+ *
+ * `teensyRomToken` in `libs/asid-sender-protocol` is a deliberate copy of this pattern (the sender
+ * page cannot import `domain`): change both together. `libs/infrastructure`'s
+ * `sender-token-agreement.spec.ts` fails if they drift.
  */
 export function midiPortDeviceToken(portName: string): string | null {
   return MIDI_PORT_TOKEN.exec(portName)?.[1] ?? null;

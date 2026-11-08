@@ -87,6 +87,9 @@ export default [
                 'scope:poc',
               ],
             },
+            // ASID sender page - a separate app on its own origin: it may use only the small
+            // protocol library it shares with the main app, nothing else in the workspace
+            { sourceTag: 'scope:asid-sender', onlyDependOnLibsWithTags: ['asid-sender:protocol'] },
             // E2E Tests - Can depend on data-access for API DTOs
             {
               sourceTag: 'scope:e2e',

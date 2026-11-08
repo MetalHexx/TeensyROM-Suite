@@ -1,0 +1,27 @@
+{
+  "name": "asid-sender-protocol",
+  "$schema": "../../node_modules/nx/schemas/project-schema.json",
+  "sourceRoot": "libs/asid-sender-protocol/src",
+  "projectType": "library",
+  "tags": ["scope:shared", "type:util", "asid-sender:protocol"],
+  "targets": {
+    "build": {
+      "executor": "@nx/js:tsc",
+      "outputs": ["{options.outputPath}"],
+      "options": {
+        "outputPath": "dist/libs/asid-sender-protocol",
+        "main": "libs/asid-sender-protocol/src/index.ts",
+        "tsConfig": "libs/asid-sender-protocol/tsconfig.lib.json",
+        "assets": ["libs/asid-sender-protocol/*.md"]
+      }
+    },
+    "test": {
+      "executor": "@nx/vite:test",
+      "outputs": ["{options.reportsDirectory}"],
+      "options": {
+        "passWithNoTests": true,
+        "reportsDirectory": "coverage/libs/asid-sender-protocol"
+      }
+    }
+  }
+}

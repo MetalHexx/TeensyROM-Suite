@@ -54,6 +54,7 @@ graph TB
 - **app** (`libs/app`, `apps/teensyrom-ui`) — composition root: bootstrap, navigation, shell
 - **data-access** (`libs/data-access/api-client`) — generated OpenAPI client
 - **utils** (`libs/utils`) — shared utilities
+- **asid-sender** (`apps/asid-sender`) + **asid-sender-protocol** (`libs/asid-sender-protocol`) — the DJ mixer's hidden sender page and the message/address/time/token contract it shares with the app. The page may import only the protocol library (tag `scope:asid-sender` → `asid-sender:protocol`), so it loads none of the app
 
 ESLint `scope:*` / `feature:*` tags (see `eslint.config.mjs`) fail the build on boundary violations — run `pnpm nx lint` before committing, `pnpm nx graph` to visualize the dependency graph.
 

@@ -1,19 +1,31 @@
 import { TestBed } from '@angular/core/testing';
-import { signal } from '@angular/core';
 import { describe, it, expect, beforeEach, vi } from 'vitest';
-import { FakeClock, frames } from '@sidablist/core';
-import type { FrameClock, RegisterRecord, ReplayRunner, SidPlayer } from '@sidablist/core';
+import { FakeClock, frames, milliseconds } from '@sidablist/core';
+import type { FrameClock, ReplayRunner, SidPlayer } from '@sidablist/core';
 import type { MidiOutputPort } from '@sidablist/asid';
-import type { Playable } from '@sidablist/tunes';
 import { DeckRuntime } from './deck-runtime';
 import {
   FRAME_CLOCK_FACTORY,
   REPLAY_RUNNER_FACTORY,
   REGISTER_RECORDER_FACTORY,
   MIDI_ACCESS,
+  ASID_SENDER_LINK,
 } from './ports';
-import type { IMidiAccess, MidiAccessState, MidiPermission, MidiPortOption } from './ports/midi-access';
 import type { RegisterRecorder } from './ports';
+import { DeckSendRoute, SENDER_SCHEDULE_AHEAD_MS } from './sender/deck-send-route';
+import {
+  FakeRegisterRecorder,
+  FakeReplayRunner,
+  SID_MODEL_6581,
+  SID_MODEL_8580,
+  fakeMidiAccess,
+  playableOf,
+  recordOf,
+  recordingPort,
+  FakeSenderLink,
+  WRITING_TUNE,
+  type RecordingPort,
+} from './testing/deck-runtime-fakes';
 
 const createdPlayers = vi.hoisted((): unknown[] => []);
 
@@ -30,114 +42,6 @@ vi.mock('@sidablist/core', async (importOriginal) => {
     },
   };
 });
-
-/** Only `dispose()` is exercised here, so `run` is never expected to be called. */
-class FakeReplayRunner implements ReplayRunner {
-  disposed = false;
-  run = vi.fn();
-  dispose(): void {
-    this.disposed = true;
-  }
-}
-
-/** A recorder whose scans the spec settles by hand. */
-class FakeRegisterRecorder implements RegisterRecorder {
-  disposed = false;
-  readonly requests: {
-    readonly bytes: Uint8Array;
-    readonly subtune: number;
-    readonly frames: number;
-  }[] = [];
-  private readonly settlers: {
-    resolve: (record: RegisterRecord | null) => void;
-    reject: (error: unknown) => void;
-  }[] = [];
-
-  record(bytes: Uint8Array, subtune: number, frames: number): Promise<RegisterRecord | null> {
-    this.requests.push({ bytes, subtune, frames });
-    return new Promise((resolve, reject) => this.settlers.push({ resolve, reject }));
-  }
-
-  dispose(): void {
-    this.disposed = true;
-  }
-
-  /** Answers the `index`th request. */
-  answer(index: number, record: RegisterRecord | null): void {
-    this.settlers[index].resolve(record);
-  }
-
-  fail(index: number, error: unknown): void {
-    this.settlers[index].reject(error);
-  }
-}
-
-function recordOf(frames: number): RegisterRecord {
-  return {
-    frames,
-    values: new Uint8Array(frames * 25),
-    retriggerEntries: new Uint32Array(0),
-    retriggerRegisters: new Uint8Array(0),
-    retriggerValues: new Uint8Array(0),
-  };
-}
-
-function recordingPort(portId: string): MidiOutputPort & { readonly sent: readonly Uint8Array[] } {
-  const sent: Uint8Array[] = [];
-  return {
-    portId,
-    supportsCancel: false,
-    send: (bytes: Uint8Array): void => {
-      sent.push(bytes);
-    },
-    cancelPending: (): boolean => false,
-    sent,
-  };
-}
-
-function fakeMidiAccess(outputPortFor: (id: string) => MidiOutputPort | null): IMidiAccess {
-  return {
-    accessState: signal<MidiAccessState>('granted'),
-    ports: signal<readonly MidiPortOption[]>([]),
-    lastError: signal<string | null>(null),
-    queryPermission: (): Promise<MidiPermission> => Promise.resolve('granted'),
-    requestAccess: (): Promise<void> => Promise.resolve(),
-    holderOf: (): string | null => null,
-    claim: (): boolean => true,
-    release: (): void => undefined,
-    outputPortFor,
-  };
-}
-
-const PSID_HEADER_SIZE = 0x7c;
-const SID_MODEL_6581 = 0b01;
-const SID_MODEL_8580 = 0b10;
-
-/** A minimal well-formed PSID v2 file whose header names the given SID model. */
-function sidBytes(model: number): Uint8Array {
-  const payload = [0xa9, 0x00, 0x60];
-  const buffer = new Uint8Array(PSID_HEADER_SIZE + payload.length);
-  const view = new DataView(buffer.buffer);
-  buffer.set([0x50, 0x53, 0x49, 0x44], 0x00); // 'PSID'
-  view.setUint16(0x04, 2, false);
-  view.setUint16(0x06, PSID_HEADER_SIZE, false);
-  view.setUint16(0x08, 0x1000, false);
-  view.setUint16(0x0a, 0x1000, false);
-  view.setUint16(0x0c, 0x1003, false);
-  view.setUint16(0x0e, 1, false);
-  view.setUint16(0x10, 1, false);
-  view.setUint16(0x76, model << 4, false);
-  buffer.set(payload, PSID_HEADER_SIZE);
-  return buffer;
-}
-
-function playableOf(model: number): Playable {
-  return {
-    bytes: sidBytes(model),
-    reference: { identity: { sidHash: 'tune', subtune: 1 } },
-    index: { loopStartFrame: null, loopPeriodFrames: null, endedAtFrame: null },
-  } as unknown as Playable;
-}
 
 describe('DeckRuntime', () => {
   let runtime: DeckRuntime;
@@ -667,6 +571,281 @@ describe('DeckRuntime', () => {
       const unbuilt = TestBed.inject(DeckRuntime);
 
       expect(() => unbuilt.setTempo('A', 1)).toThrow(/has not been built/);
+    });
+  });
+});
+
+describe('DeckRuntime with a timing helper', () => {
+  const PORT_NAME = 'TeensyROM-1234 MIDI';
+  const settle = (): Promise<void> => new Promise((resolve) => setTimeout(resolve));
+
+  let runtime: DeckRuntime;
+  let route: DeckSendRoute;
+  let link: FakeSenderLink;
+  let clocks: FakeClock[];
+  let recorders: FakeRegisterRecorder[];
+  let mixerPort: RecordingPort;
+
+  function configure(supportsCancel = false): void {
+    TestBed.resetTestingModule();
+    createdPlayers.length = 0;
+    clocks = [];
+    recorders = [];
+    link = new FakeSenderLink();
+    mixerPort = recordingPort('port-a', { supportsCancel });
+    TestBed.configureTestingModule({
+      providers: [
+        { provide: ASID_SENDER_LINK, useValue: link },
+        {
+          provide: FRAME_CLOCK_FACTORY,
+          useValue: (): FrameClock => {
+            const clock = new FakeClock();
+            clocks.push(clock);
+            return clock;
+          },
+        },
+        { provide: REPLAY_RUNNER_FACTORY, useValue: (): ReplayRunner => new FakeReplayRunner() },
+        {
+          provide: REGISTER_RECORDER_FACTORY,
+          useValue: (): RegisterRecorder => {
+            const recorder = new FakeRegisterRecorder();
+            recorders.push(recorder);
+            return recorder;
+          },
+        },
+        {
+          provide: MIDI_ACCESS,
+          useValue: fakeMidiAccess(
+            (id) => (id === 'port-a' ? mixerPort : null),
+            [{ id: 'port-a', name: PORT_NAME, manufacturer: '' }]
+          ),
+        },
+      ],
+    });
+    runtime = TestBed.inject(DeckRuntime);
+    route = TestBed.inject(DeckSendRoute);
+  }
+
+  /** Deck A bound, loaded and playing, with a few frames sent well ahead of real time. Returns the
+   *  due time of the last of them. */
+  async function playDeckA(frameCount = 3): Promise<number> {
+    runtime.build('A');
+    runtime.setPort('A', 'port-a');
+    runtime.load('A', playableOf(SID_MODEL_6581, WRITING_TUNE));
+    await runtime.play('A');
+    const base = performance.now() + 5000;
+    for (let i = 0; i < frameCount; i++) {
+      clocks[0].tick(milliseconds(base + i * 20));
+    }
+    return base + (frameCount - 1) * 20;
+  }
+
+  function useSender(): void {
+    route.setPath('sender');
+    route.setSenderTokens(['1234']);
+  }
+
+  describe('sending', () => {
+    beforeEach(() => configure());
+
+    it('sends through the mixer port on the mixer path and through the link on the sender path', () => {
+      runtime.build('A');
+      runtime.setPort('A', 'port-a');
+
+      runtime.identify('A', 'one');
+      useSender();
+      runtime.identify('A', 'two');
+
+      expect(mixerPort.sent).toHaveLength(1);
+      expect(link.sends.map((send) => send.token)).toEqual(['1234']);
+    });
+
+    it('drops what a sender that does not list the cartridge would get, reaching neither path', () => {
+      runtime.build('A');
+      runtime.setPort('A', 'port-a');
+      route.setPath('sender');
+
+      runtime.identify('A', 'dropped');
+
+      expect(mixerPort.sent).toHaveLength(0);
+      expect(link.sends).toHaveLength(0);
+    });
+
+    it('hands the link the stamp the sink gave the packet', async () => {
+      useSender();
+      runtime.build('A');
+      runtime.setScheduleAhead('A', SENDER_SCHEDULE_AHEAD_MS);
+      runtime.setPort('A', 'port-a');
+      runtime.load('A', playableOf(SID_MODEL_6581, WRITING_TUNE));
+      await runtime.play('A');
+      const due = performance.now() + 5000;
+
+      clocks[0].tick(milliseconds(due));
+
+      expect(link.sends.at(-1)?.dueAtMs).toBe(due + 15);
+    });
+
+    it('reports it cannot cancel on the sender path, so the sink caps its lookahead as for any uncancellable port', async () => {
+      configure(true);
+      runtime.build('A');
+      runtime.setPort('A', 'port-a');
+      runtime.load('A', playableOf(SID_MODEL_6581, WRITING_TUNE));
+      await runtime.play('A');
+      const due = performance.now() + 5000;
+
+      runtime.setScheduleAhead('A', milliseconds(100));
+      clocks[0].tick(milliseconds(due));
+      expect(mixerPort.stamps.at(-1)).toBe(due + 100);
+
+      useSender();
+      runtime.setScheduleAhead('A', milliseconds(100));
+      clocks[0].tick(milliseconds(due + 20));
+      expect(link.sends.at(-1)?.dueAtMs).toBe(due + 20 + 40);
+    });
+
+    it('cancels nothing on the sender path, whatever the mixer port can do', () => {
+      configure(true);
+      runtime.build('A');
+      runtime.setPort('A', 'port-a');
+      const cancel = vi.spyOn(mixerPort, 'cancelPending');
+      useSender();
+
+      runtime.seekToFrame('A', 0);
+
+      expect(cancel).not.toHaveBeenCalled();
+    });
+
+    it('keeps due times from decreasing across play, pause and stop at the sender lookahead', async () => {
+      useSender();
+      runtime.build('A');
+      runtime.setScheduleAhead('A', SENDER_SCHEDULE_AHEAD_MS);
+      await playDeckA();
+
+      runtime.pause('A');
+      await runtime.play('A');
+      runtime.stop('A');
+
+      const dues = link.sends.map((send) => send.dueAtMs);
+      const afterFirstFrame = dues.slice(dues.findIndex((due) => due !== undefined));
+      expect(afterFirstFrame.length).toBeGreaterThan(3);
+      expect(afterFirstFrame.every((due) => due !== undefined)).toBe(true);
+      expect(afterFirstFrame).toEqual([...afterFirstFrame].sort((a, b) => (a ?? 0) - (b ?? 0)));
+    });
+  });
+
+  describe('the cartridge token', () => {
+    beforeEach(() => configure());
+
+    it('comes from the bound port name, and is gone with the port', () => {
+      runtime.build('A');
+
+      runtime.setPort('A', 'port-a');
+      expect(runtime.deviceToken('A')).toBe('1234');
+
+      runtime.setPort('A', null);
+      expect(runtime.deviceToken('A')).toBeNull();
+    });
+
+    it('is null for a port the access does not enumerate, and for a slot not built', () => {
+      runtime.build('A');
+
+      runtime.setPort('A', 'port-unknown');
+
+      expect(runtime.deviceToken('A')).toBeNull();
+      expect(runtime.deviceToken('B')).toBeNull();
+    });
+  });
+
+  describe('a slot that is not built', () => {
+    beforeEach(() => configure());
+
+    it('is passed over by the calls the supervisor and the bench make for every slot', () => {
+      expect(() => {
+        runtime.setScheduleAhead('B', milliseconds(15));
+        runtime.sendRegisterImage('B');
+      }).not.toThrow();
+      expect(runtime.isPlaying('B')).toBe(false);
+    });
+  });
+
+  describe('isPlaying', () => {
+    beforeEach(() => configure());
+
+    it('is true for a playing deck and false for a stopped or paused one', async () => {
+      runtime.build('A');
+      runtime.load('A', playableOf(SID_MODEL_6581));
+      expect(runtime.isPlaying('A')).toBe(false);
+
+      await runtime.play('A');
+      expect(runtime.isPlaying('A')).toBe(true);
+
+      runtime.pause('A');
+      expect(runtime.isPlaying('A')).toBe(false);
+    });
+
+    it('is true for a paused deck the hand is running, which still sends frames', async () => {
+      runtime.build('A');
+      runtime.load('A', playableOf(SID_MODEL_6581));
+      recorders[0].answer(0, recordOf(500));
+      await settle();
+      await runtime.play('A');
+      runtime.pause('A');
+
+      expect(runtime.enterVarispeed('A', () => 1)).toBe(true);
+
+      expect(runtime.snapshot('A').transport).toBe('paused');
+      expect(runtime.isPlaying('A')).toBe(true);
+    });
+  });
+
+  describe('the register image', () => {
+    const IMAGE_LENGTH = 12 + 25;
+
+    beforeEach(() => configure());
+
+    it('is one unstamped packet carrying all 25 registers on the sender path, with frames stamped ahead', async () => {
+      useSender();
+      runtime.build('A');
+      runtime.setScheduleAhead('A', SENDER_SCHEDULE_AHEAD_MS);
+      await playDeckA();
+
+      runtime.sendRegisterImage('A');
+
+      const image = link.sends.at(-1);
+      expect(image?.bytes).toHaveLength(IMAGE_LENGTH);
+      expect(image?.dueAtMs).toBeUndefined();
+    });
+
+    it('is unstamped on the mixer path too, where an uncancellable port would stamp it behind the last frame', async () => {
+      runtime.build('A');
+      runtime.setScheduleAhead('A', SENDER_SCHEDULE_AHEAD_MS);
+      const lastDue = await playDeckA();
+
+      runtime.sendRegisterImage('A');
+
+      expect(lastDue + 15).toBeGreaterThan(performance.now());
+      expect(mixerPort.sent.at(-1)).toHaveLength(IMAGE_LENGTH);
+      expect(mixerPort.stamps.at(-1)).toBeUndefined();
+    });
+
+    it('leaves the next frame stamped as usual', async () => {
+      runtime.build('A');
+      const lastDue = await playDeckA();
+      runtime.sendRegisterImage('A');
+
+      clocks[0].tick(milliseconds(lastDue + 20));
+
+      expect(mixerPort.stamps.at(-1)).toBe(lastDue + 20);
+    });
+
+    it('is not sent for a deck that is not playing', () => {
+      runtime.build('A');
+      runtime.setPort('A', 'port-a');
+      runtime.load('A', playableOf(SID_MODEL_6581));
+
+      runtime.sendRegisterImage('A');
+
+      expect(mixerPort.sent).toHaveLength(0);
     });
   });
 });

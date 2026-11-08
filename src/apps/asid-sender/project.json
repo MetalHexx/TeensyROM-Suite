@@ -1,0 +1,17 @@
+{
+  "name": "asid-sender",
+  "$schema": "../../node_modules/nx/schemas/project-schema.json",
+  "sourceRoot": "apps/asid-sender/src",
+  "projectType": "application",
+  "tags": ["scope:asid-sender", "type:application"],
+  "targets": {
+    "test": {
+      "executor": "@nx/vite:test",
+      "outputs": ["{options.reportsDirectory}"],
+      "options": {
+        "passWithNoTests": true,
+        "reportsDirectory": "coverage/apps/asid-sender"
+      }
+    }
+  }
+}

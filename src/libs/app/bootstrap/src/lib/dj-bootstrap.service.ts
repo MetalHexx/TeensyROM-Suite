@@ -6,6 +6,7 @@ import {
   MidiControllers,
   MidiInputRouter,
   MixerApplier,
+  SenderSupervisor,
 } from '@teensyrom-nx/application';
 import { logWarn } from '@teensyrom-nx/utils';
 
@@ -17,13 +18,16 @@ import { logWarn } from '@teensyrom-nx/utils';
  * state, and the memory keeper that keeps each deck's settings in the row it holds; loads the saved
  * MIDI controllers and mappings, and starts routing controller input to them. It also hydrates the
  * DJ library — the saved sets and the current one — whose own failure path alerts and suppresses
- * saves for the session, so it never rejects. Bindings hydration, mappings hydration and the
- * applier and keeper installs are non-critical — a failure logs a warning and the decks simply stay
- * unbound, unmixed, unmapped or unremembered, the one owner of that failure path.
+ * saves for the session, so it never rejects. It starts the sender supervisor, which opens the
+ * timing helper once MIDI is granted. Bindings hydration, mappings hydration and the applier,
+ * keeper and supervisor starts are non-critical — a failure logs a warning and the decks simply
+ * stay unbound, unmixed, unmapped, unremembered or on the mixer's own sending, the one owner of
+ * that failure path.
  */
 @Injectable({ providedIn: 'root' })
 export class DjBootstrapService {
   private readonly deckService = inject(DeckService);
+  private readonly senderSupervisor = inject(SenderSupervisor);
   // After `deckService`, whose constructor builds both decks' runtimes — the applier's first pass
   // needs them. A field, not an `inject()` in `init()`, which runs outside an injection context.
   private readonly mixerApplier = inject(MixerApplier);
@@ -43,6 +47,12 @@ export class DjBootstrapService {
       this.deckMemoryKeeper.install();
     } catch (error) {
       logWarn(`DjBootstrap: memory keeper install failed — ${error instanceof Error ? error.message : String(error)}`);
+    }
+
+    try {
+      this.senderSupervisor.start();
+    } catch (error) {
+      logWarn(`DjBootstrap: sender supervisor failed to start — ${error instanceof Error ? error.message : String(error)}`);
     }
 
     void this.deckService

@@ -5,6 +5,7 @@ import { runInInjectionContext, inject } from '@angular/core';
 import { AppBootstrapService } from '@teensyrom-nx/app/bootstrap';
 import { TransferPlaybackGuard } from '@teensyrom-nx/application';
 import { LogType, logInfo, logError } from '@teensyrom-nx/utils';
+import { startUnlessSenderPath } from '@teensyrom-nx/asid-sender-protocol';
 
 async function bootstrap() {
   logInfo(LogType.Start, 'Starting application bootstrap...');
@@ -25,6 +26,8 @@ async function bootstrap() {
   });
 }
 
-// Bootstrap the application
-logInfo(LogType.Info, 'About to bootstrap application...');
-bootstrap().catch((err) => logError('Bootstrap failed:', err));
+// A server answers a path it does not have with the app, so a frame meant for the sender can land here. Start nothing.
+startUnlessSenderPath(window.location.pathname, () => {
+  logInfo(LogType.Info, 'About to bootstrap application...');
+  bootstrap().catch((err) => logError('Bootstrap failed:', err));
+});
