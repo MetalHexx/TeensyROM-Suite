@@ -102,6 +102,11 @@ The project uses strict ESLint rules to enforce Clean Architecture:
    - Dependencies: All layers (composition root)
    - Contains: Application shell, bootstrapping, routing
 
+6. **ASID Sender Page** (`apps/asid-sender`, protocol in `libs/asid-sender-protocol`):
+   - Tags: `scope:asid-sender` (the page), `asid-sender:protocol` (the shared library)
+   - Dependencies: the page may import **only** `libs/asid-sender-protocol`; nothing else in the workspace
+   - Why: it runs in a hidden frame on its own origin and thread, and must load none of the app
+
 #### Architectural Violations
 - ESLint will **fail the build** if dependency rules are violated
 - Always run `pnpm nx lint` before committing

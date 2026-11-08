@@ -99,10 +99,14 @@ inputs, dialogs and buttons with focus are left alone): `i` flips between the se
 sending, so the operator can compare them by ear with DevTools closed (from `up` it parks on the mixer,
 from `parked` it reopens the sender and takes a moment to come back); `b` breaks the sender on purpose,
 the self-heal drill (`djBench.sender()` reads `path mixer`, `state down` with the down alert, then
-`path sender`, `state up` with the back alert on its own).
-`await djBench.sender()` prints and returns `{ path, state, marginMs, wake, decks, timeline, visibility }`:
+`path sender`, `state up` with the back alert on its own). Press `b` more than 10 s after the page
+loads: inside that start-up grace the path and state change and the log shows it, but no alert is
+raised, so it looks like a dead tool.
+`await djBench.sender()` prints and returns `{ path, state, answered, marginMs, wake, decks, timeline, visibility }`:
 the sender's record per deck (`decks.A` / `decks.B`, empty with no cartridge), its wake lateness and
 margin, a timeline and the hidden/visible changes. The record is bounded and safe to read mid-run.
+When the sender is closed or down it sends no record: `answered` is `false`, `marginMs` and `wake` are
+`null` and the lists are empty. That is "no reading", not zeros; read `path` and `state` to see why.
 The sender runs in its own process: Edge's task manager (Shift+Esc) lists it as a subframe on `127.0.0.1`.
 
 (`waves`, `history` and `waveReport` also live on `djBench`; see *Voice waves A/B*.)

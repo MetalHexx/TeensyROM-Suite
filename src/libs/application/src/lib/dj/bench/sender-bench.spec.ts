@@ -205,11 +205,22 @@ describe('sender bench', () => {
     });
 
     it('takes the key from everything else when it acts', () => {
-      const event = new KeyboardEvent('keydown', { key: 'i', bubbles: true, cancelable: true });
+      const elsewhere = vi.fn();
+      window.addEventListener('keydown', elsewhere, true);
+      try {
+        const other = new KeyboardEvent('keydown', { key: 'x', bubbles: true, cancelable: true });
+        window.dispatchEvent(other);
+        expect(elsewhere).toHaveBeenCalledTimes(1);
+        expect(other.defaultPrevented).toBe(false);
 
-      window.dispatchEvent(event);
+        const event = new KeyboardEvent('keydown', { key: 'i', bubbles: true, cancelable: true });
+        window.dispatchEvent(event);
 
-      expect(event.defaultPrevented).toBe(true);
+        expect(event.defaultPrevented).toBe(true);
+        expect(elsewhere).toHaveBeenCalledTimes(1);
+      } finally {
+        window.removeEventListener('keydown', elsewhere, true);
+      }
     });
   });
 
@@ -246,6 +257,18 @@ describe('sender bench', () => {
       expect(route.lookaheadFor('sender')).toBe(sender);
     });
 
+    it('lookahead on the sender path sets the sender value and leaves the mixer one alone', async () => {
+      await bringUp();
+      expect(route.path()).toBe('sender');
+      const mixer = route.lookaheadFor('mixer');
+
+      const effective = commands().lookahead(7);
+
+      expect(effective).toEqual([7, 7]);
+      expect(route.lookaheadFor('sender')).toBe(7);
+      expect(route.lookaheadFor('mixer')).toBe(mixer);
+    });
+
     it('reset clears the sender record through the link', () => {
       commands().reset();
 
@@ -268,15 +291,22 @@ describe('sender bench', () => {
 
       expect(Object.keys(reading.decks)).toEqual(['B']);
       expect(reading.decks.B?.token).toBe('5678');
+      expect(reading.answered).toBe(true);
       expect(reading.marginMs).toEqual({ now: 4, max: 9 });
+      expect(reading.wake).toEqual({ count: 3, p50: 0.2, p99: 0.9, max: 1 });
       expect(reading.visibility).toEqual([{ atS: 1, state: 'hidden' }]);
       expect(reading.path).toBe('mixer');
     });
 
-    it('sender reads empty decks when the sender does not answer', async () => {
+    it('sender says it got no reading, rather than reading zero, when the sender does not answer', async () => {
       const reading = await commands().sender();
 
+      expect(reading.answered).toBe(false);
+      expect(reading.marginMs).toBeNull();
+      expect(reading.wake).toBeNull();
       expect(reading.decks).toEqual({});
+      expect(reading.timeline).toEqual([]);
+      expect(reading.visibility).toEqual([]);
     });
   });
 });

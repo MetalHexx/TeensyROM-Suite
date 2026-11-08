@@ -29,8 +29,11 @@ export interface SenderBench {
 export interface SenderReading {
   path: SendPath;
   state: SenderHealthState;
-  marginMs: { now: number; max: number };
-  wake: LatenessSummary;
+  /** False when the sender sent no record (closed, down, or too slow): `marginMs` and `wake` are
+   *  then `null` and the lists empty, which is "no reading", not a reading of zero. */
+  answered: boolean;
+  marginMs: { now: number; max: number } | null;
+  wake: LatenessSummary | null;
   decks: Partial<Record<Slot, CartridgeTiming>>;
   timeline: TimelineRow[];
   visibility: { atS: number; state: 'visible' | 'hidden' }[];
@@ -103,8 +106,9 @@ export function installSenderBench(deps: SenderBenchDeps): SenderBench {
       const result: SenderReading = {
         path: route.path(),
         state: supervisor.state(),
-        marginMs: report ? { ...report.marginMs } : { now: 0, max: 0 },
-        wake: report ? { ...report.wake } : { count: 0, p50: 0, p99: 0, max: 0 },
+        answered: report !== null,
+        marginMs: report ? { ...report.marginMs } : null,
+        wake: report ? { ...report.wake } : null,
         decks,
         timeline: report ? [...report.timeline] : [],
         visibility: report ? [...report.visibility] : [],

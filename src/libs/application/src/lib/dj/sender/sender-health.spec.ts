@@ -2,6 +2,7 @@ import { describe, it, expect } from 'vitest';
 import {
   ASID_SENDER_IDENTITY,
   ASID_SENDER_PROTOCOL_VERSION,
+  SENDER_TICK_MS,
 } from '@teensyrom-nx/asid-sender-protocol';
 import {
   HEALTH_TIMEOUT_MS,
@@ -11,6 +12,7 @@ import {
   RETRY_DELAYS_MS,
   SenderHealth,
   START_GRACE_MS,
+  STALL_GAP_MS,
   TICK_MS,
   type SenderCommand,
   type SenderHealthEvent,
@@ -642,6 +644,24 @@ describe('SenderHealth', () => {
         expect(names(m.feed({ kind: 'break' }))).toEqual(['log']);
         expect(m.health.state).toBe(before);
       }
+    });
+  });
+
+  describe('cadence', () => {
+    it('takes its tick from the protocol library, the number the infrastructure ticker beats', () => {
+      expect(TICK_MS).toBe(SENDER_TICK_MS);
+    });
+
+    it('judges its deadlines in whole ticks, so rounding to the tick grid keeps noticing inside a second', () => {
+      expect(HEALTH_TIMEOUT_MS % TICK_MS).toBe(0);
+      expect(HELLO_TIMEOUT_MS % TICK_MS).toBe(0);
+      expect(HEALTH_TIMEOUT_MS + TICK_MS).toBeLessThanOrEqual(1000);
+      expect(HELLO_TIMEOUT_MS + TICK_MS).toBeLessThanOrEqual(1000);
+    });
+
+    it('calls a gap of more than one tick and less than two a stall, not a missed beat', () => {
+      expect(STALL_GAP_MS).toBeGreaterThan(TICK_MS);
+      expect(STALL_GAP_MS).toBeLessThan(TICK_MS * 2);
     });
   });
 });

@@ -1468,6 +1468,13 @@ exists there); click an empty part of the page before pressing `i` or `b`.
   - [ ] The sender under one core and in a process of its own in Edge's task manager (Shift+Esc; a subframe
     on `127.0.0.1`).
   - [ ] The own-thread test passed in the log (`testing -> up: own-thread test passed`).
+  - [ ] The frame's MIDI start-up on a cold load, read from the time between the log lines
+    `idle -> opening: MIDI granted` and `opening -> testing: ready; own-thread test next` (frame load,
+    hello and MIDI start-up together, so an upper bound on hello to ready). The code waits 3 s for the
+    MIDI start-up after hello (`MIDI_TIMEOUT_MS`) and 5 s for the frame to load (`LOAD_TIMEOUT_MS`). If
+    that time is not comfortably under 3 s, raise `MIDI_TIMEOUT_MS` before the ear test, or the sender
+    reloads forever on the 1, 2, 4, 8, 16, 30 s ladder. Confirm that 3 s and 5 s is the reading of
+    "does not come up" you want.
 - [ ] **2. Mixer hidden behind another tab for 30 minutes**, with no break. Afterwards read the
   `djBench.sender()` timeline and its hidden and shown log.
 - [ ] **3. A production build served by the API.** `pnpm run build:frontend`, `trom api stop`,

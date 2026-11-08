@@ -21,7 +21,7 @@ const FRAME_STYLE =
 function appendHiddenFrame(src: string): HTMLIFrameElement {
   const frame = document.createElement('iframe');
   frame.src = src;
-  frame.allow = 'midi';
+  frame.setAttribute('allow', 'midi');
   frame.tabIndex = -1;
   frame.setAttribute('aria-hidden', 'true');
   frame.style.cssText = FRAME_STYLE;

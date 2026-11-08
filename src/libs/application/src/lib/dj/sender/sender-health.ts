@@ -1,20 +1,21 @@
 import {
   ASID_SENDER_IDENTITY,
   ASID_SENDER_PROTOCOL_VERSION,
+  SENDER_TICK_MS,
 } from '@teensyrom-nx/asid-sender-protocol';
 import type { SelfTestResult } from '../ports';
 import type { SendPath } from './deck-send-route';
 
-/** The link's steady ticker. */
-export const TICK_MS = 250;
-/** A gap between two ticks longer than this means the app's own thread stalled. */
-export const STALL_GAP_MS = 400;
-/** A sender that has answered no ping for this long, in steady time, has stopped. Judged on
- *  `TICK_MS` ticks, so 750 puts the worst-case noticing just under 1 s. */
-export const HEALTH_TIMEOUT_MS = 750;
+/** The link's steady ticker; the infrastructure worker beats the same `SENDER_TICK_MS`. */
+export const TICK_MS = SENDER_TICK_MS;
+/** A gap between two ticks longer than this (1.6 ticks) means the app's own thread stalled. */
+export const STALL_GAP_MS = (TICK_MS * 8) / 5;
+/** A sender that has answered no ping for this long (3 ticks), in steady time, has stopped. Judged
+ *  on `TICK_MS` ticks, so the worst-case noticing stays just under 1 s at the 250 ms cadence. */
+export const HEALTH_TIMEOUT_MS = TICK_MS * 3;
 /** The sender answers `connect` at once; a loaded page that has not by now is not the sender. Under
  *  1 s for the same tick-grid reason as `HEALTH_TIMEOUT_MS`. */
-export const HELLO_TIMEOUT_MS = 750;
+export const HELLO_TIMEOUT_MS = TICK_MS * 3;
 /** From the sender's `hello` to its MIDI start-up resolving. */
 export const MIDI_TIMEOUT_MS = 3000;
 /** From `open` to the frame firing `load`. */

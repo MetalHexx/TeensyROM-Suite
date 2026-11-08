@@ -2,7 +2,7 @@ import { InjectionToken } from '@angular/core';
 import type { SenderTimingReport } from '@teensyrom-nx/asid-sender-protocol';
 
 export type AsidSenderEvent =
-  | { readonly kind: 'tick' } // the link's steady ticker, every 250 ms, connected or not, running with the page hidden
+  | { readonly kind: 'tick' } // the link's steady ticker, every `SENDER_TICK_MS` (250 ms), connected or not, running with the page hidden
   | { readonly kind: 'loaded' } // the frame fired load (whatever page it loaded)
   | { readonly kind: 'hello'; readonly identity: string; readonly version: number } // the sender's answer to connect, at once
   | { readonly kind: 'ready'; readonly midi: boolean; readonly error?: string } // the sender's MIDI start-up has resolved
