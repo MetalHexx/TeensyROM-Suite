@@ -91,6 +91,33 @@ describe('isAppToSender', () => {
     }
   });
 
+  describe('wake kinds', () => {
+    it('accepts a wake request and a cancel', () => {
+      expect(isAppToSender({ k: 'wake-at', id: 1, at: 1_700_000_000_123.5 })).toBe(true);
+      expect(isAppToSender({ k: 'wake-at', id: 3, at: -5 })).toBe(true);
+      expect(isAppToSender({ k: 'wake-cancel', id: 7 })).toBe(true);
+    });
+
+    it.each([0, -1, 1.5, NaN, Infinity, '1', undefined, Number.MAX_SAFE_INTEGER + 1])(
+      'rejects the id %j',
+      (id) => {
+        expect(isAppToSender({ k: 'wake-at', id, at: 5 })).toBe(false);
+        expect(isAppToSender({ k: 'wake-cancel', id })).toBe(false);
+        expect(isSenderToApp({ k: 'wake', id, at: 5, t: 6 })).toBe(false);
+      }
+    );
+
+    it.each([NaN, Infinity, -Infinity, '5', undefined, null])('rejects the time %j', (time) => {
+      expect(isAppToSender({ k: 'wake-at', id: 1, at: time })).toBe(false);
+      expect(isSenderToApp({ k: 'wake', id: 1, at: time, t: 6 })).toBe(false);
+      expect(isSenderToApp({ k: 'wake', id: 1, at: 5, t: time })).toBe(false);
+    });
+
+    it('accepts a wake from the sender', () => {
+      expect(isSenderToApp({ k: 'wake', id: 2, at: 10.5, t: 11 })).toBe(true);
+    });
+  });
+
   describe('packets', () => {
     const packet = (changes: Record<string, unknown>) => ({
       k: 'packet',

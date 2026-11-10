@@ -126,6 +126,12 @@ describe('Session', () => {
       await r.session.start();
       expect(r.toApp[0]).toMatchObject({ k: 'hello', version: ASID_SENDER_PROTOCOL_VERSION });
     });
+
+    it('says hello with protocol version 2', async () => {
+      const r = rig();
+      await r.session.start();
+      expect(r.toApp[0]).toMatchObject({ k: 'hello', version: 2 });
+    });
   });
 
   describe('heartbeat', () => {
@@ -278,6 +284,66 @@ describe('Session', () => {
       expect(r.toApp).toEqual([
         { k: 'fault', fault: 'midi-lost', detail: 'MIDI permission is prompt' },
       ]);
+    });
+  });
+
+  describe('wakes', () => {
+    it('posts a wake once its time comes, never before, with both times on the shared clock', async () => {
+      const r = rig();
+      await r.session.start();
+      r.toApp.length = 0;
+      const at = r.clock.t + 50;
+      r.session.onMessage({ k: 'wake-at', id: 3, at: TIME_ORIGIN + at });
+      expect(r.toApp).toEqual([]);
+      expect(r.armed[0].delayMs).toBeCloseTo(47, 6);
+
+      r.fireAlarm(0.3);
+      r.clock.t = at - 0.1;
+      r.session.onTurn();
+      expect(r.toApp).toEqual([]);
+
+      r.clock.t = at + 0.2;
+      r.session.onTurn();
+      expect(r.toApp).toEqual([
+        { k: 'wake', id: 3, at: TIME_ORIGIN + at, t: TIME_ORIGIN + at + 0.2 },
+      ]);
+      expect(isSenderToApp(r.toApp[0])).toBe(true);
+    });
+
+    it('posts a wake for a time already past at once', async () => {
+      const r = rig();
+      await r.session.start();
+      r.toApp.length = 0;
+      r.session.onMessage({ k: 'wake-at', id: 1, at: TIME_ORIGIN + r.clock.t - 5 });
+      expect(r.toApp).toEqual([
+        { k: 'wake', id: 1, at: TIME_ORIGIN + r.clock.t - 5, t: TIME_ORIGIN + r.clock.t },
+      ]);
+    });
+
+    it('sends nothing for a cancelled wake', async () => {
+      const r = rig();
+      await r.session.start();
+      r.toApp.length = 0;
+      r.session.onMessage({ k: 'wake-at', id: 1, at: TIME_ORIGIN + r.clock.t + 50 });
+      r.session.onMessage({ k: 'wake-cancel', id: 1 });
+      r.fireAlarm();
+      r.clock.t += 10;
+      r.session.onTurn();
+      expect(r.toApp).toEqual([]);
+    });
+
+    it('drops malformed wake-at and wake-cancel without arming or answering', async () => {
+      const r = rig();
+      await r.session.start();
+      r.toApp.length = 0;
+      r.session.onMessage({ k: 'wake-at', id: 0, at: TIME_ORIGIN + r.clock.t });
+      r.session.onMessage({ k: 'wake-at', id: 1.5, at: TIME_ORIGIN + r.clock.t });
+      r.session.onMessage({ k: 'wake-at', id: 1, at: NaN });
+      r.session.onMessage({ k: 'wake-at', id: 1 });
+      r.session.onMessage({ k: 'wake-cancel', id: -2 });
+      r.session.onMessage({ k: 'wake-cancel' });
+      expect(r.toApp).toEqual([]);
+      expect(r.armed).toHaveLength(0);
     });
   });
 

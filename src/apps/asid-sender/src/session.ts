@@ -4,6 +4,7 @@ import {
   fromSharedTime,
   isAppToSender,
   isTeensyRomToken,
+  toSharedTime,
   type SenderToApp,
 } from '@teensyrom-nx/asid-sender-protocol';
 import { MidiOutputs, type MidiAccessLike } from './midi-outputs';
@@ -31,7 +32,7 @@ export interface SessionDeps {
 }
 
 /**
- * One connection from the app: answers its messages, holds and sends its packets on time, and keeps
+ * One connection from the app: answers its messages, holds and sends its packets and wakes on time, and keeps
  * the sender's own timing record. The page feeds it what it hears: the app's messages
  * (`onMessage`), turns, the alarm worker's replies and visibility changes.
  */
@@ -68,6 +69,13 @@ export class Session {
           this.timing.dropped(held.token, nowMs);
         }
       },
+      wake: (id, askedAtMs, nowMs) =>
+        port.postMessage({
+          k: 'wake',
+          id,
+          at: toSharedTime(askedAtMs, deps.timeOrigin),
+          t: toSharedTime(nowMs, deps.timeOrigin),
+        }),
       recordWake: (latenessMs, nowMs, probe) => {
         this.timing.wake(latenessMs, nowMs, probe);
         this.timing.margin(this.margin.marginMs);
@@ -121,6 +129,12 @@ export class Session {
         break;
       case 'timing-clear':
         this.timing.clear(this.deps.now());
+        break;
+      case 'wake-at':
+        this.waiter.arm(data.id, fromSharedTime(data.at, this.deps.timeOrigin));
+        break;
+      case 'wake-cancel':
+        this.waiter.cancel(data.id);
         break;
     }
   }
