@@ -22,6 +22,7 @@ import {
   MidiMappingStore,
   MixerService,
   PlayheadPainter,
+  SenderSupervisor,
   SidPanelPainter,
   SidWaveFeed,
   StorageStore,
@@ -389,6 +390,14 @@ function render(
       { provide: MidiControllers, useValue: midi.controllers },
       { provide: MidiLearn, useValue: midi.learn },
       { provide: MidiMappings, useValue: midi.mappings },
+      {
+        provide: SenderSupervisor,
+        useValue: {
+          settings: signal({ lookaheadMs: 15, senderEnabled: true }),
+          setLookahead: vi.fn(),
+          setEnabled: vi.fn(),
+        },
+      },
       {
         provide: BreakpointObserver,
         useValue: {
@@ -1189,7 +1198,7 @@ describe('DjMixerViewComponent', () => {
   describe('the bindings panel', () => {
     function bindingsButton(fixture: ComponentFixture<DjMixerViewComponent>): HTMLButtonElement {
       return fixture.nativeElement.querySelector(
-        'lib-dj-sid-panel button[aria-label$="bindings panel"]'
+        'lib-dj-sid-panel button[aria-label$="setup panel"]'
       );
     }
 
@@ -1209,7 +1218,7 @@ describe('DjMixerViewComponent', () => {
       expect(component.panelOpen()).toBe(false);
       expect(fixture.nativeElement.querySelector('.panel-slot')).toBeNull();
       expect(fixture.nativeElement.querySelector('lib-dj-bindings-panel')).toBeNull();
-      expect(bindingsButton(fixture).getAttribute('aria-label')).toBe('Open bindings panel');
+      expect(bindingsButton(fixture).getAttribute('aria-label')).toBe('Open setup panel');
     });
 
     it('opens the panel from the SID panel and closes it from the same button', () => {
@@ -1218,11 +1227,11 @@ describe('DjMixerViewComponent', () => {
       press(fixture);
       expect(fixture.debugElement.query(By.directive(DjBindingsPanelComponent))).toBeTruthy();
       expect(slot(fixture).animationTrigger()).toBe(true);
-      expect(bindingsButton(fixture).getAttribute('aria-label')).toBe('Close bindings panel');
+      expect(bindingsButton(fixture).getAttribute('aria-label')).toBe('Close setup panel');
 
       press(fixture);
       expect(slot(fixture).animationTrigger()).toBe(false);
-      expect(bindingsButton(fixture).getAttribute('aria-label')).toBe('Open bindings panel');
+      expect(bindingsButton(fixture).getAttribute('aria-label')).toBe('Open setup panel');
     });
 
     it("closes from the panel's own close button", () => {

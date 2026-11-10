@@ -52,7 +52,7 @@ function alertText(name: string, status: AlertStatus): string {
     case 'missing':
       return `MIDI controller "${name}" is not connected. Its mappings are kept and work again when it returns.`;
     case 'unmatched':
-      return `MIDI controller "${name}" matches more than one port. Choose its port in the Bindings panel.`;
+      return `MIDI controller "${name}" matches more than one port. Choose its port in the Setup panel.`;
   }
 }
 

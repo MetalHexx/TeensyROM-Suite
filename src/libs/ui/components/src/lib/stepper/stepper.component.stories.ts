@@ -37,3 +37,12 @@ export const Disabled: Story = {
     nextAccessibleName: 'Next subtune deck A',
   },
 };
+
+export const Signs: Story = {
+  args: {
+    text: '15 ms',
+    glyphs: 'signs',
+    previousAccessibleName: 'Lower the lookahead',
+    nextAccessibleName: 'Raise the lookahead',
+  },
+};

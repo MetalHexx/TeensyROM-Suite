@@ -1,6 +1,7 @@
 import {
   ChangeDetectionStrategy,
   Component,
+  ChangeDetectorRef,
   ElementRef,
   Injector,
   afterNextRender,
@@ -22,6 +23,9 @@ import {
   MidiLearn,
   MidiMappings,
   MidiMappingStore,
+  SENDER_LOOKAHEAD_CEILING_MS,
+  SENDER_LOOKAHEAD_FLOOR_MS,
+  SenderSupervisor,
   actionOf,
   actionsForControl,
   defaultAmountFor,
@@ -49,6 +53,7 @@ import {
   ControllerRowComponent,
   IconButtonComponent,
   SidePanelComponent,
+  StepperComponent,
   type BindingRowAmount,
   type BindingRowModel,
   type ControllerRowModel,
@@ -91,6 +96,13 @@ const PORTLESS_STATUSES: readonly ControllerStatus[] = ['missing', 'unmatched'];
 
 /** The key edges a style can act on, in the order the Trigger choice lists them. */
 const TRIGGERS: readonly StyleTrigger[] = ['press', 'release'];
+
+type SetupTab = 'bindings' | 'settings';
+
+const TABS: readonly { readonly id: SetupTab; readonly label: string }[] = [
+  { id: 'bindings', label: 'Bindings' },
+  { id: 'settings', label: 'Settings' },
+];
 
 /** One mapping's row, with what its outputs need to act on it. */
 interface BindingRowView {
@@ -205,11 +217,13 @@ function amountField(
 }
 
 /**
- * The bindings panel: every mapping grouped by what it drives and editable in place, the mapping
- * mode switch, the learn prompt while a control waits for hardware, and the known controllers.
+ * The Setup panel, in two tabs. Bindings: every mapping grouped by what it drives and editable in
+ * place, the mapping mode switch, the learn prompt while a control waits for hardware, and the
+ * known controllers. Settings: the sender's lookahead and the timing helper switch.
  *
  * It reads the MIDI mapping store and commands through `MidiMappings`, `MidiLearn` and
- * `MidiControllers`; the presentational rows it renders hold no state of their own.
+ * `MidiControllers`, and reads and sets the sender settings through `SenderSupervisor`, which
+ * owns their rules; the presentational rows it renders hold no state of their own.
  */
 @Component({
   selector: 'lib-dj-bindings-panel',
@@ -220,6 +234,7 @@ function amountField(
     BindingRowComponent,
     ControllerRowComponent,
     IconButtonComponent,
+    StepperComponent,
   ],
   templateUrl: './dj-bindings-panel.component.html',
   styleUrl: './dj-bindings-panel.component.scss',
@@ -231,6 +246,8 @@ export class DjBindingsPanelComponent {
   private readonly midiLearn = inject(MidiLearn);
   private readonly midiMappings = inject(MidiMappings);
   private readonly injector = inject(Injector);
+  private readonly changeDetector = inject(ChangeDetectorRef);
+  private readonly supervisor = inject(SenderSupervisor);
 
   /** Duration in milliseconds of the panel card's own entry animation; `0` for reduced motion. */
   readonly animationDuration = input<number>(400);
@@ -238,12 +255,25 @@ export class DjBindingsPanelComponent {
   /** Emits when the panel's close button is pressed. */
   readonly closePanel = output<void>();
 
-  private readonly mappingSwitch = viewChild(MatSlideToggle);
+  private readonly mappingSwitch = viewChild<MatSlideToggle>('mappingSwitch');
+  private readonly tabButtons = viewChildren<ElementRef<HTMLElement>>('tabButton');
   private readonly bindingRows = viewChildren(BindingRowComponent);
   private readonly groupTitles = viewChildren<ElementRef<HTMLElement>>('groupTitle');
 
   readonly mappingMode = this.store.mappingMode;
   readonly announcement = this.store.announcement;
+
+  readonly tabs = TABS;
+
+  /** The selected tab; not persisted, and every open lands on Bindings. */
+  readonly selectedTab = signal<SetupTab>('bindings');
+
+  readonly settings = this.supervisor.settings;
+  readonly lookaheadFloorMs = SENDER_LOOKAHEAD_FLOOR_MS;
+  readonly lookaheadCeilingMs = SENDER_LOOKAHEAD_CEILING_MS;
+
+  /** What the Settings tab's live region says after a lookahead step. */
+  readonly settingsAnnouncement = signal('');
 
   /** The mapping whose row is open for editing; one at a time. */
   readonly expandedId = signal<string | null>(null);
@@ -330,9 +360,60 @@ export class DjBindingsPanelComponent {
   /** The `id` of a section's heading. */
   protected readonly groupTitleId = groupTitleId;
 
-  /** Moves keyboard focus to the mapping mode switch, the panel's first control. */
+  protected readonly tabId = (tab: SetupTab): string => `setup-tab-${tab}`;
+  protected readonly panelId = (tab: SetupTab): string => `setup-panel-${tab}`;
+
+  /** Selects a tab. Leaving Bindings ends mapping mode: a hidden mode keeps unmapped ports open
+   *  and can bind a control off-screen. */
+  selectTab(tab: SetupTab): void {
+    if (tab !== 'bindings' && this.mappingMode()) {
+      void this.midiControllers.setMappingMode(false);
+    }
+    this.selectedTab.set(tab);
+  }
+
+  /** Arrow keys (wrapping), Home and End move focus between the tabs and select as they go. */
+  onTabKeydown(event: KeyboardEvent, index: number): void {
+    const count = TABS.length;
+    let target: number;
+    switch (event.key) {
+      case 'ArrowRight':
+        target = (index + 1) % count;
+        break;
+      case 'ArrowLeft':
+        target = (index - 1 + count) % count;
+        break;
+      case 'Home':
+        target = 0;
+        break;
+      case 'End':
+        target = count - 1;
+        break;
+      default:
+        return;
+    }
+    event.preventDefault();
+    this.selectTab(TABS[target].id);
+    this.tabButtons()[target]?.nativeElement.focus();
+  }
+
+  /** Selects Bindings and moves keyboard focus to the mapping mode switch, the panel's first
+   *  control. */
   focusEntry(): void {
+    this.selectTab('bindings');
+    this.changeDetector.detectChanges();
     this.mappingSwitch()?.focus();
+  }
+
+  /** Steps the lookahead by a millisecond; the supervisor clamps and saves. */
+  onLookaheadStep(direction: -1 | 1): void {
+    const next = this.settings().lookaheadMs + direction;
+    this.supervisor.setLookahead(next);
+    this.settingsAnnouncement.set(`Lookahead ${next} ms`);
+  }
+
+  onTimingHelperChange(on: boolean): void {
+    this.supervisor.setEnabled(on);
   }
 
   /** Turns mapping mode on or off. The switch's click is the gesture MIDI access needs. */

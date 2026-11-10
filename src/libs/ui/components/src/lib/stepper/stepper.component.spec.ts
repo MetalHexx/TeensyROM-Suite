@@ -1,5 +1,5 @@
 import { ComponentFixture, TestBed } from '@angular/core/testing';
-import { describe, it, expect, beforeEach } from 'vitest';
+import { describe, it, expect, beforeEach, afterEach } from 'vitest';
 import { StepperComponent } from './stepper.component';
 
 describe('StepperComponent', () => {
@@ -82,5 +82,57 @@ describe('StepperComponent', () => {
   it('marks the buttons as the previous and next parts', () => {
     expect(previousButton().getAttribute('data-part')).toBe('previous');
     expect(nextButton().getAttribute('data-part')).toBe('next');
+  });
+
+  it('draws ◀ and ▶ by default', () => {
+    expect(previousButton().textContent?.trim()).toBe('◀');
+    expect(nextButton().textContent?.trim()).toBe('▶');
+  });
+
+  it('draws − and + for the signs glyphs', () => {
+    fixture.componentRef.setInput('glyphs', 'signs');
+    fixture.detectChanges();
+
+    expect(previousButton().textContent?.trim()).toBe('−');
+    expect(nextButton().textContent?.trim()).toBe('+');
+  });
+
+  describe('focus at the ends', () => {
+    let host: HTMLElement;
+
+    beforeEach(() => {
+      host = document.createElement('div');
+      document.body.appendChild(host);
+      host.appendChild(fixture.nativeElement);
+    });
+
+    afterEach(() => host.remove());
+
+    it('moves focus to next when a press disables the focused previous button', async () => {
+      previousButton().focus();
+      fixture.componentRef.setInput('previousDisabled', true);
+      fixture.detectChanges();
+      await fixture.whenStable();
+
+      expect(document.activeElement).toBe(nextButton());
+    });
+
+    it('moves focus to previous when a press disables the focused next button', async () => {
+      nextButton().focus();
+      fixture.componentRef.setInput('nextDisabled', true);
+      fixture.detectChanges();
+      await fixture.whenStable();
+
+      expect(document.activeElement).toBe(previousButton());
+    });
+
+    it('leaves focus alone when the disabled button was not focused', async () => {
+      nextButton().focus();
+      fixture.componentRef.setInput('previousDisabled', true);
+      fixture.detectChanges();
+      await fixture.whenStable();
+
+      expect(document.activeElement).toBe(nextButton());
+    });
   });
 });
