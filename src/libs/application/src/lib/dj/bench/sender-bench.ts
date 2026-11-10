@@ -88,10 +88,12 @@ export function installSenderBench(deps: SenderBenchDeps): SenderBench {
     };
     bench.lookahead = (ms: number): number[] => {
       route.setLookahead(route.path(), milliseconds(ms));
-      return DECK_SLOTS.map((slot) => {
+      const effective = DECK_SLOTS.map((slot) => {
         runtime.setScheduleAhead(slot, route.lookaheadFor(route.path()));
         return runtime.scheduleAheadOf(slot);
       });
+      bench.reset?.();
+      return effective;
     };
     bench['sender'] = async (): Promise<SenderReading> => {
       const report = await link.readTiming();

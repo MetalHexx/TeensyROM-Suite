@@ -269,6 +269,12 @@ describe('sender bench', () => {
       expect(route.lookaheadFor('mixer')).toBe(mixer);
     });
 
+    it('lookahead ends with a full reset, the sender record included', () => {
+      commands().lookahead(7);
+
+      expect(link.timingClears).toBe(1);
+    });
+
     it('reset clears the sender record through the link', () => {
       commands().reset();
 

@@ -1,5 +1,5 @@
 import { TestBed } from '@angular/core/testing';
-import { describe, it, expect, beforeEach, vi } from 'vitest';
+import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest';
 import { FakeClock, frames, milliseconds } from '@sidablist/core';
 import type { FrameClock, ReplayRunner, SidPlayer } from '@sidablist/core';
 import type { MidiOutputPort } from '@sidablist/asid';
@@ -730,6 +730,101 @@ describe('DeckRuntime with a timing helper', () => {
       expect(afterFirstFrame.length).toBeGreaterThan(3);
       expect(afterFirstFrame.every((due) => due !== undefined)).toBe(true);
       expect(afterFirstFrame).toEqual([...afterFirstFrame].sort((a, b) => (a ?? 0) - (b ?? 0)));
+    });
+  });
+
+  describe('the bench probes', () => {
+    interface BenchReading {
+      decks: {
+        A: {
+          scheduleAheadMs: number;
+          frames: number;
+          presses: { presses: Record<string, { count: number }>; noFrame: number };
+        };
+      };
+    }
+    const reading = (): BenchReading =>
+      (globalThis as unknown as { djBench: { report(): BenchReading } }).djBench.report();
+
+    beforeEach(() => {
+      configure();
+      vi.spyOn(console, 'log').mockImplementation(() => undefined);
+    });
+
+    afterEach(() => {
+      vi.restoreAllMocks();
+    });
+
+    /** Marks `kind` on deck A, then lets the clock send one frame stamped near now. */
+    function pressThenFrame(kind: Parameters<DeckRuntime['markPress']>[1]): void {
+      runtime.markPress('A', kind);
+      clocks[0].tick(milliseconds(performance.now()));
+    }
+
+    it('lands one reading when a mark is followed by a stamped register frame', async () => {
+      await playDeckA();
+
+      pressThenFrame('mute');
+
+      const { presses } = reading().decks.A.presses;
+      expect(presses['mute'].count).toBe(1);
+    });
+
+    it('measures a nudge only from the frame after the engine took it', async () => {
+      await playDeckA();
+
+      runtime.markPress('A', 'nudge');
+      clocks[0].tick(milliseconds(performance.now()));
+      expect(reading().decks.A.presses.presses['nudge']).toBeUndefined();
+
+      runtime.notePressApplied('A');
+      clocks[0].tick(milliseconds(performance.now()));
+      expect(reading().decks.A.presses.presses['nudge'].count).toBe(1);
+    });
+
+    it('does nothing for a slot that is not built', () => {
+      runtime.build('A');
+
+      expect(() => {
+        runtime.markPress('B', 'play');
+        runtime.notePressApplied('B');
+      }).not.toThrow();
+    });
+
+    it('sends the same bytes with the same stamps whether or not a press is being measured', async () => {
+      vi.spyOn(performance, 'now').mockReturnValue(50_000);
+      const run = async (press: boolean): Promise<{ sent: Uint8Array[]; stamps: (number | undefined)[] }> => {
+        configure();
+        runtime.build('A');
+        runtime.setPort('A', 'port-a');
+        runtime.load('A', playableOf(SID_MODEL_6581, WRITING_TUNE));
+        await runtime.play('A');
+        if (press) {
+          runtime.markPress('A', 'tempo');
+        }
+        for (let i = 0; i < 3; i++) {
+          clocks[0].tick(milliseconds(50_000 + i * 20));
+        }
+        return { sent: [...mixerPort.sent], stamps: [...mixerPort.stamps] };
+      };
+
+      const without = await run(false);
+      const withPress = await run(true);
+
+      expect(without.sent.length).toBeGreaterThan(2);
+      expect(withPress).toEqual(without);
+    });
+
+    it('keeps what the delivery probe has recorded when the schedule-ahead changes', async () => {
+      await playDeckA();
+      const before = reading().decks.A;
+
+      runtime.setScheduleAhead('A', milliseconds(7));
+
+      const after = reading().decks.A;
+      expect(after.frames).toBe(before.frames);
+      expect(after.scheduleAheadMs).toBe(7);
+      expect(before.scheduleAheadMs).not.toBe(7);
     });
   });
 

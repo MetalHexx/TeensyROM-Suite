@@ -41,6 +41,7 @@ import {
 import type { RegisterRecorder } from './ports';
 import type { Slot } from './slot';
 import { DeliveryProbe } from './bench/delivery-probe';
+import { PressProbe, type PressKind } from './bench/press-probe';
 import { installDeckBench } from './bench/deck-bench';
 import { DeckSendRoute } from './sender/deck-send-route';
 
@@ -144,6 +145,8 @@ export class DeckRuntime {
   private readonly noteStartsBySlot = new Map<Slot, NoteStarts>();
   /** Each slot's delivery probe — dev builds only, read through the console bench. */
   private readonly probes = new Map<Slot, DeliveryProbe>();
+  /** Each slot's press probe — dev builds only, read through the console bench. */
+  private readonly pressProbes = new Map<Slot, PressProbe>();
 
   constructor() {
     if (isDevMode()) {
@@ -153,6 +156,7 @@ export class DeckRuntime {
           player,
           sink,
           probe: this.requireProbe(slot),
+          presses: this.requirePressProbe(slot),
         }))
       );
     }
@@ -173,6 +177,7 @@ export class DeckRuntime {
       const probe = new DeliveryProbe();
       probe.setScheduleAhead(scheduleAheadMs);
       this.probes.set(slot, probe);
+      this.pressProbes.set(slot, new PressProbe());
     }
 
     const port = this.createOutputPort(slot, facade);
@@ -216,7 +221,8 @@ export class DeckRuntime {
   }
 
   /** Sets how far past its due time this slot's sink stamps each frame, and in dev builds points the
-   *  delivery probe at the value the sink settled on. Does nothing for a slot not built. */
+   *  delivery probe at the value the sink settled on, keeping what it has recorded: a path change
+   *  must not restart a reading. Does nothing for a slot not built. */
   setScheduleAhead(slot: Slot, ms: Milliseconds): void {
     const entry = this.slots.get(slot);
     if (entry === undefined) {
@@ -226,8 +232,19 @@ export class DeckRuntime {
     const probe = this.probes.get(slot);
     if (probe !== undefined) {
       probe.setScheduleAhead(entry.sink.capabilities.scheduleAheadMs ?? 0);
-      probe.reset();
     }
+  }
+
+  /** Dev builds: marks a press reaching this slot's engine, for the press-to-wire reading. Does
+   *  nothing in production or for a slot not built. */
+  markPress(slot: Slot, kind: PressKind): void {
+    this.pressProbes.get(slot)?.mark(kind, performance.now());
+  }
+
+  /** Dev builds: the engine has taken the press pending on this slot — a nudge's panel apply. Does
+   *  nothing in production or for a slot not built. */
+  notePressApplied(slot: Slot): void {
+    this.pressProbes.get(slot)?.applied();
   }
 
   /** The schedule-ahead this slot's sink settled on, in ms (it caps the value asked for); 0 for a
@@ -636,6 +653,7 @@ export class DeckRuntime {
     };
     // Recorded before the port resolves, so a deck with nothing bound still measures its timing.
     const probe = this.probes.get(slot) ?? null;
+    const pressProbe = this.pressProbes.get(slot) ?? null;
 
     return {
       get portId(): string | null {
@@ -653,6 +671,7 @@ export class DeckRuntime {
         if (probe !== null && timestampMs !== undefined) {
           probe.record(timestampMs);
         }
+        pressProbe?.sent(bytes, timestampMs, performance.now());
 
         if (!onSender()) {
           const resolved = resolve();
@@ -693,6 +712,14 @@ export class DeckRuntime {
 
   private requireProbe(slot: Slot): DeliveryProbe {
     const probe = this.probes.get(slot);
+    if (probe === undefined) {
+      throw new Error(`DeckRuntime: slot ${slot} has not been built`);
+    }
+    return probe;
+  }
+
+  private requirePressProbe(slot: Slot): PressProbe {
+    const probe = this.pressProbes.get(slot);
     if (probe === undefined) {
       throw new Error(`DeckRuntime: slot ${slot} has not been built`);
     }

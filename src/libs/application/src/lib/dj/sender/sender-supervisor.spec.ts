@@ -211,20 +211,22 @@ describe('SenderSupervisor', () => {
         await startPlaying('B');
       });
 
-      frame('A');
-      frame('B');
+      // A path change keeps the readings, so start the stretch the sender's frames are read over.
+      (globalThis as unknown as { djBench: { reset(): void } }).djBench.reset();
+      frame('A', -5);
+      frame('B', -5);
 
       expect(supervisor.state()).toBe('up');
       expect(route.path()).toBe('sender');
       const stamped = link.sends.filter((send) => send.dueAtMs !== undefined);
-      expect(stamped.map((send) => send.dueAtMs)).toEqual([nowMs + 5 + 15, nowMs + 5 + 15]);
+      expect(stamped.map((send) => send.dueAtMs)).toEqual([nowMs - 5 + 15, nowMs - 5 + 15]);
       const { decks } = (
         globalThis as unknown as {
           djBench: { report(): { decks: Record<string, { lagMs: { p50: number } }> } };
         }
       ).djBench.report();
-      // A probe still at the mixer's lookahead of 0 would read these frames 20 ms early, not 5.
-      expect([decks['A'].lagMs.p50, decks['B'].lagMs.p50]).toEqual([-5, -5]);
+      // Frames due 5 ms ago: a probe still at the mixer's lookahead of 0 would read them early, not late.
+      expect([decks['A'].lagMs.p50, decks['B'].lagMs.p50]).toEqual([5.05, 5.05]);
     });
 
     it('sends each playing deck its 25-register image first, unstamped, and no image to a deck that is not playing', async () => {

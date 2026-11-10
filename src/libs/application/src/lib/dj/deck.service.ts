@@ -198,6 +198,7 @@ export class DeckService {
       return;
     }
     if (deck.status === 'playing') {
+      this.runtime.markPress(slot, 'pause');
       this.runtime.pause(slot);
       this.sample(slot);
       return;
@@ -209,6 +210,7 @@ export class DeckService {
       // this call's still-pending `clock.start()` and leaving the store reporting `playing` for a
       // deck that the superseded start actually left silent.
       this.store.setDeckBusy({ slot, busy: true });
+      this.runtime.markPress(slot, 'play');
       try {
         await this.runtime.play(slot);
       } finally {
@@ -226,6 +228,7 @@ export class DeckService {
     this.deckHand.drop(slot);
     // The engine disarms its loop on a stop, but not a marker still waiting for readiness.
     this.releaseMarkers(slot);
+    this.runtime.markPress(slot, 'stop');
     this.runtime.stop(slot);
     this.sample(slot);
   }
@@ -368,6 +371,7 @@ export class DeckService {
     if (!this.canShape(slot, 'setSpeed')) {
       return;
     }
+    this.runtime.markPress(slot, 'tempo');
     this.deckSpeed.setFader(slot, multiplier);
     this.reflectEngineControls(slot);
   }
@@ -378,6 +382,7 @@ export class DeckService {
     if (!this.canShape(slot, 'turnSpeed')) {
       return;
     }
+    this.runtime.markPress(slot, 'tempo');
     this.deckSpeed.turn(slot, clicks, timeStampMs);
     this.reflectEngineControls(slot);
   }
@@ -388,6 +393,7 @@ export class DeckService {
     if (!this.canShape(slot, 'jumpSpeed')) {
       return;
     }
+    this.runtime.markPress(slot, 'tempo');
     this.deckSpeed.jump(slot, id);
     this.reflectEngineControls(slot);
   }
@@ -415,6 +421,7 @@ export class DeckService {
     if (!this.canShape(slot, 'setVoiceMuted')) {
       return;
     }
+    this.runtime.markPress(slot, 'mute');
     this.runtime.setVoiceMuted(slot, voice, muted);
     this.reflectEngineControls(slot);
     this.loops.saveSettingsInPlay(slot);
@@ -568,6 +575,7 @@ export class DeckService {
         return;
       }
     }
+    this.runtime.markPress(slot, 'jump');
     this.loops.toggle(slot, target);
   }
 
@@ -594,6 +602,7 @@ export class DeckService {
         return;
       }
     }
+    this.runtime.markPress(slot, 'play-now');
     this.loops.playNow(slot, target);
   }
 

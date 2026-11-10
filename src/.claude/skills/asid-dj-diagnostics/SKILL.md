@@ -85,14 +85,15 @@ On http://localhost:4200/dj-mixer with the loop playing, in the console (or thro
 Chrome's `javascript_tool`):
 
 ```
-djBench.reset()        // clear the probes and the long-task count; wait ~10 s
+djBench.reset()        // clear the delivery probes, the press probes and the long-task count; wait ~10 s
 djBench.report()       // per playing deck, since the reset
-djBench.lookahead(ms)  // both decks' schedule-ahead on the live send path (sink caps it at 40 ms); the other path keeps its own value; not persisted across reloads
+djBench.lagTimeline()  // per deck, one row per closed 10 s since the reset: { atS, frames, p99Ms, maxMs }
+djBench.lookahead(ms)  // both decks' schedule-ahead on the live send path (sink caps it at 40 ms), then a full reset(); the other path keeps its own value; not persisted across reloads
 await djBench.sender() // the timing helper's own numbers per deck (see below)
 djBench.help()
 ```
 
-`djBench.reset()` also clears the sender's timing record.
+`djBench.reset()` also clears the sender's timing record. A change of path (a self-heal, the `i` flip) does not restart the readings; only `reset()` and `lookahead(ms)` do.
 
 **The sender (dev builds).** Two keys act with nothing focused (click an empty part of the page first;
 inputs, dialogs and buttons with focus are left alone): `i` flips between the sender and today's
@@ -115,7 +116,9 @@ Reading `report()` per deck:
 
 | Field | Meaning |
 |---|---|
-| `lagMs` p50/p90/p99/max | how long after its due time each frame was handed to `send()` |
+| `lagMs` p50/p90/p99/max | the mixer lateness: how long after its due time each frame was handed to `send()`, the end of the frame's render, over the whole stretch since `reset()` (a histogram, good to 0.1 ms; `max` exact) |
+| `presses` | press-to-wire per kind (`play`, `stop`, `pause`, `jump`, `play-now`, `tempo`, `mute`, `nudge`) and pooled (`all`), each with count, mean, p50, p99 and max in ms, plus `noFrame` and `superseded` counts. Measured from where the press reaches the deck's engine to the moment the deck's next frame is stamped to leave: the ASID stop message for a stop, a register frame for the rest. A SID panel nudge is measured from the knob's press but ends only at a frame rendered after the mixer applier pushed it to the engine. A jump queued to a lap's end reads that next frame, not its wait, so bench jumps with no loop running |
+| `lagTimeline()` | where a stall landed: each closed 10 s row's frames, p99 and max lag |
 | `missedWindowPct` | frames handed over at or past their stamp (sent at once). Always 100% at schedule-ahead 0 |
 | `spacing.collapsedPct` | consecutive frames < 25% of an interval apart on the wire's timeline (stamps, or send times when unstamped) |
 | `spacing.onGridPct` / `stretchedPct` | frames at the interval / well past it |

@@ -9,6 +9,7 @@ import {
   type VoiceSwitch,
 } from './dj-store';
 import { DeckLoops } from './deck-loops';
+import { DeckRuntime } from './deck-runtime';
 import { MixerApplier } from './mixer-applier';
 import { PANEL_RANGES, bounded } from './mixer/panel-ranges';
 import type { Slot } from './slot';
@@ -51,6 +52,7 @@ export class MixerService {
   private readonly store = inject(DjStore);
   private readonly applier = inject(MixerApplier);
   private readonly loops = inject(DeckLoops);
+  private readonly runtime = inject(DeckRuntime);
 
   /** One voice knob's offset, clamped to its range; Coarse and the envelope and pulse-width
    *  knobs snap to whole numbers, Fine keeps full resolution. */
@@ -58,6 +60,7 @@ export class MixerService {
     if (!isVoice(voice) || !Number.isFinite(value) || !this.canShape(slot, knob)) {
       return;
     }
+    this.runtime.markPress(slot, 'nudge');
     this.write(slot, () =>
       this.store.setVoiceStrip({
         slot,
@@ -72,6 +75,7 @@ export class MixerService {
     if (!Number.isFinite(value) || !this.canShape(slot, knob)) {
       return;
     }
+    this.runtime.markPress(slot, 'nudge');
     this.write(slot, () =>
       this.store.setDeckPanel({ slot, patch: { [knob]: bounded(PANEL_RANGES[knob], value) } })
     );
