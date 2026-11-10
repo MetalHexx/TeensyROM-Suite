@@ -138,7 +138,7 @@ Reading `report()` per deck:
 | `spacing.collapsedPct` | consecutive frames < 25% of an interval apart on the wire's timeline (stamps, or send times when unstamped) |
 | `spacing.onGridPct` / `stretchedPct` | frames at the interval / well past it |
 | `tick.source` | what drives the deck's frames: `'sender'` (the sender's wake, on the sender path) or `'audio'` (the silent audio graph, on the mixer path). Flips with the path in one step, so the `i` and `b` keys change it |
-| `tick.wake` | `null` until a wake has driven the deck, then since `reset()`: `wakes` handled, `early` (a wake that found no frame due and asked again; should be near 0), `guardRearms` (silent beats the backstop re-armed on; should be 0 — each one is a hung or lost chain), `senderLateMs` (asked → sent by the sender) and `mixerLateMs` (sent → handled on the mixer), each `{ count, p50, p99, max }` good to 0.1 ms. The two lateness splits say where a late frame came from: the sender's loop or the mixer's thread |
+| `tick.wake` | `null` until a wake or a guard re-arm has touched the deck, then since `reset()`: `wakes` handled, `early` (a wake that found no frame due and asked again; should be near 0), `guardRearms` (silent beats the backstop re-armed on; should be 0 — each one is a hung or lost chain), `senderLateMs` (asked → sent by the sender) and `mixerLateMs` (sent → handled on the mixer), each `{ count, p50, p99, max }` good to 0.1 ms. The two lateness splits say where a late frame came from: the sender's loop or the mixer's thread |
 | `clock.jitterMs`, `worstGapMs`, `lateCallbacks` | the frame clock's own ticks (reset on play): on the audio source the callbacks; on the sender source the gap between handled wakes, and a wake handled more than one interval after its due as late |
 | `player.lateFrames`, `meanLagMs` | the player's view of the same lateness |
 | `longTasks` | main-thread tasks ≥ 50 ms (should be 0) |
@@ -182,7 +182,7 @@ Analyse with `scripts/` (Node 20+, gzipped or plain JSON, the first 500 ms skipp
 
 | Script | Prints |
 |---|---|
-| `trace-compare.mjs <trace...>` | Side by side: rAF/layerize/layout/style rates, main busy ms/s by phase, tasks ≥ 4/8/12 ms and the longest, audio-callback (`onaudioprocess`) gaps, extension scripts, MIDI service-thread task spacing |
+| `trace-compare.mjs <trace...>` | Side by side: rAF/layerize/layout/style rates, main busy ms/s by phase, tasks ≥ 4/8/12 ms and the longest, audio-callback (`onaudioprocess`) gaps (mixer path only: the sender path has no audio callback), extension scripts, MIDI service-thread task spacing |
 | `trace-long.mjs <trace> [minMs]` | Self time by event across tasks ≥ minMs, and the longest task's breakdown |
 | `trace-frames.mjs <trace>` | Rendering-task signatures (`rAF Style Layout PrePaint Paint Layerize Commit`) per second, Paint events by node |
 | `trace-phase-cost.mjs <trace>` | Mean cost of each lifecycle phase per signature, layerize p50/p90/max — what a frame that changes something costs vs one that does not |

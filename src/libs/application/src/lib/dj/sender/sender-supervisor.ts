@@ -16,7 +16,7 @@ import { DeckRuntime } from '../deck-runtime';
 import { ASID_SENDER_LINK, MIDI_ACCESS } from '../ports';
 import type { AsidSenderEvent, IMidiAccess } from '../ports';
 import { DECK_SLOTS, type Slot } from '../slot';
-import { DeckSendRoute, type SendPath } from './deck-send-route';
+import { DeckSendRoute, tickSourceOf, type SendPath } from './deck-send-route';
 import {
   SenderHealth,
   type SenderCommand,
@@ -197,7 +197,7 @@ export class SenderSupervisor {
     for (const slot of DECK_SLOTS) {
       this.runtime.setScheduleAhead(slot, lookahead);
     }
-    const tickSource = path === 'sender' ? 'sender' : 'audio';
+    const tickSource = tickSourceOf(path);
     for (const slot of DECK_SLOTS) {
       this.runtime.setTickSource(slot, tickSource);
     }

@@ -2,10 +2,17 @@ import { Injectable, inject, signal, type Signal } from '@angular/core';
 import { milliseconds } from '@sidablist/core';
 import type { Milliseconds } from '@sidablist/core';
 import { ASID_SENDER_LINK } from '../ports';
+import type { TickSource } from '../ports';
 
 /** Where the decks' packets go: `'mixer'` is today's sending, from the mixer page's own MIDI
  *  access; `'sender'` is the timing helper's hidden frame. */
 export type SendPath = 'mixer' | 'sender';
+
+/** The tick source a deck's clock runs from on this path: the sender's wake on the sender path, the
+ *  audio graph otherwise. */
+export function tickSourceOf(path: SendPath): TickSource {
+  return path === 'sender' ? 'sender' : 'audio';
+}
 
 /**
  * How far past its due time each frame is stamped for the MIDI stack: not at all, so Chrome sends

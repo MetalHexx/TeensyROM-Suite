@@ -1,4 +1,4 @@
-import { Histogram } from './histogram';
+import { Histogram, summarizeLateness } from './histogram';
 
 /** A deterministic spread: the same numbers every run. */
 function spread(count: number, seed: number, scale: number): number[] {
@@ -53,5 +53,18 @@ describe('Histogram', () => {
 
   it('is zero when empty', () => {
     expect(new Histogram().percentile(0.5)).toBe(0);
+  });
+});
+
+describe('summarizeLateness', () => {
+  it('reads the count, median, 99th percentile and maximum, rounded to 0.01 ms', () => {
+    const histogram = new Histogram();
+    [1, 2, 3, 4.123].forEach((value) => histogram.add(value));
+
+    expect(summarizeLateness(histogram)).toEqual({ count: 4, p50: 3.05, p99: 4.15, max: 4.12 });
+  });
+
+  it('is all zero when empty', () => {
+    expect(summarizeLateness(new Histogram())).toEqual({ count: 0, p50: 0, p99: 0, max: 0 });
   });
 });

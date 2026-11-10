@@ -1,3 +1,5 @@
+import type { LatenessSummary } from './timing-report';
+
 export const BINS_PER_MS = 10;
 const RANGE_MS = 100;
 const BIN_COUNT = RANGE_MS * BINS_PER_MS;
@@ -58,4 +60,15 @@ export class Histogram {
     }
     return total;
   }
+}
+
+/** The count, median, 99th percentile and largest value of a lateness histogram, each rounded to 0.01 ms. */
+export function summarizeLateness(histogram: Histogram): LatenessSummary {
+  const round = (value: number): number => Math.round(value * 100) / 100;
+  return {
+    count: histogram.count,
+    p50: round(histogram.percentile(0.5)),
+    p99: round(histogram.percentile(0.99)),
+    max: round(histogram.max),
+  };
 }

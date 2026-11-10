@@ -11,7 +11,7 @@ import type {
   Microseconds,
   Milliseconds,
 } from '@sidablist/core';
-import { Histogram, type LatenessSummary } from '@teensyrom-nx/asid-sender-protocol';
+import { Histogram, summarizeLateness } from '@teensyrom-nx/asid-sender-protocol';
 import type {
   DeckFrameClock,
   IAsidSenderLink,
@@ -145,8 +145,8 @@ export class DeckTickClock implements DeckFrameClock {
       wakes: this.wakes,
       early: this.early,
       guardRearms: this.guardRearms,
-      senderLateMs: summarize(this.senderLate),
-      mixerLateMs: summarize(this.mixerLate),
+      senderLateMs: summarizeLateness(this.senderLate),
+      mixerLateMs: summarizeLateness(this.mixerLate),
     };
   }
 
@@ -515,19 +515,6 @@ export class DeckTickClock implements DeckFrameClock {
     // have already detached is not worth surfacing.
     void context?.close().catch(() => undefined);
   }
-}
-
-function summarize(histogram: Histogram): LatenessSummary {
-  return {
-    count: histogram.count,
-    p50: round(histogram.percentile(0.5)),
-    p99: round(histogram.percentile(0.99)),
-    max: round(histogram.max),
-  };
-}
-
-function round(value: number): number {
-  return Math.round(value * 100) / 100;
 }
 
 function assertPositiveInterval(intervalUs: number): void {

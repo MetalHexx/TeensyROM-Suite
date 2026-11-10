@@ -42,7 +42,7 @@ import type { Slot } from './slot';
 import { DeliveryProbe } from './bench/delivery-probe';
 import { PressProbe, type PressKind } from './bench/press-probe';
 import { installDeckBench } from './bench/deck-bench';
-import { DeckSendRoute } from './sender/deck-send-route';
+import { DeckSendRoute, tickSourceOf } from './sender/deck-send-route';
 
 /** How many seconds of play a tune's register record covers beyond the longest position the
  *  transport can show, so a hand has room to run past the end of the bar. */
@@ -164,7 +164,8 @@ export class DeckRuntime {
   }
 
   /** Builds this slot's engine bundle, once. A second call is a no-op — the sink, the player, the
-   *  clock and the replay threads are never rebuilt for a slot already built. */
+   *  clock and the replay threads are never rebuilt for a slot already built. Each clock keeps one
+   *  wake alarm in the link for the page's life, so the link's `MAX_WAKE_ALARMS` caps the slots. */
   build(slot: Slot): void {
     if (this.slots.has(slot)) {
       return;
@@ -184,7 +185,7 @@ export class DeckRuntime {
     const port = this.createOutputPort(slot, facade);
     const sink = createAsidSink(port, { scheduleAheadMs });
     const clock = this.clockFactory();
-    clock.setSource(this.route.path() === 'sender' ? 'sender' : 'audio');
+    clock.setSource(tickSourceOf(this.route.path()));
     const replay = this.replayFactory();
     const prepare = this.replayFactory();
     const recorder = this.recorderFactory();

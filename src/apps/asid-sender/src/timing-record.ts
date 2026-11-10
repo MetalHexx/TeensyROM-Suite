@@ -1,7 +1,6 @@
-import { BINS_PER_MS, Histogram } from '@teensyrom-nx/asid-sender-protocol';
+import { BINS_PER_MS, Histogram, summarizeLateness } from '@teensyrom-nx/asid-sender-protocol';
 import type {
   CartridgeTiming,
-  LatenessSummary,
   SenderTimingReport,
   TimelineRow,
 } from '@teensyrom-nx/asid-sender-protocol';
@@ -106,7 +105,7 @@ class CartridgeRecord {
         spareP50Ms: round(this.spare.percentile(0.5), 2),
       },
       send: {
-        ...summary(this.late),
+        ...summarizeLateness(this.late),
         ownOver2Ms: this.ownOver2Ms,
         ownOver5Ms: this.ownOver5Ms,
         ownMaxMs: round(this.ownMaxMs, 2),
@@ -116,15 +115,6 @@ class CartridgeRecord {
       dropped: this.dropped,
     };
   }
-}
-
-function summary(histogram: Histogram): LatenessSummary {
-  return {
-    count: histogram.count,
-    p50: round(histogram.percentile(0.5), 2),
-    p99: round(histogram.percentile(0.99), 2),
-    max: round(histogram.max, 2),
-  };
 }
 
 /**
@@ -255,7 +245,7 @@ export class TimingRecord {
     return {
       sinceS: round((nowMs - this.startMs) / 1000, 1),
       marginMs: { now: round(this.marginNowMs, 2), max: round(this.marginMaxMs, 2) },
-      wake: summary(this.wakes),
+      wake: summarizeLateness(this.wakes),
       cartridges: this.cartridges.map((cartridge) => cartridge.timing()),
       timeline,
       visibility: this.visibilityLog(),

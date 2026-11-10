@@ -17,7 +17,7 @@ export interface BenchDeck {
 }
 
 const HELP = `djBench — deck timing bench (dev builds only)
-  djBench.report()               timing per playing deck since the last reset: lagMs is the mixer lateness (due to hand-off, whole stretch); presses is press-to-wire per kind and pooled (all), with noFrame and superseded counts; tick is the clock's source ('sender' or 'audio') and, once the sender's wake has driven it, wake: wakes, early (found no frame due), guardRearms (the backstop beat re-armed a silent chain), senderLateMs (asked to sent) and mixerLateMs (sent to handled)
+  djBench.report()               timing per playing deck since the last reset: lagMs is the mixer lateness (due to hand-off, whole stretch); presses is press-to-wire per kind and pooled (all), with noFrame and superseded counts; tick is the clock's source ('sender' or 'audio') and, once the sender's wake or the backstop beat has touched it, wake: wakes, early (found no frame due), guardRearms (the backstop beat re-armed a silent chain), senderLateMs (asked to sent) and mixerLateMs (sent to handled)
   djBench.lagTimeline()          per deck, one row per closed 10 s since the reset: { atS, frames, p99Ms, maxMs }; finds where a stall landed
   djBench.reset()                clears the delivery probes, the press probes, the clocks' wake readings and the long-task count (clock and player stats reset on play); with the sender, also its timing record
   djBench.lookahead(ms)          sets the live send path's schedule-ahead on both decks (the sink caps it at 40 ms) and then resets every reading; the other path keeps its own value for this page load
@@ -131,7 +131,7 @@ export function installDeckBench(decks: () => readonly BenchDeck[]): void {
 
 function wakeOf(clock: DeckFrameClock): WakeReadings | null {
   const readings = clock.wakeReadings();
-  return readings.wakes === 0 ? null : readings;
+  return readings.wakes === 0 && readings.guardRearms === 0 ? null : readings;
 }
 
 function round(value: number): number {

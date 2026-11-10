@@ -206,6 +206,16 @@ describe('SenderHealth', () => {
       expect(m.health.state).toBe('down');
     });
 
+    it('fails a hello from a sender page still on protocol version 1', () => {
+      const m = harness();
+      m.grant();
+      m.feed({ kind: 'loaded' });
+
+      m.feed({ kind: 'hello', identity: ASID_SENDER_IDENTITY, version: 1 });
+
+      expect(m.health.state).toBe('down');
+    });
+
     it('fails a hello with the wrong protocol version', () => {
       const m = harness();
       m.grant();

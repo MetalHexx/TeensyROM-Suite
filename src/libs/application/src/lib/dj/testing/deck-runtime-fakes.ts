@@ -27,57 +27,30 @@ export class FakeReplayRunner implements ReplayRunner {
 }
 
 const NO_LATENESS = { count: 0, p50: 0, p99: 0, max: 0 };
+const NO_WAKES: WakeReadings = {
+  wakes: 0,
+  early: 0,
+  guardRearms: 0,
+  senderLateMs: NO_LATENESS,
+  mixerLateMs: NO_LATENESS,
+};
 
-/** A `FakeClock` that also keeps the tick source it was handed, and reads no wakes. */
+/** A `FakeClock` that also keeps the tick source it was handed, and reads the wakes a spec sets. */
 export class FakeDeckClock extends FakeClock implements DeckFrameClock {
   source: TickSource = 'audio';
   wakeResets = 0;
+  wakes: WakeReadings = NO_WAKES;
 
   setSource(source: TickSource): void {
     this.source = source;
   }
 
   wakeReadings(): WakeReadings {
-    return {
-      wakes: 0,
-      early: 0,
-      guardRearms: 0,
-      senderLateMs: NO_LATENESS,
-      mixerLateMs: NO_LATENESS,
-    };
+    return this.wakes;
   }
 
   resetWakeReadings(): void {
     this.wakeResets++;
-  }
-}
-
-/** A wake alarm that records what it was armed for and lets a spec play the sender's wake and the beat. */
-export class FakeWakeAlarm implements SenderWakeAlarm {
-  readonly arms: number[] = [];
-  cancels = 0;
-
-  constructor(
-    private readonly onWake: (askedAtMs: number, sentAtMs: number, nowMs: number) => void,
-    private readonly onBeat: (nowMs: number) => void
-  ) {}
-
-  arm(atMs: number): void {
-    this.arms.push(atMs);
-  }
-
-  cancel(): void {
-    this.cancels++;
-  }
-
-  /** The sender's wake arriving on the page. */
-  wake(askedAtMs: number, sentAtMs: number, nowMs: number): void {
-    this.onWake(askedAtMs, sentAtMs, nowMs);
-  }
-
-  /** One beat of the link's steady ticker. */
-  beat(nowMs: number): void {
-    this.onBeat(nowMs);
   }
 }
 
@@ -223,7 +196,6 @@ export class FakeSenderLink implements IAsidSenderLink {
   closes = 0;
   timing: SenderTimingReport | null = null;
   timingClears = 0;
-  readonly wakeAlarms: FakeWakeAlarm[] = [];
   private listener: ((event: AsidSenderEvent) => void) | null = null;
   private selfTestSettlers: ((result: SelfTestResult) => void)[] = [];
 
@@ -268,13 +240,8 @@ export class FakeSenderLink implements IAsidSenderLink {
     this.timingClears++;
   }
 
-  wakeAlarm(
-    onWake: (askedAtMs: number, sentAtMs: number, nowMs: number) => void,
-    onBeat: (nowMs: number) => void
-  ): FakeWakeAlarm {
-    const alarm = new FakeWakeAlarm(onWake, onBeat);
-    this.wakeAlarms.push(alarm);
-    return alarm;
+  wakeAlarm(): SenderWakeAlarm {
+    return { arm: (): void => undefined, cancel: (): void => undefined };
   }
 
   /** Raises an event as the helper's frame would. */

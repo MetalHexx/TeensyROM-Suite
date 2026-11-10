@@ -11,7 +11,7 @@ import {
   MIDI_ACCESS,
   ASID_SENDER_LINK,
 } from './ports';
-import type { RegisterRecorder } from './ports';
+import type { RegisterRecorder, WakeReadings } from './ports';
 import { DeckSendRoute, SENDER_SCHEDULE_AHEAD_MS } from './sender/deck-send-route';
 import {
   FakeDeckClock,
@@ -915,20 +915,47 @@ describe('DeckRuntime with a timing helper', () => {
       expect(clocks).toHaveLength(1);
     });
 
-    it('is read off the clock by the bench, with the wake readings only once a wake has driven it', async () => {
-      await playDeckA();
-      const report = (): { decks: { A: { tick: { source: string; wake: unknown } } } } =>
-        (
-          globalThis as unknown as {
-            djBench: { report(): { decks: { A: { tick: { source: string; wake: unknown } } } } };
-          }
-        ).djBench.report();
+    describe('on the bench', () => {
+      type Tick = { source: string; wake: unknown };
+      type Bench = { report(): { decks: { A: { tick: Tick } } }; reset(): void };
+      const bench = (): Bench => (globalThis as unknown as { djBench: Bench }).djBench;
+      const readings = (wakes: number, guardRearms: number): WakeReadings => ({
+        wakes,
+        early: 0,
+        guardRearms,
+        senderLateMs: { count: wakes, p50: 0.4, p99: 1.2, max: 2 },
+        mixerLateMs: { count: wakes, p50: 0.1, p99: 0.3, max: 0.5 },
+      });
 
-      expect(report().decks.A.tick).toEqual({ source: 'audio', wake: null });
+      it('reads the audio source with no wake readings', async () => {
+        await playDeckA();
 
-      (globalThis as unknown as { djBench: { reset(): void } }).djBench.reset();
+        expect(bench().report().decks.A.tick).toEqual({ source: 'audio', wake: null });
+      });
 
-      expect(clocks[0].wakeResets).toBe(1);
+      it('reads the sender source with the wake readings the clock holds', async () => {
+        await playDeckA();
+        clocks[0].source = 'sender';
+        clocks[0].wakes = readings(40, 0);
+
+        expect(bench().report().decks.A.tick).toEqual({ source: 'sender', wake: readings(40, 0) });
+      });
+
+      it('shows the guard re-arms of a chain the sender never woke', async () => {
+        await playDeckA();
+        clocks[0].source = 'sender';
+        clocks[0].wakes = readings(0, 2);
+
+        expect(bench().report().decks.A.tick).toEqual({ source: 'sender', wake: readings(0, 2) });
+      });
+
+      it('clears the clock readings on reset', async () => {
+        await playDeckA();
+
+        bench().reset();
+
+        expect(clocks[0].wakeResets).toBe(1);
+      });
     });
   });
 
