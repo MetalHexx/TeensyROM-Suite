@@ -754,4 +754,42 @@ public class SaveMidiSettingsRequestValidatorTests
     }
 
     #endregion
+
+    #region Send settings
+
+    private static SendSettingsDto Send(int lookaheadMs) => new() { LookaheadMs = lookaheadMs, SenderEnabled = true };
+
+    [Fact]
+    public void Validate_SendSettingsNullOrAbsent_Passes()
+    {
+        var request = ValidRequest();
+        request.SendSettings = null;
+        _validator.Validate(request).IsValid.Should().BeTrue();
+
+        _validator.Validate(new SaveMidiSettingsRequest()).IsValid.Should().BeTrue();
+    }
+
+    [Theory]
+    [InlineData(MidiSettingsAllowLists.LookaheadMinMs)]
+    [InlineData(MidiSettingsAllowLists.LookaheadMaxMs)]
+    public void Validate_LookaheadAtTheLimits_Passes(int lookaheadMs)
+    {
+        var request = ValidRequest();
+        request.SendSettings = Send(lookaheadMs);
+
+        _validator.Validate(request).IsValid.Should().BeTrue();
+    }
+
+    [Theory]
+    [InlineData(MidiSettingsAllowLists.LookaheadMinMs - 1)]
+    [InlineData(MidiSettingsAllowLists.LookaheadMaxMs + 1)]
+    public void Validate_LookaheadOutsideTheLimits_IsRejected(int lookaheadMs)
+    {
+        var request = ValidRequest();
+        request.SendSettings = Send(lookaheadMs);
+
+        AssertRejectedAt(request, "SendSettings.LookaheadMs");
+    }
+
+    #endregion
 }

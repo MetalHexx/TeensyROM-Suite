@@ -12,7 +12,8 @@ namespace TeensyRom.Api.Endpoints.MidiSettings.GetMidiSettings
                 Controllers = entity.Controllers.Select(MapController).ToList(),
                 Mappings = entity.Mappings.Select(MapMapping).ToList(),
                 DeckBindings = entity.DeckBindings.Select(MapDeckBinding).ToList(),
-                DeckSettings = entity.DeckSettings.Select(MapDeckSettings).ToList()
+                DeckSettings = entity.DeckSettings.Select(MapDeckSettings).ToList(),
+                SendSettings = entity.SendSettings is null ? null : MapSendSettings(entity.SendSettings)
             };
         }
 
@@ -59,6 +60,15 @@ namespace TeensyRom.Api.Endpoints.MidiSettings.GetMidiSettings
                 Slot = entity.Slot,
                 DeviceId = entity.DeviceId,
                 LastSeenName = entity.LastSeenName
+            };
+        }
+
+        private static SendSettingsDto MapSendSettings(SendSettings entity)
+        {
+            return new SendSettingsDto
+            {
+                LookaheadMs = entity.LookaheadMs,
+                SenderEnabled = entity.SenderEnabled
             };
         }
 

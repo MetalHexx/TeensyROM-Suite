@@ -97,6 +97,31 @@ public class MidiSettingsMapperTests
     }
 
     [Fact]
+    public void SaveThenGet_RoundTripsSendSettings()
+    {
+        var request = new SaveMidiSettingsRequest
+        {
+            SendSettings = new SendSettingsDto { LookaheadMs = 25, SenderEnabled = true }
+        };
+
+        var entity = new SaveMidiSettingsMapper().ToEntity(request);
+        var response = new GetMidiSettingsMapper().FromEntity(entity);
+
+        entity.SendSettings.Should().Be(new SendSettings { LookaheadMs = 25, SenderEnabled = true });
+        response.SendSettings.Should().Be(request.SendSettings);
+    }
+
+    [Fact]
+    public void SaveThenGet_RoundTripsNullSendSettingsAsNull()
+    {
+        var entity = new SaveMidiSettingsMapper().ToEntity(new SaveMidiSettingsRequest { SendSettings = null });
+        var response = new GetMidiSettingsMapper().FromEntity(entity);
+
+        entity.SendSettings.Should().BeNull();
+        response.SendSettings.Should().BeNull();
+    }
+
+    [Fact]
     public void Save_ToEntity_SavesAnEmptyListWhenDeckSettingsAreNull()
     {
         var entity = new SaveMidiSettingsMapper().ToEntity(new SaveMidiSettingsRequest { DeckSettings = null });

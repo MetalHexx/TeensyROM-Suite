@@ -83,7 +83,8 @@ public class MidiSettingsServiceTests : IDisposable
         [
             new DeckSettings { Slot = "A", Slip = true, LiveLoopBeats = 0.5 },
             new DeckSettings { Slot = "B", Slip = false, LiveLoopBeats = 4 }
-        ]
+        ],
+        SendSettings = new SendSettings { LookaheadMs = 25, SenderEnabled = true }
     };
 
     [Fact]
@@ -111,6 +112,25 @@ public class MidiSettingsServiceTests : IDisposable
         loaded.Mappings.Should().Equal(saved.Mappings);
         loaded.DeckBindings.Should().Equal(saved.DeckBindings);
         loaded.DeckSettings.Should().Equal(saved.DeckSettings);
+        loaded.SendSettings.Should().Be(saved.SendSettings);
+    }
+
+    [Fact]
+    public void Get_WhenTheFileHasNoSendSettings_LoadsNullAndSavesItUnchanged()
+    {
+        Directory.CreateDirectory(Path.GetDirectoryName(_filePath)!);
+        File.WriteAllText(_filePath, """
+            {"controllers":[],"mappings":[],"deckBindings":[],"deckSettings":[]}
+            """);
+
+        var service = new MidiSettingsService(_log);
+        var settings = service.Get();
+        service.Save(settings).Should().BeTrue();
+        var reloaded = new MidiSettingsService(_log).Get();
+
+        settings.SendSettings.Should().BeNull();
+        reloaded.SendSettings.Should().BeNull();
+        _log.DidNotReceive().InternalWarning(Arg.Any<string>(), Arg.Any<string?>());
     }
 
     [Fact]

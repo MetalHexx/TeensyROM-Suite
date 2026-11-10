@@ -9124,6 +9124,9 @@ namespace TeensyRom.Cli.Api.Generated
         [System.ComponentModel.DataAnnotations.Required]
         public System.Collections.Generic.ICollection<DeckSettingsDto> DeckSettings { get; set; } = new System.Collections.ObjectModel.Collection<DeckSettingsDto>();
 
+        [System.Text.Json.Serialization.JsonPropertyName("sendSettings")]
+        public SendSettingsDto? SendSettings { get; set; } = default!;
+
         private System.Collections.Generic.IDictionary<string, object>? _additionalProperties;
 
         [System.Text.Json.Serialization.JsonExtensionData]
@@ -10063,6 +10066,9 @@ namespace TeensyRom.Cli.Api.Generated
         [System.Text.Json.Serialization.JsonPropertyName("deckSettings")]
         public System.Collections.Generic.ICollection<DeckSettingsDto>? DeckSettings { get; set; } = default!;
 
+        [System.Text.Json.Serialization.JsonPropertyName("sendSettings")]
+        public SendSettingsDto? SendSettings { get; set; } = default!;
+
         private System.Collections.Generic.IDictionary<string, object>? _additionalProperties;
 
         [System.Text.Json.Serialization.JsonExtensionData]
@@ -10337,6 +10343,27 @@ namespace TeensyRom.Cli.Api.Generated
 
         [System.Text.Json.Serialization.JsonPropertyName("description")]
         public double Description { get; set; } = default!;
+
+        private System.Collections.Generic.IDictionary<string, object>? _additionalProperties;
+
+        [System.Text.Json.Serialization.JsonExtensionData]
+        public System.Collections.Generic.IDictionary<string, object> AdditionalProperties
+        {
+            get { return _additionalProperties ?? (_additionalProperties = new System.Collections.Generic.Dictionary<string, object>()); }
+            set { _additionalProperties = value; }
+        }
+
+    }
+
+    [System.CodeDom.Compiler.GeneratedCode("NJsonSchema", "14.4.0.0 (NJsonSchema v11.3.2.0 (Newtonsoft.Json v13.0.0.0))")]
+    public partial class SendSettingsDto
+    {
+
+        [System.Text.Json.Serialization.JsonPropertyName("lookaheadMs")]
+        public int LookaheadMs { get; set; } = default!;
+
+        [System.Text.Json.Serialization.JsonPropertyName("senderEnabled")]
+        public bool SenderEnabled { get; set; } = default!;
 
         private System.Collections.Generic.IDictionary<string, object>? _additionalProperties;
 
