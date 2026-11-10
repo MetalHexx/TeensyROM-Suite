@@ -141,7 +141,16 @@ function render(controls: readonly MappableControl[] = CONTROLS) {
   const learn = { select: vi.fn(), cancel: vi.fn(), relearn: vi.fn().mockResolvedValue(undefined) };
   const mappings = { setStyle: vi.fn(), remove: vi.fn() };
   const settings = signal({ lookaheadMs: 20, senderEnabled: true });
-  const supervisor = { settings, setLookahead: vi.fn(), setEnabled: vi.fn() };
+  const supervisor = {
+    settings,
+    setLookahead: vi.fn((ms: number) =>
+      settings.update((current) => ({
+        ...current,
+        lookaheadMs: Math.min(SENDER_LOOKAHEAD_CEILING_MS, Math.max(SENDER_LOOKAHEAD_FLOOR_MS, ms)),
+      }))
+    ),
+    setEnabled: vi.fn(),
+  };
 
   TestBed.configureTestingModule({
     imports: [DjBindingsPanelComponent],
@@ -973,8 +982,22 @@ describe('DjBindingsPanelComponent', () => {
       expect(region.textContent?.trim()).toBe('Lookahead 21 ms');
 
       stepButton(fixture, 'Lower the lookahead').click();
-      expect(supervisor.setLookahead).toHaveBeenLastCalledWith(19);
+      fixture.detectChanges();
+      expect(supervisor.setLookahead).toHaveBeenLastCalledWith(20);
+      expect(region.textContent?.trim()).toBe('Lookahead 20 ms');
       expect(store.announcement()).toBe(before);
+    });
+
+    it('announces the lookahead the supervisor kept, not the one asked for', () => {
+      const { fixture, supervisor, settings } = openSettings();
+      settings.set({ lookaheadMs: SENDER_LOOKAHEAD_CEILING_MS, senderEnabled: true });
+
+      fixture.componentInstance.onLookaheadStep(1);
+      fixture.detectChanges();
+
+      expect(supervisor.setLookahead).toHaveBeenLastCalledWith(SENDER_LOOKAHEAD_CEILING_MS + 1);
+      const region = fixture.nativeElement.querySelector('[aria-live="polite"]') as HTMLElement;
+      expect(region.textContent?.trim()).toBe(`Lookahead ${SENDER_LOOKAHEAD_CEILING_MS} ms`);
     });
 
     it('switches the timing helper through the supervisor', () => {

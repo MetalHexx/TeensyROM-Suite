@@ -34,9 +34,10 @@ const EMPTY_SETTINGS: MidiSettingsRecord = {
 
 /**
  * The only writer of the whole MIDI settings set. The server stores the set whole, so every save
- * sends every list: the deck bindings, each deck's slip and live loop size and the timing helper's settings from `DjStore`, and the controllers and mappings from
- * `MidiMappingStore` once it has loaded them, as `load` returned them until then, less any mapping
- * to a control the app no longer has (the server rejects an unknown control on save).
+ * sends every list: the deck bindings, each deck's slip and live loop size and the timing helper's
+ * settings from `DjStore`, and the controllers and mappings from `MidiMappingStore` once it has
+ * loaded them, as `load` returned them until then, less any mapping to a control the app no longer
+ * has (the server rejects an unknown control on save).
  *
  * A failed load resolves an empty set and suppresses every save for the rest of the session, so a
  * partial set can never overwrite the server's.

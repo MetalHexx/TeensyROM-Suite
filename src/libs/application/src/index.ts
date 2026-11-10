@@ -21,7 +21,11 @@ export * from './lib/dj/cartridge-options';
 export * from './lib/dj/load-source';
 export * from './lib/dj/deck-runtime';
 export * from './lib/dj/sender/sender-supervisor';
-export * from './lib/dj/sender/deck-send-route';
+export {
+  SENDER_LOOKAHEAD_CEILING_MS,
+  SENDER_LOOKAHEAD_FLOOR_MS,
+  SENDER_SCHEDULE_AHEAD_MS,
+} from './lib/dj/sender/deck-send-route';
 export type { SenderHealthState } from './lib/dj/sender/sender-health';
 export * from './lib/dj/deck-grid';
 export * from './lib/dj/grid/beat-math';

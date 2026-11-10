@@ -1537,7 +1537,7 @@ bundled `InSID3_Out.sid` (5,200 bytes) through the protocol's request intercepti
 | `pnpm nx run-many -t typecheck -p asid-sender,asid-sender-protocol` | both passed (`tsc --noEmit -p tsconfig.app.json` and `tsc --noEmit -p tsconfig.lib.json`). `asid-sender-protocol` has a `typecheck` target now; ASID-DJ-21 found none |
 | `dotnet test apps/api/src/TeensyRom.Api.Tests.Unit` | passed: 1155 of 1155 |
 | `dotnet test apps/api/src/TeensyRom.Core.Tests` | passed: 246 of 246 |
-| `dotnet build apps/cli/TeensyRom.Cli.sln` | succeeded, 0 warnings, 0 errors |
+| `dotnet build apps/cli/TeensyRom.Cli.sln` | succeeded, 0 errors, 12 warnings (CS9107) on a clean compile, all in CLI files this project did not touch (the build run at the end was up to date and compiled nothing, so its "0 warnings" meant nothing; the phase 3 and phase 4 reviews measured the 12 on a clean compile). Not rebuilt |
 | `pnpm nx build teensyrom-ui --configuration=production` | built, 42 s (the bundle itself 33.9 s). Initial total **2.47 MB raw (510.11 kB transfer)**, over the 2.00 MB budget by **473.36 kB** (a warning; budgets in `project.json` unchanged). ASID-DJ-21's reading, in its section above: 2.46 MB raw (506.70 kB transfer), over by 460.17 kB. So +13.19 kB over budget and +3.41 kB transfer since, across all of ASID-DJ-22's changes; this section does not split the growth between them. The sender is in the bundle as `asid-sender/index.html` (226 bytes), `asid-sender/assets/index-B7vW-z9l.js` (18,063 bytes, against 16,434 in ASID-DJ-21's reading) and `asid-sender/assets/alarm.worker-CuHvwMaF.js` (243 bytes). The app's own `sender-ticker-worker` (40 bytes) is a lazy chunk |
 | `git status` in the `SIDablist` sibling | on `main` at `62cbd74`, up to date with `origin/main`, nothing changed (checked after the tests and the build, and again at the end) |
 
@@ -1600,8 +1600,9 @@ scratch folder). The panel's tablist read Bindings, Settings.
 - `curl` on `http://127.0.0.1:4200/asid-sender/index.html`: 200, `text/html; charset=UTF-8`, 226 bytes.
 - `typeof window.djBench` is `undefined` and no `SEND:` text is on the page. The Setup panel has the
   Bindings and Settings tabs. Settings read 15 ms with Lower disabled and the switch on. The API on port
-  10213 held 16 ms and off at that moment, so this page was not reading it: those are the defaults, and
-  the saved-value check above was made on the dev server only.
+  10213 held 16 ms and off at that moment, so this page was not reading it: `serve-static` has no API
+  behind it, so a production page there reads the defaults. The saved-value check above was made on the
+  dev server only, and no check has read the saved values back on a production build.
 - The sender comes up: the same three log lines, own-thread test passed, the frame an `iframe` target on
   `127.0.0.1:4200` with `?v=2`.
 
@@ -1612,6 +1613,8 @@ scratch folder). The panel's tablist read Bindings, Settings.
 - **The `i` and `b` keys on the production build.** Not driven here; ASID-DJ-21 recorded them doing
   nothing there, on its own build.
 - **The 30-minute hidden run and the API-served production build.** Bench checks 6.1 and 6.6 below.
+- **Reading the saved lookahead and switch back on a production build.** `serve-static` cannot (no
+  API behind it); check 6.6 below does it on the API-served build.
 - **Edge's task manager** (the sender under one core, in a process of its own): the browser's own UI.
 - **Hidden-page behaviour:** these runs forced the page visible; no hidden reading was taken.
 - **Claude in Chrome:** no browser was connected, so nothing was attached to the operator's Edge.
@@ -1710,7 +1713,8 @@ first check creates, with an entry in the portfolio's performance log
   - [ ] 6.5 The switch mid-set: Timing helper off and on while both decks play, with the chip in step
     after each. The setting survives a reload and a cleared browser cache.
   - [ ] 6.6 A production build served by the API: `pnpm run build:frontend`, `trom api stop`, `trom api
-    start`, then `http://localhost:10213/dj-mixer` for a shorter run of check 2 by ear.
+    start`, then `http://localhost:10213/dj-mixer` for a shorter run of check 2 by ear. Setup then
+    Settings on this build must show the saved lookahead and switch, matching `GET /api/midi-settings`.
   - [ ] Record it under **Final**, with the operator's verdict.
 - Never ask for a C64 or a MIDI device to be powered off: it freezes Edge (a known Chromium bug).
 - [ ] If deck B's C64 crashes on its own during the bench, record what happened.

@@ -405,11 +405,11 @@ export class DjBindingsPanelComponent {
     this.mappingSwitch()?.focus();
   }
 
-  /** Steps the lookahead by a millisecond; the supervisor clamps and saves. */
+  /** Steps the lookahead by a millisecond; the supervisor clamps and saves, and the live region
+   *  announces the value it kept. */
   onLookaheadStep(direction: -1 | 1): void {
-    const next = this.settings().lookaheadMs + direction;
-    this.supervisor.setLookahead(next);
-    this.settingsAnnouncement.set(`Lookahead ${next} ms`);
+    this.supervisor.setLookahead(this.settings().lookaheadMs + direction);
+    this.settingsAnnouncement.set(`Lookahead ${this.settings().lookaheadMs} ms`);
   }
 
   onTimingHelperChange(on: boolean): void {

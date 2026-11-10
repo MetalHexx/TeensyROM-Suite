@@ -29,8 +29,8 @@ export const MIXER_SCHEDULE_AHEAD_MS: Milliseconds = milliseconds(0);
 
 /**
  * How far past its due time each frame is stamped when the timing helper sends. ASID-DJ-21's
- * reading, on the audio tick: on 2026-11-07 two decks (Aces High at 1×, InSID3 Out at 2×) ran from a hidden-frame sender with the
- * mixer showing:
+ * reading, on the audio tick: on 2026-11-07 two decks (Aces High at 1×, InSID3 Out at 2×) ran
+ * from a hidden-frame sender with the mixer showing:
  *
  * | Lookahead | Gaps within 1 ms of the median, A / B | Past their stamp | By ear                                |
  * |-----------|---------------------------------------|------------------|---------------------------------------|
