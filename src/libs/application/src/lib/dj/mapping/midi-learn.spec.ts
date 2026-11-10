@@ -38,7 +38,14 @@ describe('MidiLearn', () => {
   /** The app as bootstrap leaves it, with the controller's input plugged in and mapping mode on. */
   async function start(saved: Partial<MidiSettingsRecord> = {}, mappingMode = true): Promise<void> {
     TestBed.resetTestingModule();
-    h = setUpMappingHarness({ controllers: [], mappings: [], deckBindings: [], deckSettings: [], ...saved });
+    h = setUpMappingHarness({
+      controllers: [],
+      mappings: [],
+      deckBindings: [],
+      deckSettings: [],
+      send: { lookaheadMs: 15, senderEnabled: true },
+      ...saved,
+    });
     h.makeShapeable('A');
     h.midiInput.plug(PORT, NAME);
     await h.controllers.hydrate();

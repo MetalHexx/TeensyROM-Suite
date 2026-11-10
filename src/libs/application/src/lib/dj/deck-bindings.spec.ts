@@ -74,7 +74,13 @@ class FakeMidiAccess implements IMidiAccess {
   }
 }
 
-const NO_SETTINGS: MidiSettingsRecord = { controllers: [], mappings: [], deckBindings: [], deckSettings: [] };
+const NO_SETTINGS: MidiSettingsRecord = {
+  controllers: [],
+  mappings: [],
+  deckBindings: [],
+  deckSettings: [],
+  send: { lookaheadMs: 15, senderEnabled: true },
+};
 
 /** TeensyROM-1 and TeensyROM-2 as the browser enumerates them. */
 const PORT_1: MidiPortOption = { id: 'port-1', name: 'TeensyROM-1111', manufacturer: 'Acme' };

@@ -12,11 +12,12 @@ import {
   ASID_SENDER_LINK,
   FRAME_CLOCK_FACTORY,
   MIDI_ACCESS,
+  MIDI_SETTINGS_REPOSITORY,
   REGISTER_RECORDER_FACTORY,
   REPLAY_RUNNER_FACTORY,
 } from '../ports';
 import type { RegisterRecorder } from '../ports';
-import { DeckSendRoute } from '../sender/deck-send-route';
+import { DeckSendRoute, SENDER_SCHEDULE_AHEAD_MS } from '../sender/deck-send-route';
 import { TICK_MS } from '../sender/sender-health';
 import { SenderSupervisor } from '../sender/sender-supervisor';
 import {
@@ -89,6 +90,7 @@ describe('sender bench', () => {
   /** Brings the sender up with deck A playing, then takes over the bench from the one `start` installed. */
   async function bringUp(): Promise<void> {
     supervisor.start();
+    await settle();
     TestBed.flushEffects();
     frameLoads();
     nowMs += TICK_MS;
@@ -116,6 +118,19 @@ describe('sender bench', () => {
     TestBed.configureTestingModule({
       providers: [
         { provide: ASID_SENDER_LINK, useValue: link },
+        {
+          provide: MIDI_SETTINGS_REPOSITORY,
+          useValue: {
+            load: async () => ({
+              controllers: [],
+              mappings: [],
+              deckBindings: [],
+              deckSettings: [],
+              send: { lookaheadMs: SENDER_SCHEDULE_AHEAD_MS, senderEnabled: true },
+            }),
+            save: async () => undefined,
+          },
+        },
         {
           provide: ALERT_SERVICE,
           useValue: { warning: vi.fn(), info: vi.fn() } as unknown as IAlertService,

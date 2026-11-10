@@ -311,6 +311,7 @@ describe('DeckService', () => {
         mappings: [],
         deckBindings: [],
         deckSettings: [],
+        send: { lookaheadMs: 15, senderEnabled: true },
       } satisfies MidiSettingsRecord),
       scheduleSave: vi.fn(),
     };
@@ -3844,6 +3845,7 @@ describe('DeckService', () => {
         mappings: [],
         deckBindings: [],
         deckSettings,
+        send: { lookaheadMs: 15, senderEnabled: true },
       } satisfies MidiSettingsRecord);
     }
 

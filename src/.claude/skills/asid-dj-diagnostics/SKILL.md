@@ -103,10 +103,14 @@ Chrome's `javascript_tool`):
 djBench.reset()        // clear the delivery probes, the press probes, the clocks' wake readings and the long-task count; wait ~10 s
 djBench.report()       // per playing deck, since the reset
 djBench.lagTimeline()  // per deck, one row per closed 10 s since the reset: { atS, frames, p99Ms, maxMs }
-djBench.lookahead(ms)  // both decks' schedule-ahead on the live send path (sink caps it at 40 ms), then a full reset(); the other path keeps its own value; not persisted across reloads
+djBench.lookahead(ms)  // both decks' schedule-ahead on the live send path (sink caps it at 40 ms), then a full reset(); the other path keeps its own value; not persisted across reloads; works below the Settings floor too
 await djBench.sender() // the timing helper's own numbers per deck (see below)
 djBench.help()
 ```
+
+The sender's default lookahead is 15 ms, provisional until the post-run bench (ASID-DJ-22). The DJ sets
+it on Setup -> Settings, from the floor (15 ms, also provisional) to 40, and it is saved. `djBench.lookahead(ms)`
+still overrides it for the page load, below the floor too, and is not saved; the post-run sweep relies on this.
 
 `djBench.reset()` also clears the sender's timing record. A change of path (a self-heal, the `i` flip) does not restart the readings; only `reset()` and `lookahead(ms)` do.
 
@@ -118,7 +122,8 @@ the self-heal drill (`djBench.sender()` reads `path mixer`, `state down` with th
 `path sender`, `state up` with the back alert on its own). Press `b` more than 10 s after the page
 loads: inside that start-up grace the path and state change and the log shows it, but no alert is
 raised, so it looks like a dead tool.
-`await djBench.sender()` prints and returns `{ path, state, answered, marginMs, wake, decks, timeline, visibility }`:
+`await djBench.sender()` prints and returns `{ path, state, answered, marginMs, wake, decks, timeline, visibility }`
+(`state` can read `off`: the DJ switched the sender off, or it was saved off, and it never opens until switched on):
 the sender's record per deck (`decks.A` / `decks.B`, empty with no cartridge), its wake lateness and
 margin, a timeline and the hidden/visible changes. The record is bounded and safe to read mid-run.
 When the sender is closed or down it sends no record: `answered` is `false`, `marginMs` and `wake` are

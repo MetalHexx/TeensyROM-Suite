@@ -9,14 +9,17 @@ import {
   signal,
   untracked,
 } from '@angular/core';
+import { milliseconds } from '@sidablist/core';
 import { ALERT_SERVICE, type IAlertService } from '@teensyrom-nx/domain';
 import { logInfo, logWarn, LogType } from '@teensyrom-nx/utils';
 import { installSenderBench } from '../bench/sender-bench';
 import { DeckRuntime } from '../deck-runtime';
+import { DjStore } from '../dj-store';
+import { MidiSettingsPersistence } from '../midi-settings-persistence';
 import { ASID_SENDER_LINK, MIDI_ACCESS } from '../ports';
 import type { AsidSenderEvent, IMidiAccess } from '../ports';
 import { DECK_SLOTS, type Slot } from '../slot';
-import { DeckSendRoute, tickSourceOf, type SendPath } from './deck-send-route';
+import { DeckSendRoute, clampLookaheadMs, tickSourceOf, type SendPath } from './deck-send-route';
 import {
   SenderHealth,
   type SenderCommand,
@@ -40,11 +43,15 @@ export class SenderSupervisor {
   private readonly alertService: IAlertService = inject(ALERT_SERVICE);
   private readonly runtime = inject(DeckRuntime);
   private readonly route = inject(DeckSendRoute);
+  private readonly store = inject(DjStore);
+  private readonly persistence = inject(MidiSettingsPersistence);
   private readonly injector = inject(Injector);
 
   private readonly health = new SenderHealth();
   private readonly healthState = signal<SenderHealthState>('idle');
   private started = false;
+  /** True once the saved settings have been applied; the sender does not open before. */
+  private readonly settingsReady = signal(false);
   /** Whether each deck was playing the last time the cartridges were known to be in step with it:
    *  when the decks moved onto the sender, and at every answer it has given since. */
   private readonly playingWhenInStep = new Map<Slot, boolean>();
@@ -52,23 +59,28 @@ export class SenderSupervisor {
   /** Where the machine stands, for the dev bench. */
   readonly state: Signal<SenderHealthState> = this.healthState.asReadonly();
 
+  /** The timing helper's lookahead and switch, as the DJ has them set. */
+  readonly settings: Signal<{ lookaheadMs: number; senderEnabled: boolean }> = this.store.send;
+
   /**
-   * Installed once, in the injector context — `DeckBindings.installEffects`' pattern. The effect
-   * feeds the machine `midi-granted` the first time the mixer's MIDI access reads `granted`; until
-   * then nothing opens, so an app that is never granted MIDI never loads the helper. Dev builds
-   * also get the sender's bench keys and commands.
+   * Installed once, in the injector context — `DeckBindings.installEffects`' pattern. The saved
+   * settings are loaded and applied first. The effect feeds the machine `midi-granted` the first
+   * time the mixer's MIDI access reads `granted` and the settings have landed; until then nothing
+   * opens, so an app that is never granted MIDI never loads the helper, and one the DJ switched off
+   * never flashes it. Dev builds also get the sender's bench keys and commands.
    */
   start(): void {
     if (this.started || this.link === null) {
       return;
     }
     this.started = true;
+    void this.hydrate();
 
     const link = this.link;
     let granted = false;
     runInInjectionContext(this.injector, () => {
       effect(() => {
-        if (this.midiAccess.accessState() !== 'granted' || granted) {
+        if (!this.settingsReady() || this.midiAccess.accessState() !== 'granted' || granted) {
           return;
         }
         granted = true;
@@ -84,6 +96,28 @@ export class SenderSupervisor {
     }
   }
 
+  /** Sets how far ahead the sender stamps its frames. On the sender path each deck takes it from its
+   *  next frame; on the mixer path it waits in the route for the next move onto the sender. Frames
+   *  already held keep their stamps. */
+  setLookahead(ms: number): void {
+    const lookaheadMs = clampLookaheadMs(ms);
+    this.store.setSendSettings({ lookaheadMs });
+    this.route.setLookahead('sender', milliseconds(lookaheadMs));
+    if (this.route.path() === 'sender') {
+      for (const slot of DECK_SLOTS) {
+        this.runtime.setScheduleAhead(slot, milliseconds(lookaheadMs));
+      }
+    }
+    this.persistence.scheduleSave();
+  }
+
+  /** The DJ's switch: off closes the sender and puts the decks on the mixer; on opens it again. */
+  setEnabled(on: boolean): void {
+    this.store.setSendSettings({ senderEnabled: on });
+    this.feed({ kind: 'enable', on });
+    this.persistence.scheduleSave();
+  }
+
   /** The dev flip: the sender if the decks are on the mixer, the mixer if they are on the sender. */
   flip(): void {
     this.feed({ kind: 'prefer', path: this.health.path === 'sender' ? 'mixer' : 'sender' });
@@ -92,6 +126,19 @@ export class SenderSupervisor {
   /** The dev break: the failure path a real failure takes, on purpose. */
   breakOnPurpose(): void {
     this.feed({ kind: 'break' });
+  }
+
+  /** Applies the saved settings — to the store and the route only, with no save — and lets the
+   *  grant through. `load` never rejects; a failed load yields the defaults. */
+  private async hydrate(): Promise<void> {
+    const { send } = await this.persistence.load();
+    const lookaheadMs = clampLookaheadMs(send.lookaheadMs);
+    this.store.setSendSettings({ lookaheadMs, senderEnabled: send.senderEnabled });
+    this.route.setLookahead('sender', milliseconds(lookaheadMs));
+    if (!send.senderEnabled) {
+      this.feed({ kind: 'enable', on: false });
+    }
+    this.settingsReady.set(true);
   }
 
   private feed(event: SenderHealthEvent): void {

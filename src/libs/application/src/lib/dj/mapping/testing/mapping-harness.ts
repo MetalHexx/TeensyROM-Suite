@@ -53,6 +53,7 @@ export const EMPTY_SETTINGS: MidiSettingsRecord = {
   mappings: [],
   deckBindings: [],
   deckSettings: [],
+  send: { lookaheadMs: 15, senderEnabled: true },
 };
 
 const TUNE: TuneReference = {

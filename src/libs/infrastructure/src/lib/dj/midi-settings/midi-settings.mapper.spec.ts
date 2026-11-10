@@ -1,6 +1,10 @@
 import { describe, it, expect } from 'vitest';
 import type { GetMidiSettingsResponse } from '@teensyrom-nx/data-access/api-client';
-import type { MidiSettingsRecord } from '@teensyrom-nx/application';
+import {
+  SENDER_LOOKAHEAD_CEILING_MS,
+  SENDER_SCHEDULE_AHEAD_MS,
+  type MidiSettingsRecord,
+} from '@teensyrom-nx/application';
 import { toMidiSettingsRecord, toSaveMidiSettingsRequest } from './midi-settings.mapper';
 
 const RECORD: MidiSettingsRecord = {
@@ -46,6 +50,7 @@ const RECORD: MidiSettingsRecord = {
     { slot: 'A', slip: true, liveLoopBeats: 0.5 },
     { slot: 'B', slip: false, liveLoopBeats: 4 },
   ],
+  send: { lookaheadMs: SENDER_LOOKAHEAD_CEILING_MS, senderEnabled: false },
 };
 
 describe('midi settings mapper', () => {
@@ -98,6 +103,32 @@ describe('midi settings mapper', () => {
       deckSettings: [],
     });
     expect(record.mappings[0].style).toEqual({ kind: 'press', amount: null });
+  });
+
+  it('defaults the timing helper settings when the response has none, or only some', () => {
+    const base: GetMidiSettingsResponse = {
+      controllers: [],
+      mappings: [],
+      deckBindings: [],
+      deckSettings: [],
+    };
+    const defaults = { lookaheadMs: SENDER_SCHEDULE_AHEAD_MS, senderEnabled: true };
+
+    expect(toMidiSettingsRecord(base).send).toEqual(defaults);
+    expect(toMidiSettingsRecord({ ...base, sendSettings: null }).send).toEqual(defaults);
+    expect(
+      toMidiSettingsRecord({
+        ...base,
+        sendSettings: { senderEnabled: false } as GetMidiSettingsResponse['sendSettings'],
+      }).send
+    ).toEqual({ lookaheadMs: SENDER_SCHEDULE_AHEAD_MS, senderEnabled: false });
+  });
+
+  it('always sends the timing helper settings in the wire shape', () => {
+    expect(toSaveMidiSettingsRequest(RECORD).sendSettings).toEqual({
+      lookaheadMs: SENDER_LOOKAHEAD_CEILING_MS,
+      senderEnabled: false,
+    });
   });
 
   it('sends the settings of both decks in the wire shape', () => {

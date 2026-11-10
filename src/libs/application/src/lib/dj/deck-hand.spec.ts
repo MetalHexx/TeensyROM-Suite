@@ -740,6 +740,7 @@ describe('DeckHand', () => {
             ],
             deckBindings: [],
             deckSettings: [],
+            send: { lookaheadMs: 15, senderEnabled: true },
           },
           new FakeReplayRunner()
         );

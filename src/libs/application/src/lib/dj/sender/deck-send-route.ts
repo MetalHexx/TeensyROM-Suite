@@ -28,8 +28,8 @@ export function tickSourceOf(path: SendPath): TickSource {
 export const MIXER_SCHEDULE_AHEAD_MS: Milliseconds = milliseconds(0);
 
 /**
- * How far past its due time each frame is stamped when the timing helper sends. Ear-validated: on
- * 2026-11-07 two decks (Aces High at 1×, InSID3 Out at 2×) ran from a hidden-frame sender with the
+ * How far past its due time each frame is stamped when the timing helper sends. ASID-DJ-21's
+ * reading, on the audio tick: on 2026-11-07 two decks (Aces High at 1×, InSID3 Out at 2×) ran from a hidden-frame sender with the
  * mixer showing:
  *
  * | Lookahead | Gaps within 1 ms of the median, A / B | Past their stamp | By ear                                |
@@ -41,8 +41,29 @@ export const MIXER_SCHEDULE_AHEAD_MS: Milliseconds = milliseconds(0);
  * 15 ms is the lowest that held. About 99% of frames leave the mixer within about 15 ms. A
  * 12-minute adaptive-margin run at 15 read 98.0 / 96.5%. The sink caps it at 40 ms for a port that
  * cannot cancel.
+ *
+ * On the sender's wake tick, 15 ms is provisional. ASID-DJ-22's post-run bench sweeps the lookahead
+ * and chooses the shipped value and the floor; these constants then follow its Chosen section.
  */
 export const SENDER_SCHEDULE_AHEAD_MS: Milliseconds = milliseconds(15);
+
+/**
+ * The lowest lookahead the DJ can set. Provisional, as `SENDER_SCHEDULE_AHEAD_MS` is: 15 ms is the
+ * lowest value that held in its table, and ASID-DJ-22's post-run bench chooses the real floor. The
+ * API's `MidiSettingsAllowLists.LookaheadMinMs` holds the same value.
+ */
+export const SENDER_LOOKAHEAD_FLOOR_MS = 15;
+
+/** The highest lookahead the DJ can set: the ASID sink's cap for a port that cannot cancel. */
+export const SENDER_LOOKAHEAD_CEILING_MS = 40;
+
+/** Rounds to a whole ms and clamps to [floor, ceiling]; a non-finite value gives the shipped default. */
+export function clampLookaheadMs(ms: number): number {
+  if (!Number.isFinite(ms)) {
+    return SENDER_SCHEDULE_AHEAD_MS;
+  }
+  return Math.min(SENDER_LOOKAHEAD_CEILING_MS, Math.max(SENDER_LOOKAHEAD_FLOOR_MS, Math.round(ms)));
+}
 
 /**
  * Which way the decks' packets go right now and at what lookahead, plus the cartridges the timing

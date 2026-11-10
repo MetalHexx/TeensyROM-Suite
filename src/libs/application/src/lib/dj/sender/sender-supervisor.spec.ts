@@ -12,10 +12,12 @@ import {
   ASID_SENDER_LINK,
   FRAME_CLOCK_FACTORY,
   MIDI_ACCESS,
+  MIDI_SETTINGS_REPOSITORY,
   REGISTER_RECORDER_FACTORY,
   REPLAY_RUNNER_FACTORY,
 } from '../ports';
-import type { RegisterRecorder } from '../ports';
+import type { IMidiSettingsRepository, RegisterRecorder, SendSettingsRecord } from '../ports';
+import { MidiSettingsPersistence } from '../midi-settings-persistence';
 import type { Slot } from '../slot';
 import {
   FakeDeckClock,
@@ -30,7 +32,12 @@ import {
   recordingPort,
   type RecordingPort,
 } from '../testing/deck-runtime-fakes';
-import { DeckSendRoute } from './deck-send-route';
+import {
+  DeckSendRoute,
+  SENDER_LOOKAHEAD_CEILING_MS,
+  SENDER_LOOKAHEAD_FLOOR_MS,
+  SENDER_SCHEDULE_AHEAD_MS,
+} from './deck-send-route';
 import { SenderSupervisor } from './sender-supervisor';
 import { START_GRACE_MS, TICK_MS } from './sender-health';
 
@@ -48,6 +55,9 @@ describe('SenderSupervisor', () => {
   let recorders: FakeRegisterRecorder[];
   let alertService: { warning: ReturnType<typeof vi.fn>; info: ReturnType<typeof vi.fn> };
   let nowMs: number;
+  let savedSend: SendSettingsRecord;
+  let holdLoad: Promise<void> | null;
+  let repository: IMidiSettingsRepository;
 
   const settle = (): Promise<void> => new Promise((resolve) => setTimeout(resolve));
   const clockOf = (slot: Slot): FakeDeckClock => clocks[slot === 'A' ? 0 : 1];
@@ -67,9 +77,19 @@ describe('SenderSupervisor', () => {
       B: recordingPort('port-b', { timeline }),
     };
     alertService = { warning: vi.fn(), info: vi.fn() };
+    savedSend = { lookaheadMs: SENDER_SCHEDULE_AHEAD_MS, senderEnabled: true };
+    holdLoad = null;
+    repository = {
+      load: async () => {
+        await holdLoad;
+        return { controllers: [], mappings: [], deckBindings: [], deckSettings: [], send: savedSend };
+      },
+      save: async () => undefined,
+    };
 
     TestBed.configureTestingModule({
       providers: [
+        { provide: MIDI_SETTINGS_REPOSITORY, useValue: repository },
         { provide: ASID_SENDER_LINK, useValue: link },
         { provide: ALERT_SERVICE, useValue: alertService as unknown as IAlertService },
         {
@@ -115,6 +135,13 @@ describe('SenderSupervisor', () => {
     vi.restoreAllMocks();
   });
 
+  /** Starts the supervisor, lets the saved settings land, then runs the grant effect. */
+  async function startSettled(): Promise<void> {
+    supervisor.start();
+    await settle();
+    TestBed.flushEffects();
+  }
+
   async function startPlaying(slot: Slot): Promise<void> {
     runtime.load(slot, playableOf(SID_MODEL_8580, WRITING_TUNE));
     await runtime.play(slot);
@@ -152,8 +179,7 @@ describe('SenderSupervisor', () => {
     whileTesting?: () => Promise<void>,
     listed: readonly string[] = ['1234', '5678']
   ): Promise<void> {
-    supervisor.start();
-    TestBed.flushEffects();
+    await startSettled();
     frameLoads(listed);
     elapse(TICK_MS);
     await whileTesting?.();
@@ -166,9 +192,10 @@ describe('SenderSupervisor', () => {
   }
 
   describe('starting', () => {
-    it('opens the frame once MIDI is granted, and only once however often it is started', () => {
+    it('opens the frame once MIDI is granted, and only once however often it is started', async () => {
       supervisor.start();
       supervisor.start();
+      await settle();
       TestBed.flushEffects();
       TestBed.flushEffects();
 
@@ -177,12 +204,11 @@ describe('SenderSupervisor', () => {
       expect(supervisor.state()).toBe('opening');
     });
 
-    it('opens nothing until MIDI is granted', () => {
+    it('opens nothing until MIDI is granted', async () => {
       const access = TestBed.inject(MIDI_ACCESS) as ReturnType<typeof fakeMidiAccess>;
       access.accessState.set('requesting');
 
-      supervisor.start();
-      TestBed.flushEffects();
+      await startSettled();
       expect(link.opens).toBe(0);
 
       access.accessState.set('granted');
@@ -190,11 +216,10 @@ describe('SenderSupervisor', () => {
       expect(link.opens).toBe(1);
     });
 
-    it('warns once and opens nothing for an address with no other local name', () => {
+    it('warns once and opens nothing for an address with no other local name', async () => {
       link.url = null;
 
-      supervisor.start();
-      TestBed.flushEffects();
+      await startSettled();
       elapse(5000);
 
       expect(link.opens).toBe(0);
@@ -267,8 +292,7 @@ describe('SenderSupervisor', () => {
       runtime.enterVarispeed('A', () => 1);
       expect(runtime.snapshot('A').transport).toBe('paused');
 
-      supervisor.start();
-      TestBed.flushEffects();
+      await startSettled();
       frameLoads();
       elapse(1000);
       expect(timeline).not.toContain('link:self-test');
@@ -427,8 +451,7 @@ describe('SenderSupervisor', () => {
       });
 
       it('replays nothing for a failure before the decks were on the sender, since they sent from the mixer', async () => {
-        supervisor.start();
-        TestBed.flushEffects();
+        await startSettled();
         frameLoads();
         elapse(TICK_MS);
         await startPlaying('A');
@@ -524,8 +547,7 @@ describe('SenderSupervisor', () => {
     });
 
     it('warns that the helper is not available when the own-thread test fails', async () => {
-      supervisor.start();
-      TestBed.flushEffects();
+      await startSettled();
       frameLoads();
       elapse(TICK_MS);
 
@@ -536,6 +558,182 @@ describe('SenderSupervisor', () => {
       expect(alertService.warning).toHaveBeenCalledExactlyOnceWith(
         "Timing helper isn't available here. Playing with standard timing."
       );
+    });
+  });
+
+  describe('the saved settings', () => {
+    it('opens nothing before the settings land, however early MIDI is granted', async () => {
+      let release: () => void = () => undefined;
+      holdLoad = new Promise<void>((resolve) => (release = resolve));
+
+      supervisor.start();
+      await settle();
+      TestBed.flushEffects();
+      expect(link.opens).toBe(0);
+      expect(supervisor.state()).toBe('idle');
+
+      release();
+      await settle();
+      TestBed.flushEffects();
+      expect(link.opens).toBe(1);
+    });
+
+    it('applies the saved lookahead to the sender path before it opens', async () => {
+      savedSend = { lookaheadMs: SENDER_LOOKAHEAD_CEILING_MS, senderEnabled: true };
+
+      await startSettled();
+
+      expect(supervisor.settings().lookaheadMs).toBe(SENDER_LOOKAHEAD_CEILING_MS);
+      expect(route.lookaheadFor('sender')).toBe(SENDER_LOOKAHEAD_CEILING_MS);
+      expect(route.lookaheadFor('mixer')).toBe(0);
+    });
+
+    it('clamps a saved lookahead outside the range', async () => {
+      savedSend = { lookaheadMs: SENDER_LOOKAHEAD_FLOOR_MS - 10, senderEnabled: true };
+
+      await startSettled();
+
+      expect(supervisor.settings().lookaheadMs).toBe(SENDER_LOOKAHEAD_FLOOR_MS);
+    });
+
+    it('never opens when the saved switch is off, and reads off before and after the grant', async () => {
+      savedSend = { lookaheadMs: SENDER_SCHEDULE_AHEAD_MS, senderEnabled: false };
+      const access = TestBed.inject(MIDI_ACCESS) as ReturnType<typeof fakeMidiAccess>;
+      access.accessState.set('requesting');
+
+      supervisor.start();
+      await settle();
+      TestBed.flushEffects();
+      expect(supervisor.state()).toBe('off');
+
+      access.accessState.set('granted');
+      TestBed.flushEffects();
+      elapse(5000);
+
+      expect(supervisor.state()).toBe('off');
+      expect(link.opens).toBe(0);
+      expect(link.starts).toBe(0);
+      expect(supervisor.settings().senderEnabled).toBe(false);
+      expect(alertService.warning).not.toHaveBeenCalled();
+    });
+
+    it('does not save what it just loaded', async () => {
+      const scheduleSave = vi.spyOn(TestBed.inject(MidiSettingsPersistence), 'scheduleSave');
+
+      await startSettled();
+
+      expect(scheduleSave).not.toHaveBeenCalled();
+    });
+  });
+
+  describe('setLookahead', () => {
+    let scheduleSave: ReturnType<typeof vi.spyOn>;
+
+    beforeEach(() => {
+      scheduleSave = vi
+        .spyOn(TestBed.inject(MidiSettingsPersistence), 'scheduleSave')
+        .mockImplementation(() => undefined);
+    });
+
+    it('reaches each deck at once on the sender path, and is saved', async () => {
+      await bringUp();
+      const setScheduleAhead = vi.spyOn(runtime, 'setScheduleAhead');
+      const ms = SENDER_LOOKAHEAD_FLOOR_MS + 5;
+
+      supervisor.setLookahead(ms);
+
+      expect(setScheduleAhead.mock.calls).toEqual([
+        ['A', ms],
+        ['B', ms],
+      ]);
+      expect(route.lookaheadFor('sender')).toBe(ms);
+      expect(supervisor.settings().lookaheadMs).toBe(ms);
+      expect(scheduleSave).toHaveBeenCalledTimes(1);
+    });
+
+    it('stamps the next frame with the new value', async () => {
+      await bringUp(() => startPlaying('A'));
+      const ms = SENDER_LOOKAHEAD_FLOOR_MS + 5;
+
+      supervisor.setLookahead(ms);
+      link.sends.length = 0;
+      frame('A', -5);
+
+      expect(link.sends.map((send) => send.dueAtMs)).toEqual([nowMs - 5 + ms]);
+    });
+
+    it('waits in the route on the mixer path, and the next move onto the sender picks it up', async () => {
+      await bringUp();
+      supervisor.flip();
+      expect(route.path()).toBe('mixer');
+      const setScheduleAhead = vi.spyOn(runtime, 'setScheduleAhead');
+      const ms = SENDER_LOOKAHEAD_FLOOR_MS + 5;
+
+      supervisor.setLookahead(ms);
+
+      expect(setScheduleAhead).not.toHaveBeenCalled();
+      expect(route.lookaheadFor('sender')).toBe(ms);
+      expect(scheduleSave).toHaveBeenCalledTimes(1);
+
+      supervisor.flip();
+      frameLoads();
+      elapse(TICK_MS);
+      await settle();
+
+      expect(route.path()).toBe('sender');
+      expect(setScheduleAhead).toHaveBeenCalledWith('A', ms);
+    });
+
+    it('clamps to the floor and the ceiling', async () => {
+      await startSettled();
+
+      supervisor.setLookahead(SENDER_LOOKAHEAD_FLOOR_MS - 1);
+      expect(supervisor.settings().lookaheadMs).toBe(SENDER_LOOKAHEAD_FLOOR_MS);
+
+      supervisor.setLookahead(SENDER_LOOKAHEAD_CEILING_MS + 1);
+      expect(supervisor.settings().lookaheadMs).toBe(SENDER_LOOKAHEAD_CEILING_MS);
+      expect(route.lookaheadFor('sender')).toBe(SENDER_LOOKAHEAD_CEILING_MS);
+    });
+  });
+
+  describe('setEnabled', () => {
+    let scheduleSave: ReturnType<typeof vi.spyOn>;
+
+    beforeEach(() => {
+      scheduleSave = vi
+        .spyOn(TestBed.inject(MidiSettingsPersistence), 'scheduleSave')
+        .mockImplementation(() => undefined);
+    });
+
+    it('off closes the sender and puts the decks on the mixer, and is saved', async () => {
+      await bringUp();
+      expect(route.path()).toBe('sender');
+
+      supervisor.setEnabled(false);
+
+      expect(supervisor.state()).toBe('off');
+      expect(route.path()).toBe('mixer');
+      expect(link.closes).toBe(1);
+      expect(supervisor.settings().senderEnabled).toBe(false);
+      expect(scheduleSave).toHaveBeenCalledTimes(1);
+      expect(alertService.warning).not.toHaveBeenCalled();
+    });
+
+    it('on opens it again and the decks return to the sender', async () => {
+      await bringUp();
+      supervisor.setEnabled(false);
+
+      supervisor.setEnabled(true);
+      expect(supervisor.state()).toBe('opening');
+      expect(link.opens).toBe(2);
+      frameLoads();
+      elapse(TICK_MS);
+      await settle();
+
+      expect(supervisor.state()).toBe('up');
+      expect(route.path()).toBe('sender');
+      expect(supervisor.settings().senderEnabled).toBe(true);
+      expect(scheduleSave).toHaveBeenCalledTimes(2);
     });
   });
 
@@ -570,6 +768,7 @@ describe('SenderSupervisor with no link', () => {
   it('does nothing when started', () => {
     TestBed.configureTestingModule({
       providers: [
+        { provide: MIDI_SETTINGS_REPOSITORY, useValue: {} },
         { provide: ALERT_SERVICE, useValue: { warning: vi.fn(), info: vi.fn() } },
         { provide: MIDI_ACCESS, useValue: fakeMidiAccess(() => null) },
         { provide: FRAME_CLOCK_FACTORY, useValue: (): FakeDeckClock => new FakeDeckClock() },

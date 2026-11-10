@@ -14,6 +14,7 @@ import type {
 } from './ports';
 import { isKnownControl, type ControlMapping } from './mapping/mapping.models';
 import { DECK_SLOTS } from './slot';
+import { SENDER_SCHEDULE_AHEAD_MS } from './sender/deck-send-route';
 
 const SAVE_DEBOUNCE_MS = 300;
 
@@ -28,11 +29,12 @@ const EMPTY_SETTINGS: MidiSettingsRecord = {
   mappings: [],
   deckBindings: [],
   deckSettings: [],
+  send: { lookaheadMs: SENDER_SCHEDULE_AHEAD_MS, senderEnabled: true },
 };
 
 /**
  * The only writer of the whole MIDI settings set. The server stores the set whole, so every save
- * sends every list: the deck bindings and each deck's slip and live loop size from `DjStore`, and the controllers and mappings from
+ * sends every list: the deck bindings, each deck's slip and live loop size and the timing helper's settings from `DjStore`, and the controllers and mappings from
  * `MidiMappingStore` once it has loaded them, as `load` returned them until then, less any mapping
  * to a control the app no longer has (the server rejects an unknown control on save).
  *
@@ -115,6 +117,7 @@ export class MidiSettingsPersistence {
         liveLoopBeats: decks[slot].liveLoopBeats,
       })
     );
+    const send = { ...this.store.send() };
     if (!this.mappingStore.loaded()) {
       return {
         controllers: this.loaded.controllers,
@@ -123,6 +126,7 @@ export class MidiSettingsPersistence {
         ),
         deckBindings,
         deckSettings,
+        send,
       };
     }
     return {
@@ -130,6 +134,7 @@ export class MidiSettingsPersistence {
       mappings: this.mappingStore.mappings().map(toRecord),
       deckBindings,
       deckSettings,
+      send,
     };
   }
 

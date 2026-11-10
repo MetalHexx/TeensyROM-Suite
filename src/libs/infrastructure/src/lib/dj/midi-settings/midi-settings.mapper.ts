@@ -2,10 +2,12 @@ import type {
   DeckDeviceBindingDto,
   DeckSettingsDto,
   GetMidiSettingsResponse,
+  SendSettingsDto,
   KnownMidiControllerDto,
   MidiControlMappingDto,
   SaveMidiSettingsRequest,
 } from '@teensyrom-nx/data-access/api-client';
+import { SENDER_SCHEDULE_AHEAD_MS } from '@teensyrom-nx/application';
 import type {
   ControlMappingRecord,
   DeckDeviceBindingRecord,
@@ -13,6 +15,7 @@ import type {
   KnownControllerRecord,
   MappingStyleKind,
   MidiSettingsRecord,
+  SendSettingsRecord,
   Slot,
 } from '@teensyrom-nx/application';
 
@@ -22,6 +25,7 @@ export function toMidiSettingsRecord(dto: GetMidiSettingsResponse): MidiSettings
     mappings: dto.mappings.map(toMappingRecord),
     deckBindings: dto.deckBindings.map(toDeckBindingRecord),
     deckSettings: dto.deckSettings.map(toDeckSettingsRecord),
+    send: toSendSettingsRecord(dto.sendSettings),
   };
 }
 
@@ -31,6 +35,7 @@ export function toSaveMidiSettingsRequest(record: MidiSettingsRecord): SaveMidiS
     mappings: record.mappings.map(toMappingDto),
     deckBindings: record.deckBindings.map(toDeckBindingDto),
     deckSettings: record.deckSettings.map(toDeckSettingsDto),
+    sendSettings: toSendSettingsDto(record.send),
   };
 }
 
@@ -103,4 +108,15 @@ function toDeckBindingDto(record: DeckDeviceBindingRecord): DeckDeviceBindingDto
 
 function toDeckSettingsDto(record: DeckSettingsRecord): DeckSettingsDto {
   return { slot: record.slot, slip: record.slip, liveLoopBeats: record.liveLoopBeats };
+}
+
+function toSendSettingsRecord(dto: SendSettingsDto | null | undefined): SendSettingsRecord {
+  return {
+    lookaheadMs: dto?.lookaheadMs ?? SENDER_SCHEDULE_AHEAD_MS,
+    senderEnabled: dto?.senderEnabled ?? true,
+  };
+}
+
+function toSendSettingsDto(record: SendSettingsRecord): SendSettingsDto {
+  return { lookaheadMs: record.lookaheadMs, senderEnabled: record.senderEnabled };
 }

@@ -7,6 +7,14 @@ import {
 import type { MidiSettingsRecord } from '@teensyrom-nx/application';
 import { ApiMidiSettingsRepository } from './api-midi-settings-repository';
 
+const NO_SETTINGS: MidiSettingsRecord = {
+  controllers: [],
+  mappings: [],
+  deckBindings: [],
+  deckSettings: [],
+  send: { lookaheadMs: 15, senderEnabled: true },
+};
+
 describe('ApiMidiSettingsRepository', () => {
   let repository: ApiMidiSettingsRepository;
   let api: {
@@ -31,12 +39,14 @@ describe('ApiMidiSettingsRepository', () => {
       mappings: [],
       deckBindings: [{ slot: 'A', deviceId: '14470230', lastSeenName: 'TR-1' }],
       deckSettings: [{ slot: 'A', slip: true, liveLoopBeats: 0.5 }],
+      sendSettings: { lookaheadMs: 20, senderEnabled: false },
     };
     api.getMidiSettings.mockResolvedValue(response);
 
     const settings = await repository.load();
 
-    expect(settings).toEqual(response);
+    const { sendSettings, ...rest } = response;
+    expect(settings).toEqual({ ...rest, send: sendSettings });
   });
 
   it('saves the whole set in the request body', async () => {
@@ -45,23 +55,31 @@ describe('ApiMidiSettingsRepository', () => {
       mappings: [],
       deckBindings: [{ slot: 'B', deviceId: '19277260', lastSeenName: 'TR-2' }],
       deckSettings: [{ slot: 'B', slip: false, liveLoopBeats: 4 }],
+      send: { lookaheadMs: 20, senderEnabled: false },
     };
 
     await repository.save(settings);
 
+    const { send, ...rest } = settings;
     expect(api.saveMidiSettings).toHaveBeenCalledWith(
-      { saveMidiSettingsRequest: settings },
+      { saveMidiSettingsRequest: { ...rest, sendSettings: send } },
       undefined
     );
   });
 
   it('passes keepalive to the client as a request override', async () => {
-    const settings: MidiSettingsRecord = { controllers: [], mappings: [], deckBindings: [], deckSettings: [] };
-
-    await repository.save(settings, { keepalive: true });
+    await repository.save(NO_SETTINGS, { keepalive: true });
 
     expect(api.saveMidiSettings).toHaveBeenCalledWith(
-      { saveMidiSettingsRequest: settings },
+      {
+        saveMidiSettingsRequest: {
+          controllers: [],
+          mappings: [],
+          deckBindings: [],
+          deckSettings: [],
+          sendSettings: NO_SETTINGS.send,
+        },
+      },
       { keepalive: true }
     );
   });
@@ -76,7 +94,7 @@ describe('ApiMidiSettingsRepository', () => {
     api.saveMidiSettings.mockRejectedValue(new Error('400'));
 
     await expect(
-      repository.save({ controllers: [], mappings: [], deckBindings: [], deckSettings: [] })
+      repository.save(NO_SETTINGS)
     ).rejects.toThrow('400');
   });
 });
