@@ -739,12 +739,21 @@ describe('DeckRuntime with a timing helper', () => {
         A: {
           scheduleAheadMs: number;
           frames: number;
-          presses: { presses: Record<string, { count: number }>; noFrame: number };
+          presses: {
+            byKind: Record<string, { count: number }>;
+            noFrame: number;
+            superseded: number;
+          };
         };
       };
     }
-    const reading = (): BenchReading =>
-      (globalThis as unknown as { djBench: { report(): BenchReading } }).djBench.report();
+    interface BenchHandle {
+      report(): BenchReading;
+      reset(): void;
+      lagTimeline(): Record<string, { atS: number; frames: number }[]>;
+    }
+    const bench = (): BenchHandle => (globalThis as unknown as { djBench: BenchHandle }).djBench;
+    const reading = (): BenchReading => bench().report();
 
     beforeEach(() => {
       configure();
@@ -766,8 +775,8 @@ describe('DeckRuntime with a timing helper', () => {
 
       pressThenFrame('mute');
 
-      const { presses } = reading().decks.A.presses;
-      expect(presses['mute'].count).toBe(1);
+      const { byKind } = reading().decks.A.presses;
+      expect(byKind['mute'].count).toBe(1);
     });
 
     it('measures a nudge only from the frame after the engine took it', async () => {
@@ -775,11 +784,11 @@ describe('DeckRuntime with a timing helper', () => {
 
       runtime.markPress('A', 'nudge');
       clocks[0].tick(milliseconds(performance.now()));
-      expect(reading().decks.A.presses.presses['nudge']).toBeUndefined();
+      expect(reading().decks.A.presses.byKind['nudge']).toBeUndefined();
 
       runtime.notePressApplied('A');
       clocks[0].tick(milliseconds(performance.now()));
-      expect(reading().decks.A.presses.presses['nudge'].count).toBe(1);
+      expect(reading().decks.A.presses.byKind['nudge'].count).toBe(1);
     });
 
     it('does nothing for a slot that is not built', () => {
@@ -813,6 +822,39 @@ describe('DeckRuntime with a timing helper', () => {
 
       expect(without.sent.length).toBeGreaterThan(2);
       expect(withPress).toEqual(without);
+    });
+
+    it('clears the press readings and a pending mark with the handle reset', async () => {
+      await playDeckA();
+      pressThenFrame('mute');
+      expect(reading().decks.A.presses.byKind['mute'].count).toBe(1);
+      runtime.markPress('A', 'tempo');
+
+      bench().reset();
+
+      expect(reading().decks).not.toHaveProperty('A');
+      clocks[0].tick(milliseconds(performance.now()));
+      const { byKind, noFrame, superseded } = reading().decks.A.presses;
+      expect(byKind).toEqual({});
+      expect(noFrame).toBe(0);
+      expect(superseded).toBe(0);
+    });
+
+    it('gives the lag timeline per built deck, one row for each closed 10 s', async () => {
+      let nowMs = 50_000;
+      vi.spyOn(performance, 'now').mockImplementation(() => nowMs);
+      await playDeckA();
+      runtime.build('B');
+      bench().reset();
+
+      clocks[0].tick(milliseconds(nowMs));
+      nowMs += 10_500;
+      clocks[0].tick(milliseconds(nowMs));
+
+      const timeline = bench().lagTimeline();
+      expect(Object.keys(timeline).sort()).toEqual(['A', 'B']);
+      expect(timeline.A).toEqual([expect.objectContaining({ atS: 10, frames: 1 })]);
+      expect(timeline.B).toEqual([]);
     });
 
     it('keeps what the delivery probe has recorded when the schedule-ahead changes', async () => {

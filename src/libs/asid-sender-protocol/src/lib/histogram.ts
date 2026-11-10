@@ -1,5 +1,5 @@
 export const BINS_PER_MS = 10;
-export const RANGE_MS = 100;
+const RANGE_MS = 100;
 const BIN_COUNT = RANGE_MS * BINS_PER_MS;
 
 /**

@@ -1,5 +1,5 @@
 import { Histogram } from '@teensyrom-nx/asid-sender-protocol';
-import { ASID_MSG_SID_DATA } from '@sidablist/asid';
+import { ASID_MANUFACTURER_ID, ASID_MSG_SID_DATA, ASID_SYSEX_START } from '@sidablist/asid';
 
 export type PressKind = 'play' | 'stop' | 'pause' | 'jump' | 'play-now' | 'tempo' | 'mute' | 'nudge';
 
@@ -24,7 +24,7 @@ export interface PressSummary {
 
 export interface PressReading {
   /** Press-to-wire per kind, in ms; kinds with no reading are left out. */
-  readonly presses: Partial<Record<PressKind, PressSummary>>;
+  readonly byKind: Partial<Record<PressKind, PressSummary>>;
   /** Every kind pooled; null with no reading. */
   readonly all: PressSummary | null;
   /** Marks that saw no carrying send within a second. */
@@ -35,10 +35,6 @@ export interface PressReading {
 
 /** How long a mark waits for a carrying send before it counts as `noFrame`. */
 const NO_FRAME_AFTER_MS = 1000;
-
-/** What opens an ASID register-data message: the manufacturer id, then the message type. */
-const ASID_ID_0 = 0xf0;
-const ASID_ID_1 = 0x2d;
 
 const POOLED = PRESS_KINDS.length;
 
@@ -91,8 +87,8 @@ export class PressProbe {
     const carries =
       this.pending === 'stop' ||
       (bytes.length > 2 &&
-        bytes[0] === ASID_ID_0 &&
-        bytes[1] === ASID_ID_1 &&
+        bytes[0] === ASID_SYSEX_START &&
+        bytes[1] === ASID_MANUFACTURER_ID &&
         bytes[2] === ASID_MSG_SID_DATA);
     if (!carries) {
       return;
@@ -106,14 +102,14 @@ export class PressProbe {
 
   read(): PressReading {
     this.expire(performance.now());
-    const presses: Partial<Record<PressKind, PressSummary>> = {};
+    const byKind: Partial<Record<PressKind, PressSummary>> = {};
     PRESS_KINDS.forEach((kind, index) => {
       if (this.histograms[index].count > 0) {
-        presses[kind] = this.summary(index);
+        byKind[kind] = this.summary(index);
       }
     });
     return {
-      presses,
+      byKind,
       all: this.histograms[POOLED].count > 0 ? this.summary(POOLED) : null,
       noFrame: this.noFrame,
       superseded: this.superseded,
