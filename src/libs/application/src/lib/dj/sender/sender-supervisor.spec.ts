@@ -1,7 +1,7 @@
 import { TestBed } from '@angular/core/testing';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
-import { FakeClock, milliseconds } from '@sidablist/core';
-import type { FrameClock, ReplayRunner } from '@sidablist/core';
+import { milliseconds } from '@sidablist/core';
+import type { ReplayRunner } from '@sidablist/core';
 import {
   ASID_SENDER_IDENTITY,
   ASID_SENDER_PROTOCOL_VERSION,
@@ -18,6 +18,7 @@ import {
 import type { RegisterRecorder } from '../ports';
 import type { Slot } from '../slot';
 import {
+  FakeDeckClock,
   FakeRegisterRecorder,
   FakeReplayRunner,
   FakeSenderLink,
@@ -43,13 +44,13 @@ describe('SenderSupervisor', () => {
   let link: FakeSenderLink;
   let timeline: string[];
   let ports: Record<Slot, RecordingPort>;
-  let clocks: FakeClock[];
+  let clocks: FakeDeckClock[];
   let recorders: FakeRegisterRecorder[];
   let alertService: { warning: ReturnType<typeof vi.fn>; info: ReturnType<typeof vi.fn> };
   let nowMs: number;
 
   const settle = (): Promise<void> => new Promise((resolve) => setTimeout(resolve));
-  const clockOf = (slot: Slot): FakeClock => clocks[slot === 'A' ? 0 : 1];
+  const clockOf = (slot: Slot): FakeDeckClock => clocks[slot === 'A' ? 0 : 1];
 
   beforeEach(() => {
     nowMs = 100_000;
@@ -73,8 +74,8 @@ describe('SenderSupervisor', () => {
         { provide: ALERT_SERVICE, useValue: alertService as unknown as IAlertService },
         {
           provide: FRAME_CLOCK_FACTORY,
-          useValue: (): FrameClock => {
-            const clock = new FakeClock();
+          useValue: (): FakeDeckClock => {
+            const clock = new FakeDeckClock();
             clocks.push(clock);
             return clock;
           },
@@ -237,6 +238,26 @@ describe('SenderSupervisor', () => {
       ]);
     });
 
+    it('hands each deck to the sender tick in the same step as the path, after the lookahead and before the register image', async () => {
+      const lookahead = vi.spyOn(runtime, 'setScheduleAhead');
+      const tick = vi.spyOn(runtime, 'setTickSource');
+      const image = vi.spyOn(runtime, 'sendRegisterImage');
+
+      await bringUp(() => startPlaying('A'));
+
+      expect(tick.mock.calls).toEqual([
+        ['A', 'sender'],
+        ['B', 'sender'],
+      ]);
+      expect(clocks.map((clock) => clock.source)).toEqual(['sender', 'sender']);
+      expect(Math.max(...lookahead.mock.invocationCallOrder)).toBeLessThan(
+        Math.min(...tick.mock.invocationCallOrder)
+      );
+      expect(Math.max(...tick.mock.invocationCallOrder)).toBeLessThan(
+        Math.min(...image.mock.invocationCallOrder)
+      );
+    });
+
     it('moves a paused deck the hand is running, and holds off the own-thread test while it runs', async () => {
       runtime.load('A', playableOf(SID_MODEL_8580, WRITING_TUNE));
       recorders[0].answer(0, recordOf(500));
@@ -303,6 +324,27 @@ describe('SenderSupervisor', () => {
       expect(after.indexOf('link:close')).toBeGreaterThanOrEqual(0);
       expect(after.indexOf('mixer:send')).toBeGreaterThan(after.indexOf('link:close'));
       expect(route.path()).toBe('mixer');
+    });
+
+    it('hands each deck back to the audio tick in the same step, after the lookahead and before the register image', async () => {
+      await upWithBothDecksPlaying();
+      const lookahead = vi.spyOn(runtime, 'setScheduleAhead');
+      const tick = vi.spyOn(runtime, 'setTickSource');
+      const image = vi.spyOn(runtime, 'sendRegisterImage');
+
+      fail();
+
+      expect(tick.mock.calls).toEqual([
+        ['A', 'audio'],
+        ['B', 'audio'],
+      ]);
+      expect(clocks.map((clock) => clock.source)).toEqual(['audio', 'audio']);
+      expect(Math.max(...lookahead.mock.invocationCallOrder)).toBeLessThan(
+        Math.min(...tick.mock.invocationCallOrder)
+      );
+      expect(Math.max(...tick.mock.invocationCallOrder)).toBeLessThan(
+        Math.min(...image.mock.invocationCallOrder)
+      );
     });
 
     it('puts the lookahead back and sends each playing deck its image unstamped, ahead of every later frame', async () => {
@@ -530,7 +572,7 @@ describe('SenderSupervisor with no link', () => {
       providers: [
         { provide: ALERT_SERVICE, useValue: { warning: vi.fn(), info: vi.fn() } },
         { provide: MIDI_ACCESS, useValue: fakeMidiAccess(() => null) },
-        { provide: FRAME_CLOCK_FACTORY, useValue: (): FrameClock => new FakeClock() },
+        { provide: FRAME_CLOCK_FACTORY, useValue: (): FakeDeckClock => new FakeDeckClock() },
         { provide: REPLAY_RUNNER_FACTORY, useValue: (): ReplayRunner => new FakeReplayRunner() },
         {
           provide: REGISTER_RECORDER_FACTORY,

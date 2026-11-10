@@ -1,13 +1,16 @@
-import { Injectable, inject } from '@angular/core';
+import { Injectable, NgZone, inject } from '@angular/core';
 import type {
   AsidSenderEvent,
   IAsidSenderLink,
   SelfTestResult,
+  SenderWakeAlarm,
 } from '@teensyrom-nx/application';
 import {
   ASID_SENDER_IDENTITY,
   ASID_SENDER_PATH,
   ASID_SENDER_PROTOCOL_VERSION,
+  MAX_WAKE_ALARMS,
+  fromSharedTime,
   isSenderToApp,
   pairedLocalOrigin,
   toSharedTime,
@@ -16,6 +19,7 @@ import {
   type SenderTimingReport,
   type SenderToApp,
 } from '@teensyrom-nx/asid-sender-protocol';
+import { logWarn } from '@teensyrom-nx/utils';
 import { SENDER_PAGE } from './sender-page';
 
 const SELF_TEST_ATTEMPTS = 3;
@@ -33,20 +37,33 @@ interface Connection {
 
 type Settle = (reply: SenderToApp | null) => void;
 
+interface WakeHandlers {
+  readonly onWake: (askedAtMs: number, sentAtMs: number, nowMs: number) => void;
+  readonly onBeat: (nowMs: number) => void;
+}
+
 /**
  * The page's link to the sender frame: the hidden frame on the other local name, the message channel
- * to it, the steady ticker, and the own-thread hold. It carries events up and packets down; the
- * application layer decides when to use it.
+ * to it, the steady ticker, the own-thread hold, and the wake alarms. It carries events up and
+ * packets down; the application layer decides when to use it.
+ *
+ * A wake is handed to its alarm outside Angular's zone, so a deck's frame is made without a change
+ * detection pass after each one; every other message runs inside the zone, as it did before.
  */
 @Injectable({ providedIn: 'root' })
 export class AsidSenderLinkService implements IAsidSenderLink {
   private readonly page = inject(SENDER_PAGE);
+  private readonly zone = inject(NgZone);
 
   private listener: ((event: AsidSenderEvent) => void) | null = null;
   private connection: Connection | null = null;
   private pingSeq = 0;
   private requestId = 0;
   private readonly pending = new Map<string, Settle>();
+  /** Alarm ids run from 1 and, with their handlers, outlive `close()` and `open()`. */
+  private lastAlarmId = 0;
+  private readonly alarms = new Map<number, WakeHandlers>();
+  private wakeDropWarned = false;
 
   senderUrl(): string | null {
     const origin = pairedLocalOrigin(this.page.location());
@@ -65,6 +82,10 @@ export class AsidSenderLinkService implements IAsidSenderLink {
         this.post({ k: 'ping', seq: ++this.pingSeq });
       }
       this.raise({ kind: 'tick' });
+      const nowMs = this.page.now();
+      for (const { onBeat } of this.alarms.values()) {
+        onBeat(nowMs);
+      }
     });
   }
 
@@ -80,7 +101,9 @@ export class AsidSenderLinkService implements IAsidSenderLink {
     const connection: Connection = { frame, port: channel.port1, connected: false };
     this.connection = connection;
 
-    channel.port1.onmessage = (event) => this.receive(event.data);
+    this.zone.runOutsideAngular(() => {
+      channel.port1.onmessage = (event) => this.receive(event.data);
+    });
     frame.addEventListener('load', () => {
       if (this.connection !== connection || connection.connected) {
         return;
@@ -174,10 +197,45 @@ export class AsidSenderLinkService implements IAsidSenderLink {
     this.post({ k: 'timing-clear' });
   }
 
-  private post(message: AppToSender): void {
-    if (this.connection?.connected === true) {
-      this.connection.port.postMessage(message);
+  wakeAlarm(
+    onWake: (askedAtMs: number, sentAtMs: number, nowMs: number) => void,
+    onBeat: (nowMs: number) => void
+  ): SenderWakeAlarm {
+    if (this.alarms.size >= MAX_WAKE_ALARMS) {
+      throw new RangeError(`at most ${MAX_WAKE_ALARMS} wake alarms per link`);
     }
+    const id = ++this.lastAlarmId;
+    this.alarms.set(id, { onWake, onBeat });
+    return {
+      arm: (atMs) => this.armWake(id, atMs),
+      cancel: () => {
+        this.post({ k: 'wake-cancel', id });
+      },
+    };
+  }
+
+  /** Posts the arm; a request dropped for want of a connected frame is logged once per stretch. */
+  private armWake(id: number, atMs: number): void {
+    const posted = this.post({
+      k: 'wake-at',
+      id,
+      at: toSharedTime(atMs, this.page.timeOrigin()),
+    });
+    if (posted) {
+      this.wakeDropWarned = false;
+    } else if (!this.wakeDropWarned) {
+      this.wakeDropWarned = true;
+      logWarn('AsidSenderLink: wake request dropped: no sender frame connected');
+    }
+  }
+
+  /** Posts `message` on the connected channel; false when no frame is connected and it was dropped. */
+  private post(message: AppToSender): boolean {
+    if (this.connection?.connected !== true) {
+      return false;
+    }
+    this.connection.port.postMessage(message);
+    return true;
   }
 
   /** Resolves with the reply to request `id` of `kind`, or null on timeout or close. */
@@ -202,6 +260,17 @@ export class AsidSenderLinkService implements IAsidSenderLink {
     if (!isSenderToApp(data)) {
       return;
     }
+    if (data.k === 'wake') {
+      const origin = this.page.timeOrigin();
+      this.alarms
+        .get(data.id)
+        ?.onWake(fromSharedTime(data.at, origin), fromSharedTime(data.t, origin), this.page.now());
+      return;
+    }
+    this.zone.run(() => this.dispatch(data));
+  }
+
+  private dispatch(data: Exclude<SenderToApp, { k: 'wake' }>): void {
     switch (data.k) {
       case 'hello':
         this.raise({ kind: 'hello', identity: data.identity, version: data.version });

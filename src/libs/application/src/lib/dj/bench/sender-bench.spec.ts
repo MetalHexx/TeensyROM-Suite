@@ -1,7 +1,6 @@
 import { TestBed } from '@angular/core/testing';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
-import { FakeClock } from '@sidablist/core';
-import type { FrameClock, ReplayRunner } from '@sidablist/core';
+import type { ReplayRunner } from '@sidablist/core';
 import {
   ASID_SENDER_IDENTITY,
   ASID_SENDER_PROTOCOL_VERSION,
@@ -21,6 +20,7 @@ import { DeckSendRoute } from '../sender/deck-send-route';
 import { TICK_MS } from '../sender/sender-health';
 import { SenderSupervisor } from '../sender/sender-supervisor';
 import {
+  FakeDeckClock,
   FakeRegisterRecorder,
   FakeReplayRunner,
   FakeSenderLink,
@@ -120,7 +120,7 @@ describe('sender bench', () => {
           provide: ALERT_SERVICE,
           useValue: { warning: vi.fn(), info: vi.fn() } as unknown as IAlertService,
         },
-        { provide: FRAME_CLOCK_FACTORY, useValue: (): FrameClock => new FakeClock() },
+        { provide: FRAME_CLOCK_FACTORY, useValue: (): FakeDeckClock => new FakeDeckClock() },
         { provide: REPLAY_RUNNER_FACTORY, useValue: (): ReplayRunner => new FakeReplayRunner() },
         {
           provide: REGISTER_RECORDER_FACTORY,

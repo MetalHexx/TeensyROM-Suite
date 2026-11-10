@@ -1,8 +1,9 @@
 import { TestBed } from '@angular/core/testing';
 import { signal } from '@angular/core';
 import { describe, it, expect, beforeEach, vi, type MockInstance } from 'vitest';
-import { FakeClock, VOICE_CONTROL_REGISTERS } from '@sidablist/core';
+import { VOICE_CONTROL_REGISTERS } from '@sidablist/core';
 import type { ReplayRunner, SidField } from '@sidablist/core';
+import { FakeDeckClock } from './testing/deck-runtime-fakes';
 import type { TuneReference } from '@sidablist/tunes';
 import { logError, logWarn } from '@teensyrom-nx/utils';
 import { MixerApplier } from './mixer-applier';
@@ -84,7 +85,7 @@ describe('MixerApplier', () => {
   function provide(): void {
     TestBed.configureTestingModule({
       providers: [
-        { provide: FRAME_CLOCK_FACTORY, useValue: (): FakeClock => new FakeClock() },
+        { provide: FRAME_CLOCK_FACTORY, useValue: (): FakeDeckClock => new FakeDeckClock() },
         { provide: REPLAY_RUNNER_FACTORY, useValue: (): ReplayRunner => new FakeReplayRunner() },
         {
           provide: REGISTER_RECORDER_FACTORY,

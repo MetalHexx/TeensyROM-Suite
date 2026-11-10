@@ -1,6 +1,6 @@
 import { inject, Provider } from '@angular/core';
 import { createWorkerReplayRunner } from '@sidablist/core';
-import type { FrameClock, ReplayRunner } from '@sidablist/core';
+import type { ReplayRunner } from '@sidablist/core';
 import { createTuneInserter, createTuneResolver } from '@sidablist/tunes';
 import { API_CONFIG, type IApiConfig } from '@teensyrom-nx/domain';
 import {
@@ -23,7 +23,7 @@ import {
   TUNE_MEMORY_STORE,
   TUNE_RESOLVER,
 } from '@teensyrom-nx/application';
-import type { RegisterRecorder } from '@teensyrom-nx/application';
+import type { DeckFrameClock, RegisterRecorder } from '@teensyrom-nx/application';
 import { IndexedDbTuneStore } from './database';
 import {
   ApiBeatGridStore,
@@ -37,7 +37,7 @@ import { WorkerTuneIndexer } from './analysis/worker-tune-indexer';
 import { MidiAccessService } from './midi/midi-access.service';
 import { MidiInputService } from './midi/midi-input.service';
 import { AsidSenderLinkService } from './sender/asid-sender-link.service';
-import { ScriptProcessorFrameClock } from './clock/script-processor-frame-clock';
+import { DeckTickClock } from './clock/deck-tick-clock';
 
 /**
  * API Client provider for the MIDI settings API.
@@ -87,8 +87,9 @@ export const DJ_STORAGE_PROVIDERS: Provider[] = [
  * Provider configuration for the DJ engine's browser adapters: Web MIDI access, and the two
  * per-deck-slot factories a deck builds its own clock and its own replay threads from. Two frame
  * clocks and four replay workers is the design, not something to hoist "for efficiency" — a deck
- * slot calls the replay factory twice, one worker for jumps and one for prepared builds, and
- * builds its own audio graph, none of it shared with another slot.
+ * slot calls the replay factory twice, one worker for jumps and one for prepared builds, and its
+ * clock asks the sender link for a wake alarm of its own and builds its own audio graph, none of it
+ * shared with another slot.
  *
  * Also composes the two tunes ports the application injects, over `IndexedDbTuneStore` and a
  * worker-backed `TuneIndexer` — `analysis` is reachable only through `WorkerTuneIndexer`, never
@@ -98,7 +99,13 @@ export const DJ_ENGINE_PROVIDERS: Provider[] = [
   { provide: MIDI_ACCESS, useExisting: MidiAccessService },
   { provide: MIDI_INPUT, useExisting: MidiInputService },
   { provide: ASID_SENDER_LINK, useExisting: AsidSenderLinkService },
-  { provide: FRAME_CLOCK_FACTORY, useValue: (): FrameClock => new ScriptProcessorFrameClock() },
+  {
+    provide: FRAME_CLOCK_FACTORY,
+    useFactory: () => {
+      const link = inject(ASID_SENDER_LINK, { optional: true });
+      return (): DeckFrameClock => new DeckTickClock(link);
+    },
+  },
   {
     provide: REPLAY_RUNNER_FACTORY,
     useValue: (): ReplayRunner =>

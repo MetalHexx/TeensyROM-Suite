@@ -183,16 +183,23 @@ export class SenderSupervisor {
   }
 
   /** The whole switch in one synchronous step, in this order: the path, then each deck's lookahead
-   *  for it, then each playing deck's register image. Frames are only made in the clock's callbacks
-   *  on this thread, so none can slip in between a `close` and the new path — and in the other
-   *  order a frame the sender still held could leave after today's sending had started, and the
-   *  image would be undone by a late frame. */
+   *  for it, then each deck's tick source, then each playing deck's register image. Frames are only
+   *  made in the clocks' callbacks on this thread, so none can slip in between a `close` and the
+   *  new path — and in the other order a frame the sender still held could leave after today's
+   *  sending had started, and the image would be undone by a late frame. The tick changes in the
+   *  same step for the same reason: a deck ticking from the other source while the path has moved
+   *  would make frames for the wrong send path, and a wake the sender sent before the switch is
+   *  ignored by the clock once its source is changed. */
   private routeTo(path: SendPath): void {
     const leavingTheSender = path === 'mixer' && this.route.path() === 'sender';
     this.route.setPath(path);
     const lookahead = this.route.lookaheadFor(path);
     for (const slot of DECK_SLOTS) {
       this.runtime.setScheduleAhead(slot, lookahead);
+    }
+    const tickSource = path === 'sender' ? 'sender' : 'audio';
+    for (const slot of DECK_SLOTS) {
+      this.runtime.setTickSource(slot, tickSource);
     }
     if (leavingTheSender) {
       this.replayTransportThatMayHaveBeenLost();

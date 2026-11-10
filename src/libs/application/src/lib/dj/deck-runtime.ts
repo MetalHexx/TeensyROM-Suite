@@ -16,7 +16,6 @@ import type {
   SidPlayer,
   PlayerSnapshot,
   Frames,
-  FrameClock,
   Milliseconds,
   ReplayRunner,
   JumpSettings,
@@ -38,7 +37,7 @@ import {
   REGISTER_RECORDER_FACTORY,
   MIDI_ACCESS,
 } from './ports';
-import type { RegisterRecorder } from './ports';
+import type { DeckFrameClock, RegisterRecorder, TickSource } from './ports';
 import type { Slot } from './slot';
 import { DeliveryProbe } from './bench/delivery-probe';
 import { PressProbe, type PressKind } from './bench/press-probe';
@@ -49,13 +48,13 @@ import { DeckSendRoute } from './sender/deck-send-route';
  *  transport can show, so a hand has room to run past the end of the bar. */
 const RECORD_MARGIN_SECONDS = 5;
 
-/** One deck slot's whole engine bundle: the core player, its ASID sink, the audio-graph clock
- *  driving it, the two replay threads it uses — one for jumps, one for prepared builds — and the
- *  recorder that scans the loaded tune's register record. */
+/** One deck slot's whole engine bundle: the core player, its ASID sink, the clock driving it (from
+ *  the sender's wake or the audio graph), the two replay threads it uses — one for jumps, one for
+ *  prepared builds — and the recorder that scans the loaded tune's register record. */
 export interface SlotRuntime {
   readonly player: SidPlayer;
   readonly sink: AsidSink;
-  readonly clock: FrameClock;
+  readonly clock: DeckFrameClock;
   readonly replay: ReplayRunner;
   readonly prepare: ReplayRunner;
   readonly recorder: RegisterRecorder;
@@ -123,8 +122,9 @@ function createRegisterImage(): RegisterImage {
  * says so, through the timing helper; the supervisor owns that decision and this class only acts
  * on it.
  *
- * `build` creates no `AudioContext`: the clock's graph starts on the first `play`, inside the
- * factory-supplied `FrameClock`'s own `start()` — never here.
+ * `build` creates no `AudioContext`: the clock's graph starts on the first `play` — and only when
+ * the clock ticks from the audio source — inside the factory-supplied `DeckFrameClock`'s own
+ * `start()`, never here. `build` only points the clock at the source the live send path calls for.
  */
 @Injectable({ providedIn: 'root' })
 export class DeckRuntime {
@@ -151,10 +151,11 @@ export class DeckRuntime {
   constructor() {
     if (isDevMode()) {
       installDeckBench(() =>
-        [...this.slots].map(([slot, { player, sink }]) => ({
+        [...this.slots].map(([slot, { player, sink, clock }]) => ({
           slot,
           player,
           sink,
+          clock,
           probe: this.requireProbe(slot),
           presses: this.requirePressProbe(slot),
         }))
@@ -183,6 +184,7 @@ export class DeckRuntime {
     const port = this.createOutputPort(slot, facade);
     const sink = createAsidSink(port, { scheduleAheadMs });
     const clock = this.clockFactory();
+    clock.setSource(this.route.path() === 'sender' ? 'sender' : 'audio');
     const replay = this.replayFactory();
     const prepare = this.replayFactory();
     const recorder = this.recorderFactory();
@@ -233,6 +235,12 @@ export class DeckRuntime {
     if (probe !== undefined) {
       probe.setScheduleAhead(entry.sink.capabilities.scheduleAheadMs ?? 0);
     }
+  }
+
+  /** Hands this slot's frame clock to `source` at once, keeping its place. Does nothing for a slot
+   *  not built. */
+  setTickSource(slot: Slot, source: TickSource): void {
+    this.slots.get(slot)?.clock.setSource(source);
   }
 
   /** Dev builds: marks a press reaching this slot's engine, for the press-to-wire reading. Does

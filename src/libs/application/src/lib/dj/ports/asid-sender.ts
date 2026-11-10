@@ -17,6 +17,13 @@ export type AsidSenderEvent =
 
 export type SelfTestResult = 'passed' | 'failed' | 'aborted';
 
+/** One wake alarm on the sender's loop, armed for a time on this page's clock. */
+export interface SenderWakeAlarm {
+  /** Arms or re-arms (replacing) for `atMs` on this page's performance.now() clock. Dropped with no frame connected. */
+  arm(atMs: number): void;
+  cancel(): void;
+}
+
 /**
  * The page's link to the timing helper: the hidden frame that owns its own MIDI access and sends the
  * decks' packets from a thread the mixer's work cannot stall. The application layer decides when to
@@ -40,6 +47,13 @@ export interface IAsidSenderLink {
   readTiming(): Promise<SenderTimingReport | null>;
   /** Dev bench: clears the sender's timing record. */
   clearTiming(): void;
+  /** A wake alarm on the sender's loop. `onWake` gets the time asked and the time the sender sent it, converted to this
+   *  page's clock, and this page's now. It runs outside Angular's zone. `onBeat` runs on every beat of the steady ticker.
+   *  At most `MAX_WAKE_ALARMS` per link; a further call throws a RangeError. */
+  wakeAlarm(
+    onWake: (askedAtMs: number, sentAtMs: number, nowMs: number) => void,
+    onBeat: (nowMs: number) => void
+  ): SenderWakeAlarm;
 }
 
 export const ASID_SENDER_LINK = new InjectionToken<IAsidSenderLink>('ASID_SENDER_LINK');

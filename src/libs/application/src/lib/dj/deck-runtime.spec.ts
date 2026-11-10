@@ -1,7 +1,7 @@
 import { TestBed } from '@angular/core/testing';
 import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest';
-import { FakeClock, frames, milliseconds } from '@sidablist/core';
-import type { FrameClock, ReplayRunner, SidPlayer } from '@sidablist/core';
+import { frames, milliseconds } from '@sidablist/core';
+import type { ReplayRunner, SidPlayer } from '@sidablist/core';
 import type { MidiOutputPort } from '@sidablist/asid';
 import { DeckRuntime } from './deck-runtime';
 import {
@@ -14,6 +14,7 @@ import {
 import type { RegisterRecorder } from './ports';
 import { DeckSendRoute, SENDER_SCHEDULE_AHEAD_MS } from './sender/deck-send-route';
 import {
+  FakeDeckClock,
   FakeRegisterRecorder,
   FakeReplayRunner,
   SID_MODEL_6581,
@@ -55,7 +56,7 @@ describe('DeckRuntime', () => {
     createdPlayers.length = 0;
     replayRunners = [];
     recorders = [];
-    clockFactory = vi.fn((): FrameClock => new FakeClock());
+    clockFactory = vi.fn((): FakeDeckClock => new FakeDeckClock());
     replayFactory = vi.fn((): ReplayRunner => {
       const runner = new FakeReplayRunner();
       replayRunners.push(runner);
@@ -582,7 +583,7 @@ describe('DeckRuntime with a timing helper', () => {
   let runtime: DeckRuntime;
   let route: DeckSendRoute;
   let link: FakeSenderLink;
-  let clocks: FakeClock[];
+  let clocks: FakeDeckClock[];
   let recorders: FakeRegisterRecorder[];
   let mixerPort: RecordingPort;
 
@@ -598,8 +599,8 @@ describe('DeckRuntime with a timing helper', () => {
         { provide: ASID_SENDER_LINK, useValue: link },
         {
           provide: FRAME_CLOCK_FACTORY,
-          useValue: (): FrameClock => {
-            const clock = new FakeClock();
+          useValue: (): FakeDeckClock => {
+            const clock = new FakeDeckClock();
             clocks.push(clock);
             return clock;
           },
@@ -890,6 +891,44 @@ describe('DeckRuntime with a timing helper', () => {
 
       expect(runtime.deviceToken('A')).toBeNull();
       expect(runtime.deviceToken('B')).toBeNull();
+    });
+  });
+
+  describe('the tick source', () => {
+    beforeEach(() => configure());
+
+    it('is set at build from the live send path', () => {
+      runtime.build('A');
+      useSender();
+      runtime.build('B');
+
+      expect(clocks.map((clock) => clock.source)).toEqual(['audio', 'sender']);
+    });
+
+    it('is handed to the slot named, and a slot not built is passed over', () => {
+      runtime.build('A');
+
+      runtime.setTickSource('A', 'sender');
+
+      expect(clocks[0].source).toBe('sender');
+      expect(() => runtime.setTickSource('B', 'sender')).not.toThrow();
+      expect(clocks).toHaveLength(1);
+    });
+
+    it('is read off the clock by the bench, with the wake readings only once a wake has driven it', async () => {
+      await playDeckA();
+      const report = (): { decks: { A: { tick: { source: string; wake: unknown } } } } =>
+        (
+          globalThis as unknown as {
+            djBench: { report(): { decks: { A: { tick: { source: string; wake: unknown } } } } };
+          }
+        ).djBench.report();
+
+      expect(report().decks.A.tick).toEqual({ source: 'audio', wake: null });
+
+      (globalThis as unknown as { djBench: { reset(): void } }).djBench.reset();
+
+      expect(clocks[0].wakeResets).toBe(1);
     });
   });
 

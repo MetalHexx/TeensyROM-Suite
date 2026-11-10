@@ -1,8 +1,8 @@
 import { TestBed } from '@angular/core/testing';
 import { signal } from '@angular/core';
 import { describe, it, expect, beforeEach } from 'vitest';
-import { FakeClock } from '@sidablist/core';
-import type { FrameClock, ReplayRunner } from '@sidablist/core';
+import type { ReplayRunner } from '@sidablist/core';
+import { FakeDeckClock } from './testing/deck-runtime-fakes';
 import { DeckSpeed } from './deck-speed';
 import { DeckRuntime } from './deck-runtime';
 import {
@@ -42,7 +42,7 @@ describe('DeckSpeed', () => {
     TestBed.configureTestingModule({
       providers: [
         DeckRuntime,
-        { provide: FRAME_CLOCK_FACTORY, useValue: (): FrameClock => new FakeClock() },
+        { provide: FRAME_CLOCK_FACTORY, useValue: (): FakeDeckClock => new FakeDeckClock() },
         { provide: REPLAY_RUNNER_FACTORY, useValue: (): ReplayRunner => fakeReplayRunner },
         {
           provide: REGISTER_RECORDER_FACTORY,

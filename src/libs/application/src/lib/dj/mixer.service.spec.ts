@@ -1,8 +1,9 @@
 import { TestBed } from '@angular/core/testing';
 import { signal } from '@angular/core';
 import { describe, it, expect, beforeEach, vi, type MockInstance } from 'vitest';
-import { FakeClock, VOICE_CONTROL_REGISTERS } from '@sidablist/core';
+import { VOICE_CONTROL_REGISTERS } from '@sidablist/core';
 import type { ReplayRunner } from '@sidablist/core';
+import { FakeDeckClock } from './testing/deck-runtime-fakes';
 import type { TuneReference } from '@sidablist/tunes';
 import { logInfo, logWarn } from '@teensyrom-nx/utils';
 import { MixerService } from './mixer.service';
@@ -93,7 +94,7 @@ describe('MixerService', () => {
     saveSettingsInPlay = vi.fn();
     TestBed.configureTestingModule({
       providers: [
-        { provide: FRAME_CLOCK_FACTORY, useValue: (): FakeClock => new FakeClock() },
+        { provide: FRAME_CLOCK_FACTORY, useValue: (): FakeDeckClock => new FakeDeckClock() },
         { provide: REPLAY_RUNNER_FACTORY, useValue: (): ReplayRunner => new FakeReplayRunner() },
         {
           provide: REGISTER_RECORDER_FACTORY,
