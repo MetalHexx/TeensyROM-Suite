@@ -19,22 +19,13 @@ Grab a loop on the beat, stutter it down to a sixteenth, and drop back in like y
 
 ---
 
-### ⏱️ DJ Mixer: Tighter Timing
-
-The DJ Mixer's timing has been reworked. Push both decks with every voice running, and the groove holds.
-
-- **[Cleaner playback](https://github.com/MetalHexx/TeensyROM-Suite/blob/main/docs/dj-mixer.md#timing-helper)**: far fewer dropped and slurred notes, on screen or in a background tab
-- **[Yours to tune](https://github.com/MetalHexx/TeensyROM-Suite/blob/main/docs/dj-mixer.md#timing-helper)**: favour response or steadiness in Setup → Settings
-
----
-
 ### 🎚️ DJ Mixer: Streamlined Interface & Workflow
 
-A cleaner deck and a quicker workflow, from the first loop to the last tune in the set.
+Tighter timing, a cleaner deck and a quicker workflow, from the first loop to the last tune in the set.
 
+- **[Tighter timing](https://github.com/MetalHexx/TeensyROM-Suite/blob/main/docs/dj-mixer.md#timing-helper)**: far fewer dropped and slurred notes with both decks running every voice, and a setting to favour response or steadiness
 - **[Dup](https://github.com/MetalHexx/TeensyROM-Suite/blob/main/docs/dj-mixer.md#loops-and-cues)**: copy any loop or cue, even the one that's playing, and make the copy your own
-- **[Fire on press](https://github.com/MetalHexx/TeensyROM-Suite/blob/main/docs/dj-mixer.md#loops-and-cues)**: loop keys trigger the moment they go down
-- **[Streamlined loop editing](https://github.com/MetalHexx/TeensyROM-Suite/blob/main/docs/dj-mixer.md#loops-and-cues)**: step a loop a beat longer or shorter, or turn it back into a cue
+- **[Streamlined loop editing](https://github.com/MetalHexx/TeensyROM-Suite/blob/main/docs/dj-mixer.md#loops-and-cues)**: loop keys fire the moment they go down, and a loop steps a beat longer or shorter or turns back into a cue
 - **[A new speed display](https://github.com/MetalHexx/TeensyROM-Suite/blob/main/docs/dj-mixer.md#play-a-deck)** with a clear BPM readout, and pads that light while held, from the screen or your controller
 - **[Sets](https://github.com/MetalHexx/TeensyROM-Suite/blob/main/docs/dj-mixer.md#sets)**: drag a tune from anywhere on its row to reorder it or load it onto a deck
 
