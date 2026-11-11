@@ -8,11 +8,11 @@ Release notes for TeensyROM Suite, newest first. Releases before 1.0.0-beta.1 sh
 
 > **Firmware Requirement**: TeensyROM firmware **0.8.0.9** or later is required for this release.
 
-### 🔁 DJ Mixer: Live Loops & Slip Mode
+### 🔁 DJ Mixer: Live Looper & Slip Mode
 
 Grab a loop on the beat, stutter it down to a sixteenth, and drop back in like you never left.
 
-- **[Live loops](https://github.com/MetalHexx/TeensyROM-Suite/blob/main/docs/dj-mixer.md#loops-and-cues)**: loop on the beat with one press, or hold and let go. Keep the good ones in your list
+- **[Live Looper](https://github.com/MetalHexx/TeensyROM-Suite/blob/main/docs/dj-mixer.md#loops-and-cues)**: loop on the beat with one press, or hold and let go. Keep the good ones in your list
 - **[Slip mode](https://github.com/MetalHexx/TeensyROM-Suite/blob/main/docs/dj-mixer.md#loops-and-cues)**: the tune keeps running under your loops and scratches, so letting go lands you right back in time
 - **[Stutters and build-ups](https://github.com/MetalHexx/TeensyROM-Suite/blob/main/docs/dj-mixer.md#loops-and-cues)**: loops as short as 1/16 of a beat
 - **[Fully mappable](https://github.com/MetalHexx/TeensyROM-Suite/blob/main/docs/dj-mixer.md#midi-controllers)** to your MIDI controller
