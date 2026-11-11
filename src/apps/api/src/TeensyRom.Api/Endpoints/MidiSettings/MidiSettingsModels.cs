@@ -182,8 +182,8 @@ namespace TeensyRom.Api.Endpoints.MidiSettings
         public const double LiveLoopBeatsMax = 128;
 
         /// <summary>
-        /// Provisional: the lowest lookahead that held in ASID-DJ-21's ear test. ASID-DJ-22's post-run
-        /// bench chooses the floor; this follows its Chosen section, as the app's SENDER_LOOKAHEAD_FLOOR_MS does.
+        /// The lowest lookahead that held in ASID-DJ-21's table; ASID-DJ-22 did not sweep below it.
+        /// The app's SENDER_LOOKAHEAD_FLOOR_MS holds the same value.
         /// </summary>
         public const int LookaheadMinMs = 15;
         public const int LookaheadMaxMs = 40;

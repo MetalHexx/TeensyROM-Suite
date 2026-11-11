@@ -108,9 +108,9 @@ await djBench.sender() // the timing helper's own numbers per deck (see below)
 djBench.help()
 ```
 
-The sender's default lookahead is 15 ms, provisional until the post-run bench (ASID-DJ-22). The DJ sets
-it on Setup -> Settings, from the floor (15 ms, also provisional) to 40, and it is saved. `djBench.lookahead(ms)`
-still overrides it for the page load, below the floor too, and is not saved; the post-run sweep relies on this.
+The sender's default lookahead is 15 ms and the floor is 15 ms, both final. The DJ sets it on
+Setup -> Settings, from the floor to 40, and it is saved. `djBench.lookahead(ms)` still overrides it
+for the page load, below the floor too, and is not saved.
 
 `djBench.reset()` also clears the sender's timing record. A change of path (a self-heal, the `i` flip) does not restart the readings; only `reset()` and `lookahead(ms)` do.
 

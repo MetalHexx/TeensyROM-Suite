@@ -1506,10 +1506,10 @@ the project's requirements document, section *Outcome and Handover*.
 
 The decks now tick from the sender's wake instead of the mixer's silent audio graph, with a saved
 lookahead and a timing-helper switch on Setup -> Settings. This section records the checks that need no
-cartridge, run and recorded here, and leaves the whole bench as an unticked checklist for the operator
-to run after the pipeline completes. **No bench ran inside this pipeline**: no hardware, no listening,
-no real-cartridge `djBench` reading and no Edge task manager reading is recorded below. No code was
-changed by these checks: none of them found anything broken.
+cartridge, run and recorded here, and the bench checklist for the operator to run after the pipeline.
+**No bench ran inside this pipeline**: no hardware, no listening, no real-cartridge `djBench` reading
+and no Edge task manager reading is in the checks below. The operator ran part of the bench afterwards;
+see Readings and the checklist. No code was changed by these checks: none of them found anything broken.
 
 **How this was driven.** The automated commands ran from `src/` with `pnpm nx`, `--skip-nx-cache` on the
 test, lint, typecheck and build runs, so each was run, not read from the cache. The browser checks were
@@ -1621,14 +1621,24 @@ scratch folder). The panel's tablist read Bindings, Settings.
 
 ### Readings
 
-**No bench readings were taken inside this pipeline.** The shipped lookahead
-(`SENDER_SCHEDULE_AHEAD_MS`) and the floor (`SENDER_LOOKAHEAD_FLOOR_MS`, and the API's
-`MidiSettingsAllowLists.LookaheadMinMs`) are **provisional at 15 ms each**: the value ASID-DJ-21's table
-found to hold, on the audio tick. The checklist below is what chooses them. Two sets of readings already
-exist, as other people's, and are cited, not repeated: the prework's wake test, in
-`reference/wake-test/RESULTS.md` (two decks at lookahead 15, a rig driving the clock from the sender's
-wakes: showing, due-to-send p99 5.7 ms and spare p1 8.5 ms against the audio tick's 12.6 and 3.0; hidden,
-frames past their stamp 0.65% against 6.4 to 7.1%), and ASID-DJ-21's table in the doc comment of
+The shipped lookahead (`SENDER_SCHEDULE_AHEAD_MS`) and the floor (`SENDER_LOOKAHEAD_FLOOR_MS`, and the
+API's `MidiSettingsAllowLists.LookaheadMinMs`) are **15 ms each**, by the operator's choice with the
+sweep skipped. The operator ran the bench after the pipeline, with Claude in Chrome reading `djBench` at
+the start and end of each stretch: two decks at lookahead 15 for 5 minutes each, the old audio tick (a
+checkout of `d994bd74`) against the sender's wake tick. The full record is in
+`C:/Users/Metal/.radorc/shared/projects/ASID-DJ-22/reference/bench/READINGS.md`.
+
+| Mixer | Reading | Audio tick | Wake tick |
+| --- | --- | --- | --- |
+| Showing | Frames past their stamp | 1.08% (507 of 46773) | 0.15% (72 of 48465) |
+| Showing | Spare p1 | 1.25 to 1.45 ms | 3.15 to 3.45 ms |
+| Showing | Mixer lateness p99 | 14.55 to 14.75 ms | 8.6 to 9.2 ms |
+| Hidden | Frames past their stamp | 8.43% (3935 of 46679) | 0.51% (241 of 46921) |
+| Hidden | Spare p1 | 0.15 ms | 2.75 to 3.45 ms |
+| Hidden | Mixer lateness p99 | 15.65 to 15.75 ms | 10.5 to 10.9 ms |
+
+Not measured: press-to-wire, Edge's task manager CPU, and anything below 15 ms. The prework's wake test
+is in `reference/wake-test/RESULTS.md`, and ASID-DJ-21's table is in the doc comment of
 `SENDER_SCHEDULE_AHEAD_MS`.
 
 ### Bench checklist (operator, after the pipeline completes)
@@ -1641,84 +1651,47 @@ Readings go to `C:/Users/Metal/.radorc/shared/projects/ASID-DJ-22/reference/benc
 first check creates, with an entry in the portfolio's performance log
 (`C:\Users\Metal\.radorc\shared\projects\ASID-DJ-ROOT\ASID-DJ-PERFORMANCE-LOG.md`).
 
-- [ ] **1. The baseline on the old tick**, from a separate checkout of `d994bd74`, which has every bench
-  probe and the old audio tick, at lookahead 15 on the sender.
-  - [ ] The checkout: a separate worktree of `d994bd74` beside `teensyrom-web` in
-    `C:/Users/Metal/.radorc/worktrees/ASID-DJ-22/`, so the `../../SIDablist` links in `src/package.json`
-    resolve; `pnpm install` per `src/AGENTS.md`; the branch's dev server stopped first (both serve on
-    port 4200); run against the branch's API, which accepts the old app's saves.
-  - [ ] Before any Settings change: the old app's saves drop `sendSettings`, so a saved lookahead or
-    switch resets to the defaults. Run this check first, or set Setup -> Settings again after it.
-  - [ ] One deck (A), 5 minutes showing and 5 minutes hidden. Each run is `djBench.reset()`, the stretch,
-    then `djBench.report()`, `djBench.lagTimeline()` and `await djBench.sender()`.
-  - [ ] Two decks, 10 minutes showing and 10 minutes hidden, the same readings.
-  - [ ] Presses, on one showing two-deck run: `djBench.reset()`, then about 20 of each kind on deck A,
-    then `djBench.report()`. The kinds: play, stop, pause, a jump into a loop or cue, play-now, a tempo
-    change, a mute and a SID panel knob nudge. Press the jumps with deck A on its main track and no loop
-    running, so each one engages at once.
-  - [ ] Edge's task manager: the sender's and the mixer's CPU on each run.
-  - [ ] Record it under **Baseline (old tick)**, with the conditions and the operator's words.
-- [ ] **2. The new tick at lookahead 15**, back on `radorch/ASID-DJ-22`: the same runs, adding each deck's
-  `tick` readings and the CPU. Record it under **After (new tick)**.
-- [ ] **3. The sweep.** Two decks showing, at 10, 9, 8, 7, 6 and 5 ms in turn, lower while values hold.
-  - [ ] At each value: `djBench.lookahead(ms)`, then `djBench.reset()`, then about 3 minutes.
-  - [ ] Then read `djBench.report()` and `await djBench.sender()` (spare p1, past stamp), and take the
-    operator's word by ear.
-  - [ ] Every dev save reloads the page and resets the lookahead.
-  - [ ] Record it under **Sweep**.
-- [ ] **4. Choose**, with the operator. First check the lowest value that held: a 10-minute two-deck
-  hidden run at it, then the press series at it, each after `djBench.reset()`.
-  - [ ] The shipped lookahead is the lowest value below 10 ms that meets all four of these; if the
-    candidate misses, step up 1 ms and check again:
-    - the tightest margin (spare p1 per deck) is wider than the baseline's at 15, showing and hidden;
-    - pooled mean press-to-wire (`presses.all.mean`) is lower than the baseline's, and no kind's mean is
-      higher than its baseline;
-    - the sender stays under one core with the mixer showing;
-    - the ear holds.
-  - [ ] The floor is the lowest value tried whose two-deck showing run kept frames past their stamp under
-    1%.
-  - [ ] If no value below 10 ms meets the bar, the operator decides.
-  - [ ] Record a **Chosen** section: the shipped lookahead in ms, the floor in ms, and the operator's
-    words.
-- [ ] **5. Reconcile**, in a follow-up outside this pipeline.
-  - [ ] Always, even at 15 / 15: remove "provisional" from the doc comments of
-    `SENDER_SCHEDULE_AHEAD_MS`, `SENDER_LOOKAHEAD_FLOOR_MS` and `MidiSettingsAllowLists.LookaheadMinMs`,
-    and from the `asid-dj-diagnostics` skill and from this section; give `SENDER_SCHEDULE_AHEAD_MS`'s
-    comment the sweep's table.
-  - [ ] When Chosen differs from 15 / 15: change `SENDER_SCHEDULE_AHEAD_MS`,
-    `SENDER_LOOKAHEAD_FLOOR_MS` and `MidiSettingsAllowLists.LookaheadMinMs` to match, and update
-    `deck-send-route.spec.ts`'s `[0, 15]`. The validator and clamp tests are written against the
-    constants, so they follow on their own.
-  - [ ] Rebuild and restart the API the app runs against, so it accepts the new floor. Until then a save
-    below 15 is refused, and so are the bindings saved in the same request.
-  - [ ] The saved value: any save during the provisional build wrote `sendSettings` with the lookahead at
-    15, and a stored value wins over a new default. Once the follow-up is running, set the chosen
-    lookahead on Setup -> Settings. The follow-up decides whether a stored 15 should migrate on other
-    hosts.
-- [ ] **6. The final bench**, once step 5 is in, on the build with the reconciled constants and the
-  restarted API, with Setup -> Settings first showing the chosen lookahead (at 15 / 15, on the build as it
-  stands).
-  - [ ] 6.1 Two decks, mixer hidden behind another tab for 30 minutes, read afterwards from
-    `djBench.report()`, `djBench.lagTimeline()` and `await djBench.sender()`. The sender's own lateness
-    hidden, from its single waiter, is set against prework's rig.
-  - [ ] 6.2 Two decks, mixer showing, 10 minutes: no frame past its stamp, mixer lateness p99 about 5 ms
-    or less, and the sender under one core in Edge's task manager, against its ASID-DJ-21 reading.
-  - [ ] 6.3 Press-to-wire for every kind against the baseline, and the presses by ear.
-  - [ ] 6.4 The fallback without a click, two ways, in Edge, while both decks play:
-    - [ ] `b`: the decks keep playing on the audio tick with no fresh click, then the sender comes back
-      by itself with the tick handed back;
-    - [ ] a real silent failure: end the sender's subframe process (`127.0.0.1`) in Edge's task manager
-      (Shift+Esc). The fallback comes only after the health timeout. By ear and by `djBench.report()`,
-      the decks stay beat-matched across it and keep their place, and the sender comes back by itself.
-  - [ ] 6.5 The switch mid-set: Timing helper off and on while both decks play, with the chip in step
-    after each. The setting survives a reload and a cleared browser cache.
-  - [ ] 6.6 A production build served by the API: `pnpm run build:frontend`, `trom api stop`, `trom api
-    start`, then `http://localhost:10213/dj-mixer` for a shorter run of check 2 by ear. Setup then
-    Settings on this build must show the saved lookahead and switch, matching `GET /api/midi-settings`.
-  - [ ] Record it under **Final**, with the operator's verdict.
+- [x] **1. The baseline on the old tick**, from a separate checkout of `d994bd74`, which has every bench
+  probe and the old audio tick, at lookahead 15 on the sender. Ran as two decks (A Aces High loop at 1x,
+  B InSID3 Out at 2x), 5 minutes showing and 5 minutes hidden, recorded under **Baseline (old tick)**.
+  - [x] The checkout: a separate worktree of `d994bd74`, its own dev server on port 4200, against the
+    branch's API on port 10213.
+  - [ ] Not run, by the operator's decision (the two-deck 5-minute runs were enough): the one-deck runs,
+    the 10-minute two-deck runs, the presses, and Edge's task manager CPU.
+- [x] **2. The new tick at lookahead 15**, back on `radorch/ASID-DJ-22`: two decks, 5 minutes showing and
+  5 minutes hidden, with each deck's `tick` readings. Recorded under **After (new tick)**.
+  - [ ] Not run, by the operator's decision: the one-deck and 10-minute runs, the presses, and the CPU.
+- [ ] **3. The sweep.** Not run, by the operator's decision: 15 still has drops and feels good as far as
+  latency, and going lower is left to a later project with larger changes.
+- [x] **4. Choose**, with the operator: lookahead 15 ms, floor 15 ms, by skipping the sweep. Both pass the
+  margin test (spare p1 wider than the baseline's, showing and hidden). Recorded under **Chosen**.
+  - [ ] Not run, by the operator's decision (nothing below 15 was tried): the 10-minute hidden run and the
+    press series at the candidate.
+- [x] **5. Reconcile.**
+  - [x] The placeholder wording is removed from the doc comments of `SENDER_SCHEDULE_AHEAD_MS`,
+    `SENDER_LOOKAHEAD_FLOOR_MS` and `MidiSettingsAllowLists.LookaheadMinMs`, from the
+    `asid-dj-diagnostics` skill and from this section. `SENDER_SCHEDULE_AHEAD_MS`'s comment carries the
+    ASID-DJ-22 readings.
+  - [x] Chosen is 15 / 15, so no constant, spec or API floor changed, and the API needs no rebuild.
+  - [x] The saved value: a stored 15 now equals the default, so there is nothing to migrate. Final review
+    finding 1 (the first unrelated save pins the default) is closed by this choice.
+- [ ] **6. The final bench.** Not run, by the operator's decision: 15 / 15 stands as chosen.
+  - [ ] 6.1 The 30-minute hidden run. Not run.
+  - [ ] 6.2 Two decks showing, 10 minutes, and the sender under one core in Edge's task manager. Not run.
+  - [ ] 6.3 Press-to-wire for every kind against the baseline. Not run.
+  - [ ] 6.4 The fallback without a click, by `b` and by ending the sender's process. Not run.
+  - [ ] 6.5 The switch mid-set and its survival of a reload. Not run.
+  - [ ] 6.6 A production build served by the API, with Setup then Settings matching
+    `GET /api/midi-settings`. Not run.
+- [ ] Not run, by the operator's decision: the P01 and P02 browser checks and the two P03-T02 dev-server
+  console checks, on the operator's own Edge. The headless Edge checks recorded above stand for them.
 - Never ask for a C64 or a MIDI device to be powered off: it freezes Edge (a known Chromium bug).
-- [ ] If deck B's C64 crashes on its own during the bench, record what happened.
+- [ ] If deck B's C64 crashes on its own during the bench, record what happened. Nothing was recorded.
 
 ### Verdict
 
-Pending the operator. Nothing in this section claims a listening result or a real-hardware reading.
+The operator, by ear on run 1 (new tick, showing): "everything is sounding pretty good. Is it perfect? No.
+We still get drops once in a while when we're going full blast on both decks and the aces high loop going.
+But its what I expected this project to deliver." That is sounding pretty good, not perfect, with a drop
+once in a while at full blast on both decks with the Aces High loop, as expected from the prework. The
+readings are in `C:/Users/Metal/.radorc/shared/projects/ASID-DJ-22/reference/bench/READINGS.md`.

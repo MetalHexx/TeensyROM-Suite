@@ -42,15 +42,27 @@ export const MIXER_SCHEDULE_AHEAD_MS: Milliseconds = milliseconds(0);
  * 12-minute adaptive-margin run at 15 read 98.0 / 96.5%. The sink caps it at 40 ms for a port that
  * cannot cancel.
  *
- * On the sender's wake tick, 15 ms is provisional. ASID-DJ-22's post-run bench sweeps the lookahead
- * and chooses the shipped value and the floor; these constants then follow its Chosen section.
+ * ASID-DJ-22's reading, on the real mixer with two decks at lookahead 15 for 5 minutes each, the
+ * old audio tick against the sender's wake tick:
+ *
+ * | Mixer   | Reading                 | Audio tick            | Wake tick            |
+ * |---------|-------------------------|-----------------------|----------------------|
+ * | Showing | Frames past their stamp | 1.08% (507 of 46773)  | 0.15% (72 of 48465)  |
+ * | Showing | Spare p1                | 1.25 to 1.45 ms       | 3.15 to 3.45 ms      |
+ * | Showing | Mixer lateness p99      | 14.55 to 14.75 ms     | 8.6 to 9.2 ms        |
+ * | Hidden  | Frames past their stamp | 8.43% (3935 of 46679) | 0.51% (241 of 46921) |
+ * | Hidden  | Spare p1                | 0.15 ms               | 2.75 to 3.45 ms      |
+ * | Hidden  | Mixer lateness p99      | 15.65 to 15.75 ms     | 10.5 to 10.9 ms      |
+ *
+ * 15 ms stays: the operator found it sounds good and the latency right. Nothing below 15 was swept;
+ * going lower is left to a later project.
  */
 export const SENDER_SCHEDULE_AHEAD_MS: Milliseconds = milliseconds(15);
 
 /**
- * The lowest lookahead the DJ can set. Provisional, as `SENDER_SCHEDULE_AHEAD_MS` is: 15 ms is the
- * lowest value that held in its table, and ASID-DJ-22's post-run bench chooses the real floor. The
- * API's `MidiSettingsAllowLists.LookaheadMinMs` holds the same value.
+ * The lowest lookahead the DJ can set: 15 ms is the lowest value that held in ASID-DJ-21's table,
+ * and ASID-DJ-22 did not sweep below it. The API's `MidiSettingsAllowLists.LookaheadMinMs` holds
+ * the same value.
  */
 export const SENDER_LOOKAHEAD_FLOOR_MS = 15;
 
