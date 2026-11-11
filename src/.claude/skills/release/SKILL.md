@@ -58,13 +58,17 @@ If `CHANGELOG.md` has a `## [Unreleased]` section, fold its notes into this new 
 
 Everything under it, up to the next `## [` heading, becomes the GitHub release body (`.github/scripts/changelog-section.sh` extracts it); use `###` and lower inside.
 
-Market the release, in the voice of the `1.0.0-beta.1` section:
+Market the release: clean, professional and a little exciting, without going overboard.
 
-- **Sell each section.** Group by product area and lead with what users will notice most. Each `###` section opens with one or two sentences that sell it, then three to five short bold-led bullets of what a user gets, with `---` between sections.
-- **Stay at feature level.** Say what a user can now do, not how it works inside. Leave out test, bench and measurement figures, settings ranges, flag and command lists, and install fine print.
+- **Sell each section.** Group by product area, with the user's headline feature first. Each `###` section opens with one or two sentences that sell it, then two to five short bold-led bullets of what a user gets, with `---` between sections.
+- **Frame it as new, not as a fix.** Never imply a problem users didn't have: no "recovers on its own" for something that never broke, and no "smoother" that suggests the old version was choppy. Polish reads as a streamlined interface and workflow.
+- **Claim only what ships.** Don't present a feature beyond what it does (video capture is not video streaming), and put a feature under the product area it was built for (the secure address supports running the suite on a Raspberry Pi).
+- **Stay at feature level.** Say what a user can now do, not how it works inside: no internal component names (the DJ Mixer's timing helper is "reworked timing"), test, bench or measurement figures, settings ranges, flag and command lists, or install fine print.
+- **Link each feature.** The bold lead of every bullet links to its section in the user docs, as an absolute URL (`https://github.com/MetalHexx/TeensyROM-Suite/blob/main/docs/<page>.md#<heading>`), because the notes are read on the GitHub release page.
+- **Leave out the small stuff**: no catch-all *Also New* section, and no *Upgrade Notes* for retired controls or changed defaults. Keep an upgrade note only for a change the user must act on, such as a moved port or a fresh start.
 - **Never name internal work.** No rad-orc project or portfolio names (such as `ASID-DJ-22`), no iteration or phase titles, and no review or bench language. This holds for the notes, the docs and the release PR's title and description.
 - **Leave out internal changes**: CI, skills, refactors and tests.
-- **Removed controls and changed defaults** a user must know about go in a `### ⚠️ Upgrade Notes` section, just before Update.
+- **No counts that drift**: the DJ Mixer plays through "real C64s", not "two" or "one or two".
 
 End with this:
 
