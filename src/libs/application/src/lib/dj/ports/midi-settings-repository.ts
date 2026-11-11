@@ -59,12 +59,19 @@ export interface DeckSettingsRecord {
   readonly liveLoopBeats: number;
 }
 
+/** The timing helper's two settings: how far ahead frames are stamped, and whether it is on. */
+export interface SendSettingsRecord {
+  readonly lookaheadMs: number;
+  readonly senderEnabled: boolean;
+}
+
 /** The whole MIDI settings set, as the server stores it. It is always read and written whole. */
 export interface MidiSettingsRecord {
   readonly controllers: readonly KnownControllerRecord[];
   readonly mappings: readonly ControlMappingRecord[];
   readonly deckBindings: readonly DeckDeviceBindingRecord[];
   readonly deckSettings: readonly DeckSettingsRecord[];
+  readonly send: SendSettingsRecord;
 }
 
 /** How a save is sent. `keepalive` asks the transport to complete the request even as the page

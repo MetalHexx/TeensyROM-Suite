@@ -26,5 +26,10 @@ namespace TeensyRom.Api.Endpoints.MidiSettings.GetMidiSettings
         /// Each deck's own settings: slip and the live loop size in beats.
         /// </summary>
         [Required] public List<DeckSettingsDto> DeckSettings { get; set; } = [];
+
+        /// <summary>
+        /// The sender path's lookahead and whether the decks send through the timing helper. Null when nothing is stored.
+        /// </summary>
+        public SendSettingsDto? SendSettings { get; set; }
     }
 }

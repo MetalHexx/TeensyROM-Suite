@@ -1,4 +1,5 @@
 import type { HeldPacket, ReleaseQueue } from './release-queue';
+import { WakeAlarms } from './wake-alarms';
 import { nextWait, type WakeMargin } from './wake-margin';
 
 /** Messages to the alarm worker. A page's own timers slow to about once a second when it is hidden. */
@@ -28,21 +29,24 @@ export interface WaiterEnv {
   release(held: HeldPacket, nowMs: number): void;
   /** A wake-up's lateness, from the alarm (`probe` false) or from the steady check (`probe` true). */
   recordWake(latenessMs: number, nowMs: number, probe: boolean): void;
+  /** Sends a due wake. `askedAtMs` is the time it was armed for; `nowMs` is when its send began; both on this page's clock. Must not throw. */
+  wake(id: number, askedAtMs: number, nowMs: number): void;
 }
 
 /** The steady check's waits are drawn evenly from 20 to 30 ms and must stay under 32 ms: worker
  *  waits of 32 ms and over came back about 13 ms late. */
 export const PROBE_MIN_MS = 20;
 export const PROBE_MAX_MS = 30;
-/** The steady check stops this long after the last packet. */
+/** The steady check stops this long after the last packet or wake arming. */
 export const PROBE_KEEP_ALIVE_MS = 1000;
 
 type State = 'idle' | 'spin' | 'sleep';
 
 /**
- * Sends packets when they fall due. Each turn sends everything due, then either goes idle, takes
- * the next turn straight away (spin: the head is due within the wake margin) or sleeps on the
- * worker's alarm until the margin before the head is due.
+ * Sends packets and wakes when they fall due, never early. Each turn sends everything due in time
+ * order (a packet before a wake at the same time), then either goes idle, takes the next turn
+ * straight away (spin: the head, the earlier of the next packet and the next wake, is due within
+ * the wake margin) or sleeps on the worker's alarm until the margin before the head is due.
  */
 export class Waiter {
   private state: State = 'idle';
@@ -54,7 +58,9 @@ export class Waiter {
   private probing = false;
   private probeSeq = 0;
   private probeAskedAtMs = 0;
-  private lastPacketMs = -Infinity;
+  private lastActivityMs = -Infinity;
+
+  private readonly alarms = new WakeAlarms();
 
   constructor(
     private readonly queue: ReleaseQueue,
@@ -66,15 +72,24 @@ export class Waiter {
   submit(token: string, bytes: Uint8Array, dueMs: number | null): void {
     const nowMs = this.env.now();
     this.queue.enqueue(token, bytes, dueMs, nowMs);
-    this.lastPacketMs = nowMs;
-    this.startProbing();
+    this.noteActivity(nowMs);
+  }
 
-    if (this.state === 'idle') {
-      this.turn();
-    } else if (this.state === 'sleep' && (this.queue.nextAtMs() ?? Infinity) < this.armedForMs) {
-      this.disarm();
-      this.turn();
+  /**
+   * Arms a wake for `id` (`atMs` on this page's clock), replacing any armed under it, and makes
+   * sure it will be sent on time. False, changing nothing, for a new id when all are in use.
+   */
+  arm(id: number, atMs: number): boolean {
+    if (!this.alarms.set(id, atMs)) {
+      return false;
     }
+    this.noteActivity(this.env.now());
+    return true;
+  }
+
+  /** Drops the wake armed under `id`. A sleep armed for it may still wake early and sleep again. */
+  cancel(id: number): void {
+    this.alarms.delete(id);
   }
 
   /** The delivery of a turn asked for by `postTurn`. */
@@ -101,7 +116,7 @@ export class Waiter {
     }
     const nowMs = this.env.now();
     this.woke(nowMs - this.probeAskedAtMs, nowMs, true);
-    if (nowMs - this.lastPacketMs >= PROBE_KEEP_ALIVE_MS) {
+    if (nowMs - this.lastActivityMs >= PROBE_KEEP_ALIVE_MS) {
       this.probing = false;
     } else {
       this.armProbe();
@@ -111,12 +126,30 @@ export class Waiter {
   private turn(): void {
     this.state = 'idle';
     let nowMs = this.env.now();
-    for (let held = this.queue.takeDue(nowMs); held; held = this.queue.takeDue(nowMs)) {
-      this.env.release(held, nowMs);
+    for (;;) {
+      const packetAtMs = this.queue.nextAtMs();
+      const wakeAtMs = this.alarms.nextAtMs();
+      if (
+        packetAtMs !== null &&
+        packetAtMs <= nowMs &&
+        (wakeAtMs === null || packetAtMs <= wakeAtMs)
+      ) {
+        const held = this.queue.takeDue(nowMs);
+        if (held) {
+          this.env.release(held, nowMs);
+        }
+      } else if (wakeAtMs !== null && wakeAtMs <= nowMs) {
+        const due = this.alarms.takeDue(nowMs);
+        if (due) {
+          this.env.wake(due.id, due.atMs, nowMs);
+        }
+      } else {
+        break;
+      }
       nowMs = this.env.now();
     }
 
-    const headAtMs = this.queue.nextAtMs();
+    const headAtMs = this.headAtMs();
     const wait = nextWait(headAtMs, nowMs, this.margin.marginMs);
     if (wait.kind === 'spin') {
       this.state = 'spin';
@@ -128,6 +161,29 @@ export class Waiter {
       this.armedId = ++this.alarmSeq;
       this.env.alarm.arm(this.armedId, wait.delayMs);
     }
+  }
+
+  /** A packet or wake was just added: keep the steady check going and bring forward any turn it needs. */
+  private noteActivity(nowMs: number): void {
+    this.lastActivityMs = nowMs;
+    this.startProbing();
+
+    if (this.state === 'idle') {
+      this.turn();
+    } else if (this.state === 'sleep' && (this.headAtMs() ?? Infinity) < this.armedForMs) {
+      this.disarm();
+      this.turn();
+    }
+  }
+
+  /** The earlier of the next packet's and the next wake's time, or null when neither is held. */
+  private headAtMs(): number | null {
+    const packetAtMs = this.queue.nextAtMs();
+    const wakeAtMs = this.alarms.nextAtMs();
+    if (packetAtMs === null || (wakeAtMs !== null && wakeAtMs < packetAtMs)) {
+      return wakeAtMs;
+    }
+    return packetAtMs;
   }
 
   private disarm(): void {

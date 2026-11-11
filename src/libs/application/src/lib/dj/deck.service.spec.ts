@@ -2,8 +2,9 @@ import { TestBed } from '@angular/core/testing';
 import { signal, type WritableSignal } from '@angular/core';
 import { describe, it, expect, beforeEach, afterEach, vi, type MockInstance } from 'vitest';
 import { of, throwError } from 'rxjs';
-import { FakeClock, frames, milliseconds, replayToFrame } from '@sidablist/core';
+import { frames, milliseconds, replayToFrame } from '@sidablist/core';
 import type { ReplayRequest, ReplayResponse, ReplayRunner } from '@sidablist/core';
+import { FakeDeckClock } from './testing/deck-runtime-fakes';
 import type { MidiOutputPort } from '@sidablist/asid';
 import {
   InMemorySetStore,
@@ -213,7 +214,7 @@ describe('DeckService', () => {
   let outputPortForMock: ReturnType<typeof vi.fn>;
   let byPath: Map<string, TuneFixture>;
   let bySidHash: Map<string, TuneFixture>;
-  let clocks: FakeClock[];
+  let clocks: FakeDeckClock[];
   let setStore: InMemorySetStore;
   let memoryStore: InMemoryTuneMemoryStore;
   let libraryState: { load: ReturnType<typeof vi.fn>; save: ReturnType<typeof vi.fn> };
@@ -310,6 +311,7 @@ describe('DeckService', () => {
         mappings: [],
         deckBindings: [],
         deckSettings: [],
+        send: { lookaheadMs: 15, senderEnabled: true },
       } satisfies MidiSettingsRecord),
       scheduleSave: vi.fn(),
     };
@@ -324,8 +326,8 @@ describe('DeckService', () => {
         { provide: MidiSettingsPersistence, useValue: fakePersistence },
         {
           provide: FRAME_CLOCK_FACTORY,
-          useValue: (): FakeClock => {
-            const clock = new FakeClock();
+          useValue: (): FakeDeckClock => {
+            const clock = new FakeDeckClock();
             clocks.push(clock);
             return clock;
           },
@@ -3843,6 +3845,7 @@ describe('DeckService', () => {
         mappings: [],
         deckBindings: [],
         deckSettings,
+        send: { lookaheadMs: 15, senderEnabled: true },
       } satisfies MidiSettingsRecord);
     }
 

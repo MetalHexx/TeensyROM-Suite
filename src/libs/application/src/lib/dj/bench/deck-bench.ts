@@ -2,20 +2,26 @@ import { isDevMode } from '@angular/core';
 import { milliseconds } from '@sidablist/core';
 import type { SidPlayer } from '@sidablist/core';
 import type { AsidSink } from '@sidablist/asid';
+import type { DeckFrameClock, WakeReadings } from '../ports';
 import type { Slot } from '../slot';
-import type { DeliveryProbe } from './delivery-probe';
+import type { DeliveryProbe, LagTimelineRow } from './delivery-probe';
+import type { PressProbe } from './press-probe';
 
 export interface BenchDeck {
   readonly slot: Slot;
   readonly player: SidPlayer;
   readonly sink: AsidSink;
+  readonly clock: DeckFrameClock;
   readonly probe: DeliveryProbe;
+  readonly presses: PressProbe;
 }
 
 const HELP = `djBench — deck timing bench (dev builds only)
-  djBench.report()               timing per playing deck since the last reset
-  djBench.reset()                clears the probes and long-task count (clock and player stats reset on play); with the sender, also its timing record
-  djBench.lookahead(ms)          sets the live send path's schedule-ahead on both decks (the sink caps it at 40 ms); the other path keeps its own value for this page load
+  djBench.report()               timing per playing deck since the last reset: lagMs is the mixer lateness (due to hand-off, whole stretch); presses is press-to-wire per kind and pooled (all), with noFrame and superseded counts; tick is the clock's source ('sender' or 'audio') and, once the sender's wake or the backstop beat has touched it, wake: wakes, early (found no frame due), guardRearms (the backstop beat re-armed a silent chain), senderLateMs (asked to sent) and mixerLateMs (sent to handled)
+  djBench.lagTimeline()          per deck, one row per closed 10 s since the reset: { atS, frames, p99Ms, maxMs }; finds where a stall landed
+  djBench.reset()                clears the delivery probes, the press probes, the clocks' wake readings and the long-task count (clock and player stats reset on play); with the sender, also its timing record
+  djBench.lookahead(ms)          sets the live send path's schedule-ahead on both decks (the sink caps it at 40 ms) and then resets every reading; the other path keeps its own value for this page load
+  (a path change, such as a self-heal, no longer restarts the readings: only reset() and lookahead(ms) do)
   djBench.sender()               Promise: the sender's path, health, margin, wake lateness and per-deck timing (empty decks with no cartridge)
   keys i / b                     with nothing focused: i flips between the sender and today's sending; b breaks the sender on purpose (the self-heal drill); djBench.sender() shows the path and state
   djBench.waves(false|true)      the whole waveform feature off (the baseline) or on, with the hand-off timed
@@ -41,6 +47,16 @@ export function installDeckBench(decks: () => readonly BenchDeck[]): void {
     // No long-task timing in this browser; the count stays at zero.
   }
 
+  const reset = (): void => {
+    for (const { probe, presses, clock } of decks()) {
+      probe.reset();
+      presses.reset();
+      clock.resetWakeReadings();
+    }
+    longTasks = 0;
+    longestTaskMs = 0;
+  };
+
   const bench = {
     help(): void {
       // eslint-disable-next-line no-console -- the bench is a console tool; printing is its output
@@ -54,7 +70,7 @@ export function installDeckBench(decks: () => readonly BenchDeck[]): void {
         longTasks: { count: longTasks, longestMs: Math.round(longestTaskMs) },
         decks: Object.fromEntries(
           decks()
-            .map(({ slot, player, sink, probe }) => {
+            .map(({ slot, player, sink, clock, probe, presses }) => {
               const stats = player.getStats();
               const summary = probe.summarize(stats.effectiveIntervalUs / 1000);
               return [
@@ -64,6 +80,8 @@ export function installDeckBench(decks: () => readonly BenchDeck[]): void {
                   : {
                       scheduleAheadMs: sink.capabilities.scheduleAheadMs,
                       ...summary,
+                      presses: presses.read(),
+                      tick: { source: clock.source, wake: wakeOf(clock) },
                       clock: {
                         jitterMs: round(stats.clock.jitterMs),
                         worstGapMs: round(stats.clock.worstGapMs),
@@ -85,26 +103,35 @@ export function installDeckBench(decks: () => readonly BenchDeck[]): void {
       return result;
     },
 
-    reset(): void {
-      for (const { probe } of decks()) {
-        probe.reset();
-      }
-      longTasks = 0;
-      longestTaskMs = 0;
+    lagTimeline(): Record<Slot, LagTimelineRow[]> {
+      const result = Object.fromEntries(
+        decks().map(({ slot, probe }) => [slot, probe.lagTimeline()] as const)
+      ) as Record<Slot, LagTimelineRow[]>;
+      // eslint-disable-next-line no-console -- the bench is a console tool; printing is its output
+      console.log(JSON.stringify(result, null, 2));
+      return result;
     },
 
+    reset,
+
     lookahead(ms: number): number[] {
-      return decks().map(({ sink, probe }) => {
+      const effective = decks().map(({ sink, probe }) => {
         sink.setScheduleAhead(milliseconds(ms));
-        const effective = sink.capabilities.scheduleAheadMs ?? 0;
-        probe.setScheduleAhead(effective);
-        probe.reset();
-        return effective;
+        const scheduleAheadMs = sink.capabilities.scheduleAheadMs ?? 0;
+        probe.setScheduleAhead(scheduleAheadMs);
+        return scheduleAheadMs;
       });
+      reset();
+      return effective;
     },
   };
 
   (globalThis as { djBench?: typeof bench }).djBench = bench;
+}
+
+function wakeOf(clock: DeckFrameClock): WakeReadings | null {
+  const readings = clock.wakeReadings();
+  return readings.wakes === 0 && readings.guardRearms === 0 ? null : readings;
 }
 
 function round(value: number): number {

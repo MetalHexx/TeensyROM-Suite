@@ -1,7 +1,7 @@
 import { TestBed } from '@angular/core/testing';
-import { describe, it, expect, beforeEach, vi } from 'vitest';
-import { FakeClock, frames, milliseconds } from '@sidablist/core';
-import type { FrameClock, ReplayRunner, SidPlayer } from '@sidablist/core';
+import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest';
+import { frames, milliseconds } from '@sidablist/core';
+import type { ReplayRunner, SidPlayer } from '@sidablist/core';
 import type { MidiOutputPort } from '@sidablist/asid';
 import { DeckRuntime } from './deck-runtime';
 import {
@@ -11,9 +11,10 @@ import {
   MIDI_ACCESS,
   ASID_SENDER_LINK,
 } from './ports';
-import type { RegisterRecorder } from './ports';
+import type { RegisterRecorder, WakeReadings } from './ports';
 import { DeckSendRoute, SENDER_SCHEDULE_AHEAD_MS } from './sender/deck-send-route';
 import {
+  FakeDeckClock,
   FakeRegisterRecorder,
   FakeReplayRunner,
   SID_MODEL_6581,
@@ -55,7 +56,7 @@ describe('DeckRuntime', () => {
     createdPlayers.length = 0;
     replayRunners = [];
     recorders = [];
-    clockFactory = vi.fn((): FrameClock => new FakeClock());
+    clockFactory = vi.fn((): FakeDeckClock => new FakeDeckClock());
     replayFactory = vi.fn((): ReplayRunner => {
       const runner = new FakeReplayRunner();
       replayRunners.push(runner);
@@ -582,7 +583,7 @@ describe('DeckRuntime with a timing helper', () => {
   let runtime: DeckRuntime;
   let route: DeckSendRoute;
   let link: FakeSenderLink;
-  let clocks: FakeClock[];
+  let clocks: FakeDeckClock[];
   let recorders: FakeRegisterRecorder[];
   let mixerPort: RecordingPort;
 
@@ -598,8 +599,8 @@ describe('DeckRuntime with a timing helper', () => {
         { provide: ASID_SENDER_LINK, useValue: link },
         {
           provide: FRAME_CLOCK_FACTORY,
-          useValue: (): FrameClock => {
-            const clock = new FakeClock();
+          useValue: (): FakeDeckClock => {
+            const clock = new FakeDeckClock();
             clocks.push(clock);
             return clock;
           },
@@ -733,6 +734,143 @@ describe('DeckRuntime with a timing helper', () => {
     });
   });
 
+  describe('the bench probes', () => {
+    interface BenchReading {
+      decks: {
+        A: {
+          scheduleAheadMs: number;
+          frames: number;
+          presses: {
+            byKind: Record<string, { count: number }>;
+            noFrame: number;
+            superseded: number;
+          };
+        };
+      };
+    }
+    interface BenchHandle {
+      report(): BenchReading;
+      reset(): void;
+      lagTimeline(): Record<string, { atS: number; frames: number }[]>;
+    }
+    const bench = (): BenchHandle => (globalThis as unknown as { djBench: BenchHandle }).djBench;
+    const reading = (): BenchReading => bench().report();
+
+    beforeEach(() => {
+      configure();
+      vi.spyOn(console, 'log').mockImplementation(() => undefined);
+    });
+
+    afterEach(() => {
+      vi.restoreAllMocks();
+    });
+
+    /** Marks `kind` on deck A, then lets the clock send one frame stamped near now. */
+    function pressThenFrame(kind: Parameters<DeckRuntime['markPress']>[1]): void {
+      runtime.markPress('A', kind);
+      clocks[0].tick(milliseconds(performance.now()));
+    }
+
+    it('lands one reading when a mark is followed by a stamped register frame', async () => {
+      await playDeckA();
+
+      pressThenFrame('mute');
+
+      const { byKind } = reading().decks.A.presses;
+      expect(byKind['mute'].count).toBe(1);
+    });
+
+    it('measures a nudge only from the frame after the engine took it', async () => {
+      await playDeckA();
+
+      runtime.markPress('A', 'nudge');
+      clocks[0].tick(milliseconds(performance.now()));
+      expect(reading().decks.A.presses.byKind['nudge']).toBeUndefined();
+
+      runtime.notePressApplied('A');
+      clocks[0].tick(milliseconds(performance.now()));
+      expect(reading().decks.A.presses.byKind['nudge'].count).toBe(1);
+    });
+
+    it('does nothing for a slot that is not built', () => {
+      runtime.build('A');
+
+      expect(() => {
+        runtime.markPress('B', 'play');
+        runtime.notePressApplied('B');
+      }).not.toThrow();
+    });
+
+    it('sends the same bytes with the same stamps whether or not a press is being measured', async () => {
+      vi.spyOn(performance, 'now').mockReturnValue(50_000);
+      const run = async (press: boolean): Promise<{ sent: Uint8Array[]; stamps: (number | undefined)[] }> => {
+        configure();
+        runtime.build('A');
+        runtime.setPort('A', 'port-a');
+        runtime.load('A', playableOf(SID_MODEL_6581, WRITING_TUNE));
+        await runtime.play('A');
+        if (press) {
+          runtime.markPress('A', 'tempo');
+        }
+        for (let i = 0; i < 3; i++) {
+          clocks[0].tick(milliseconds(50_000 + i * 20));
+        }
+        return { sent: [...mixerPort.sent], stamps: [...mixerPort.stamps] };
+      };
+
+      const without = await run(false);
+      const withPress = await run(true);
+
+      expect(without.sent.length).toBeGreaterThan(2);
+      expect(withPress).toEqual(without);
+    });
+
+    it('clears the press readings and a pending mark with the handle reset', async () => {
+      await playDeckA();
+      pressThenFrame('mute');
+      expect(reading().decks.A.presses.byKind['mute'].count).toBe(1);
+      runtime.markPress('A', 'tempo');
+
+      bench().reset();
+
+      expect(reading().decks).not.toHaveProperty('A');
+      clocks[0].tick(milliseconds(performance.now()));
+      const { byKind, noFrame, superseded } = reading().decks.A.presses;
+      expect(byKind).toEqual({});
+      expect(noFrame).toBe(0);
+      expect(superseded).toBe(0);
+    });
+
+    it('gives the lag timeline per built deck, one row for each closed 10 s', async () => {
+      let nowMs = 50_000;
+      vi.spyOn(performance, 'now').mockImplementation(() => nowMs);
+      await playDeckA();
+      runtime.build('B');
+      bench().reset();
+
+      clocks[0].tick(milliseconds(nowMs));
+      nowMs += 10_500;
+      clocks[0].tick(milliseconds(nowMs));
+
+      const timeline = bench().lagTimeline();
+      expect(Object.keys(timeline).sort()).toEqual(['A', 'B']);
+      expect(timeline.A).toEqual([expect.objectContaining({ atS: 10, frames: 1 })]);
+      expect(timeline.B).toEqual([]);
+    });
+
+    it('keeps what the delivery probe has recorded when the schedule-ahead changes', async () => {
+      await playDeckA();
+      const before = reading().decks.A;
+
+      runtime.setScheduleAhead('A', milliseconds(7));
+
+      const after = reading().decks.A;
+      expect(after.frames).toBe(before.frames);
+      expect(after.scheduleAheadMs).toBe(7);
+      expect(before.scheduleAheadMs).not.toBe(7);
+    });
+  });
+
   describe('the cartridge token', () => {
     beforeEach(() => configure());
 
@@ -753,6 +891,71 @@ describe('DeckRuntime with a timing helper', () => {
 
       expect(runtime.deviceToken('A')).toBeNull();
       expect(runtime.deviceToken('B')).toBeNull();
+    });
+  });
+
+  describe('the tick source', () => {
+    beforeEach(() => configure());
+
+    it('is set at build from the live send path', () => {
+      runtime.build('A');
+      useSender();
+      runtime.build('B');
+
+      expect(clocks.map((clock) => clock.source)).toEqual(['audio', 'sender']);
+    });
+
+    it('is handed to the slot named, and a slot not built is passed over', () => {
+      runtime.build('A');
+
+      runtime.setTickSource('A', 'sender');
+
+      expect(clocks[0].source).toBe('sender');
+      expect(() => runtime.setTickSource('B', 'sender')).not.toThrow();
+      expect(clocks).toHaveLength(1);
+    });
+
+    describe('on the bench', () => {
+      type Tick = { source: string; wake: unknown };
+      type Bench = { report(): { decks: { A: { tick: Tick } } }; reset(): void };
+      const bench = (): Bench => (globalThis as unknown as { djBench: Bench }).djBench;
+      const readings = (wakes: number, guardRearms: number): WakeReadings => ({
+        wakes,
+        early: 0,
+        guardRearms,
+        senderLateMs: { count: wakes, p50: 0.4, p99: 1.2, max: 2 },
+        mixerLateMs: { count: wakes, p50: 0.1, p99: 0.3, max: 0.5 },
+      });
+
+      it('reads the audio source with no wake readings', async () => {
+        await playDeckA();
+
+        expect(bench().report().decks.A.tick).toEqual({ source: 'audio', wake: null });
+      });
+
+      it('reads the sender source with the wake readings the clock holds', async () => {
+        await playDeckA();
+        clocks[0].source = 'sender';
+        clocks[0].wakes = readings(40, 0);
+
+        expect(bench().report().decks.A.tick).toEqual({ source: 'sender', wake: readings(40, 0) });
+      });
+
+      it('shows the guard re-arms of a chain the sender never woke', async () => {
+        await playDeckA();
+        clocks[0].source = 'sender';
+        clocks[0].wakes = readings(0, 2);
+
+        expect(bench().report().decks.A.tick).toEqual({ source: 'sender', wake: readings(0, 2) });
+      });
+
+      it('clears the clock readings on reset', async () => {
+        await playDeckA();
+
+        bench().reset();
+
+        expect(clocks[0].wakeResets).toBe(1);
+      });
     });
   });
 

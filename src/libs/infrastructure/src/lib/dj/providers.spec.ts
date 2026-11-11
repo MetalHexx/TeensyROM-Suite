@@ -3,6 +3,7 @@ import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest';
 import { TestBed } from '@angular/core/testing';
 import {
   DJ_LIBRARY_STATE_REPOSITORY,
+  FRAME_CLOCK_FACTORY,
   REGISTER_RECORDER_FACTORY,
   SET_STORE,
   TUNE_INSERTER,
@@ -11,6 +12,7 @@ import {
 } from '@teensyrom-nx/application';
 import { ALERT_SERVICE, API_CONFIG, IAlertService } from '@teensyrom-nx/domain';
 import { DjDatabase, DJ_DATABASE_NAME } from './database/dj-database';
+import { DeckTickClock } from './clock/deck-tick-clock';
 import { WorkerRegisterRecorder } from './analysis/worker-register-recorder';
 import { WorkerTuneIndexer } from './analysis/worker-tune-indexer';
 import { ApiDjLibraryStateRepository, ApiSetStore, ApiTuneMemoryStore } from './dj-library';
@@ -106,6 +108,20 @@ describe('DJ_ENGINE_PROVIDERS composition', () => {
 
     expect(first).toBeInstanceOf(WorkerRegisterRecorder);
     expect(second).not.toBe(first);
+  });
+
+  it('builds a clock of its own for every call of the clock factory, wired to the sender link', () => {
+    const factory = TestBed.inject(FRAME_CLOCK_FACTORY);
+
+    const first = factory();
+    const second = factory();
+
+    expect(first).toBeInstanceOf(DeckTickClock);
+    expect(second).not.toBe(first);
+    expect(first.source).toBe('audio');
+    // Without the link injected a clock would stay on the audio source.
+    first.setSource('sender');
+    expect(first.source).toBe('sender');
   });
 
   it('resolves bytes inserted through TUNE_INSERTER to a playable through TUNE_RESOLVER', async () => {

@@ -6,8 +6,34 @@ import { FakeSenderLink } from '../testing/deck-runtime-fakes';
 import {
   DeckSendRoute,
   MIXER_SCHEDULE_AHEAD_MS,
+  SENDER_LOOKAHEAD_CEILING_MS,
+  SENDER_LOOKAHEAD_FLOOR_MS,
   SENDER_SCHEDULE_AHEAD_MS,
+  clampLookaheadMs,
 } from './deck-send-route';
+
+describe('clampLookaheadMs', () => {
+  it('gives the shipped default for a value that is not finite', () => {
+    expect(clampLookaheadMs(Number.NaN)).toBe(SENDER_SCHEDULE_AHEAD_MS);
+    expect(clampLookaheadMs(Number.POSITIVE_INFINITY)).toBe(SENDER_SCHEDULE_AHEAD_MS);
+  });
+
+  it('rounds a fraction to a whole millisecond', () => {
+    const inside = SENDER_LOOKAHEAD_FLOOR_MS + 1;
+    expect(clampLookaheadMs(inside + 0.4)).toBe(inside);
+    expect(clampLookaheadMs(inside + 0.6)).toBe(inside + 1);
+  });
+
+  it('clamps to the floor and the ceiling', () => {
+    expect(clampLookaheadMs(SENDER_LOOKAHEAD_FLOOR_MS - 1)).toBe(SENDER_LOOKAHEAD_FLOOR_MS);
+    expect(clampLookaheadMs(SENDER_LOOKAHEAD_CEILING_MS + 1)).toBe(SENDER_LOOKAHEAD_CEILING_MS);
+  });
+
+  it('leaves a value inside the range alone', () => {
+    expect(clampLookaheadMs(SENDER_LOOKAHEAD_CEILING_MS)).toBe(SENDER_LOOKAHEAD_CEILING_MS);
+    expect(clampLookaheadMs(SENDER_LOOKAHEAD_FLOOR_MS)).toBe(SENDER_LOOKAHEAD_FLOOR_MS);
+  });
+});
 
 describe('DeckSendRoute', () => {
   describe('with a link', () => {

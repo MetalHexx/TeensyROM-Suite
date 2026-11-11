@@ -4640,6 +4640,9 @@
             "items": {
               "$ref": "#/components/schemas/DeckSettingsDto"
             }
+          },
+          "sendSettings": {
+            "$ref": "#/components/schemas/SendSettingsDto"
           }
         }
       },
@@ -5302,6 +5305,9 @@
               "$ref": "#/components/schemas/DeckSettingsDto"
             },
             "nullable": true
+          },
+          "sendSettings": {
+            "$ref": "#/components/schemas/SendSettingsDto"
           }
         }
       },
@@ -5525,6 +5531,23 @@
             "format": "double"
           }
         }
+      },
+      "SendSettingsDto": {
+        "required": [
+          "lookaheadMs",
+          "senderEnabled"
+        ],
+        "type": "object",
+        "properties": {
+          "lookaheadMs": {
+            "type": "integer",
+            "format": "int32"
+          },
+          "senderEnabled": {
+            "type": "boolean"
+          }
+        },
+        "nullable": true
       },
       "SetWatchFolderDeviceBody": {
         "type": "object",

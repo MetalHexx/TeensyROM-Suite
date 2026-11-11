@@ -34,6 +34,13 @@ import {
     MidiControlMappingDtoToJSON,
     MidiControlMappingDtoToJSONTyped,
 } from './MidiControlMappingDto';
+import type { SendSettingsDto } from './SendSettingsDto';
+import {
+    SendSettingsDtoFromJSON,
+    SendSettingsDtoFromJSONTyped,
+    SendSettingsDtoToJSON,
+    SendSettingsDtoToJSONTyped,
+} from './SendSettingsDto';
 import type { DeckDeviceBindingDto } from './DeckDeviceBindingDto';
 import {
     DeckDeviceBindingDtoFromJSON,
@@ -72,6 +79,12 @@ export interface SaveMidiSettingsRequest {
      * @memberof SaveMidiSettingsRequest
      */
     deckSettings?: Array<DeckSettingsDto> | null;
+    /**
+     * 
+     * @type {SendSettingsDto}
+     * @memberof SaveMidiSettingsRequest
+     */
+    sendSettings?: SendSettingsDto | null;
 }
 
 /**
@@ -98,6 +111,7 @@ export function SaveMidiSettingsRequestFromJSONTyped(json: any, ignoreDiscrimina
         'mappings': ((json['mappings'] as Array<any>).map(MidiControlMappingDtoFromJSON)),
         'deckBindings': ((json['deckBindings'] as Array<any>).map(DeckDeviceBindingDtoFromJSON)),
         'deckSettings': json['deckSettings'] == null ? undefined : ((json['deckSettings'] as Array<any>).map(DeckSettingsDtoFromJSON)),
+        'sendSettings': json['sendSettings'] == null ? undefined : SendSettingsDtoFromJSON(json['sendSettings']),
     };
 }
 
@@ -116,6 +130,7 @@ export function SaveMidiSettingsRequestToJSONTyped(value?: SaveMidiSettingsReque
         'mappings': ((value['mappings'] as Array<any>).map(MidiControlMappingDtoToJSON)),
         'deckBindings': ((value['deckBindings'] as Array<any>).map(DeckDeviceBindingDtoToJSON)),
         'deckSettings': value['deckSettings'] == null ? undefined : ((value['deckSettings'] as Array<any>).map(DeckSettingsDtoToJSON)),
+        'sendSettings': SendSettingsDtoToJSON(value['sendSettings']),
     };
 }
 

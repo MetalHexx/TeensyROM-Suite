@@ -206,6 +206,16 @@ describe('SenderHealth', () => {
       expect(m.health.state).toBe('down');
     });
 
+    it('fails a hello from a sender page still on protocol version 1', () => {
+      const m = harness();
+      m.grant();
+      m.feed({ kind: 'loaded' });
+
+      m.feed({ kind: 'hello', identity: ASID_SENDER_IDENTITY, version: 1 });
+
+      expect(m.health.state).toBe('down');
+    });
+
     it('fails a hello with the wrong protocol version', () => {
       const m = harness();
       m.grant();
@@ -608,6 +618,127 @@ describe('SenderHealth', () => {
 
       expect(names(commands)).toEqual(['log']);
       expect(m.health.state).toBe('opening');
+    });
+  });
+
+  describe('the switch', () => {
+    it('off from each open state closes and puts the decks back on the mixer, with no alert', () => {
+      const opening = harness();
+      opening.grant();
+      expect(names(opening.feed({ kind: 'enable', on: false }))).toEqual(['close', 'log']);
+      expect(opening.health.state).toBe('off');
+
+      const testing = harness();
+      testing.grant();
+      testing.frameComesUp();
+      expect(names(testing.feed({ kind: 'enable', on: false }))).toEqual(['close', 'log']);
+      expect(testing.health.state).toBe('off');
+
+      const up = harness();
+      up.bringUp();
+      const commands = up.feed({ kind: 'enable', on: false });
+      expect(names(commands)).toEqual(['close', 'route:mixer', 'log']);
+      expect(up.health.state).toBe('off');
+      expect(up.health.path).toBe('mixer');
+      expect(alerts([...commands, ...up.run(120_000)])).toEqual([]);
+    });
+
+    it('off from down stops the retries and never raises the down alert', () => {
+      const m = harness();
+      m.grant();
+      m.feed({ kind: 'break' });
+      expect(m.health.state).toBe('down');
+
+      const commands = m.feed({ kind: 'enable', on: false });
+      const later = m.run(START_GRACE_MS + 60_000);
+
+      expect(names(commands)).toEqual(['log']);
+      expect(m.health.state).toBe('off');
+      expect(later).toEqual([]);
+    });
+
+    it('off from parked enters off', () => {
+      const m = harness();
+      m.bringUp();
+      m.feed({ kind: 'prefer', path: 'mixer' });
+
+      m.feed({ kind: 'enable', on: false });
+
+      expect(m.health.state).toBe('off');
+      expect(m.health.path).toBe('mixer');
+    });
+
+    it('off before the grant enters off at once, records the later grant and never opens', () => {
+      const m = harness();
+
+      const commands = m.feed({ kind: 'enable', on: false });
+      const granted = m.grant();
+      const later = m.run(START_GRACE_MS + 5000);
+
+      expect(names(commands)).toEqual(['log']);
+      expect(m.health.state).toBe('off');
+      expect(granted).toEqual([]);
+      expect(later).toEqual([]);
+      expect(m.all.map((command) => command.kind)).not.toContain('open');
+      expect(m.all.map((command) => command.kind)).not.toContain('alert');
+    });
+
+    it('off in unavailable only records the setting', () => {
+      const m = harness();
+      m.feed({ kind: 'midi-granted', senderAddress: false });
+
+      const commands = m.feed({ kind: 'enable', on: false });
+
+      expect(names(commands)).toEqual(['log']);
+      expect(m.health.state).toBe('unavailable');
+    });
+
+    it('on from off with a recorded grant takes the grant path, with a fresh start-up grace', () => {
+      const m = harness();
+      m.bringUp();
+      m.feed({ kind: 'enable', on: false });
+      m.advance(60_000);
+
+      const commands = m.feed({ kind: 'enable', on: true });
+
+      expect(names(commands)).toEqual(['log', 'start-link', 'open', 'log']);
+      expect(m.health.state).toBe('opening');
+      expect(alerts(m.run(START_GRACE_MS - TICK_MS * 2, { pong: false }))).toEqual([]);
+    });
+
+    it('on from off with a recorded grant and no other local name is unavailable, with its alert', () => {
+      const m = harness();
+      m.feed({ kind: 'enable', on: false });
+      m.feed({ kind: 'midi-granted', senderAddress: false });
+
+      const commands = m.feed({ kind: 'enable', on: true });
+
+      expect(names(commands)).toEqual(['log', 'log', 'alert:unavailable']);
+      expect(m.health.state).toBe('unavailable');
+    });
+
+    it('on from off with no grant yet returns to idle, where the grant takes its usual path', () => {
+      const m = harness();
+      m.feed({ kind: 'enable', on: false });
+
+      const commands = m.feed({ kind: 'enable', on: true });
+      const granted = m.grant();
+
+      expect(names(commands)).toEqual(['log']);
+      expect(names(granted)).toEqual(['start-link', 'open', 'log']);
+      expect(m.health.state).toBe('opening');
+    });
+
+    it('leaves a trace and changes nothing for a switch that is already so, and for the dev flip in off', () => {
+      const m = harness();
+      m.grant();
+      expect(names(m.feed({ kind: 'enable', on: true }))).toEqual(['log']);
+      expect(m.health.state).toBe('opening');
+
+      m.feed({ kind: 'enable', on: false });
+      expect(names(m.feed({ kind: 'enable', on: false }))).toEqual(['log']);
+      expect(names(m.feed({ kind: 'prefer', path: 'sender' }))).toEqual(['log']);
+      expect(m.health.state).toBe('off');
     });
   });
 

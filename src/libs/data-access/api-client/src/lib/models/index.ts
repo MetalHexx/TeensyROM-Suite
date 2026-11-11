@@ -109,6 +109,7 @@ export * from './SealJobResponse';
 export * from './SearchResponse';
 export * from './SearchSettingsDto';
 export * from './SearchWeightsDto';
+export * from './SendSettingsDto';
 export * from './SetWatchFolderDeviceBody';
 export * from './SetWatchFolderDeviceResponse';
 export * from './SetWatchFolderEnabledBody';

@@ -42,6 +42,7 @@ import { setRowPrep } from './set-row-prep';
 import { setSetsSaveStatus } from './set-sets-save-status';
 import { announceSets } from './announce-sets';
 import { setAsidLaunching } from './set-asid-launching';
+import { setSendSettings } from './set-send-settings';
 
 export function withDjActions() {
   return withMethods((store) => {
@@ -89,6 +90,7 @@ export function withDjActions() {
       ...setSetsSaveStatus(writableStore),
       ...announceSets(writableStore),
       ...setAsidLaunching(writableStore),
+      ...setSendSettings(writableStore),
     };
   });
 }

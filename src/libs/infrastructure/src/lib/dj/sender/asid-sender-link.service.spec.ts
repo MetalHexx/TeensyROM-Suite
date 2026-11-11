@@ -1,9 +1,11 @@
 import { describe, it, expect, afterEach, vi } from 'vitest';
+import { NgZone } from '@angular/core';
 import { TestBed } from '@angular/core/testing';
 import type { AsidSenderEvent } from '@teensyrom-nx/application';
 import {
   ASID_SENDER_IDENTITY,
   ASID_SENDER_PROTOCOL_VERSION,
+  MAX_WAKE_ALARMS,
   type AppToSender,
 } from '@teensyrom-nx/asid-sender-protocol';
 import { AsidSenderLinkService } from './asid-sender-link.service';
@@ -15,6 +17,7 @@ const PACKET = new Uint8Array([0xf0, 0x7d, 0xf7]);
 
 interface FakeSetup {
   readonly service: AsidSenderLinkService;
+  readonly zone: NgZone;
   readonly events: AsidSenderEvent[];
   readonly frames: FakeFrame[];
   readonly ports: FakePort[];
@@ -84,6 +87,7 @@ function setup(hostname = 'localhost'): FakeSetup {
   const lastPort = () => ports[ports.length - 1];
   return {
     service,
+    zone: TestBed.inject(NgZone),
     events,
     frames,
     ports,
@@ -374,6 +378,149 @@ describe('AsidSenderLinkService', () => {
       env.service.clearTiming();
 
       expect(env.sent()).toEqual([{ k: 'timing-clear' }]);
+    });
+  });
+  describe('wakeAlarm', () => {
+    const noop = (): void => undefined;
+
+    it('posts an arm on the shared clock under an id that runs from 1, and a cancel under the same id', () => {
+      const env = setup();
+      env.service.open();
+      env.loadFrame();
+
+      const first = env.service.wakeAlarm(noop, noop);
+      const second = env.service.wakeAlarm(noop, noop);
+      first.arm(250);
+      second.arm(300);
+      first.cancel();
+
+      expect(env.sent()).toEqual([
+        { k: 'wake-at', id: 1, at: TIME_ORIGIN + 250 },
+        { k: 'wake-at', id: 2, at: TIME_ORIGIN + 300 },
+        { k: 'wake-cancel', id: 1 },
+      ]);
+    });
+
+    it('hands a wake to its own handler with both times on this page clock and this page now, ignoring an unknown id', () => {
+      const env = setup();
+      env.service.open();
+      env.loadFrame();
+      const onWake = vi.fn();
+      const other = vi.fn();
+      env.service.wakeAlarm(onWake, noop);
+      env.service.wakeAlarm(other, noop);
+
+      env.fromSender({ k: 'wake', id: 1, at: TIME_ORIGIN + 100, t: TIME_ORIGIN + 100.25 });
+      env.fromSender({ k: 'wake', id: 99, at: TIME_ORIGIN + 100, t: TIME_ORIGIN + 100.25 });
+
+      expect(onWake).toHaveBeenCalledExactlyOnceWith(100, 100.25, expect.any(Number));
+      expect(other).not.toHaveBeenCalled();
+      expect(env.events.filter((event) => event.kind !== 'loaded')).toEqual([]);
+    });
+
+    it('throws a RangeError for an alarm past the most the sender holds', () => {
+      const env = setup();
+
+      for (let i = 0; i < MAX_WAKE_ALARMS; i++) {
+        env.service.wakeAlarm(noop, noop);
+      }
+
+      expect(() => env.service.wakeAlarm(noop, noop)).toThrow(RangeError);
+    });
+
+    it('drops arms and cancels with no frame connected, logging the drop once per stretch', () => {
+      const warn = vi.spyOn(console, 'warn').mockImplementation(() => undefined);
+      const env = setup();
+      env.service.open();
+      const alarm = env.service.wakeAlarm(noop, noop);
+
+      alarm.arm(100);
+      alarm.arm(110);
+      alarm.cancel();
+
+      expect(env.ports[0].postMessage).not.toHaveBeenCalled();
+      expect(warn).toHaveBeenCalledTimes(1);
+
+      env.loadFrame();
+      alarm.arm(120);
+      env.service.close();
+      env.service.open();
+      alarm.arm(130);
+
+      expect(env.sent()).toEqual([]);
+      expect(warn).toHaveBeenCalledTimes(2);
+      warn.mockRestore();
+    });
+
+    it('keeps its id and its handlers across close and open', () => {
+      const env = setup();
+      env.service.open();
+      env.loadFrame();
+      const onWake = vi.fn();
+      const alarm = env.service.wakeAlarm(onWake, noop);
+
+      env.service.close();
+      env.service.open();
+      env.loadFrame();
+      alarm.arm(50);
+      env.fromSender({ k: 'wake', id: 1, at: TIME_ORIGIN + 50, t: TIME_ORIGIN + 50 });
+
+      expect(env.sent()).toEqual([{ k: 'wake-at', id: 1, at: TIME_ORIGIN + 50 }]);
+      expect(onWake).toHaveBeenCalledTimes(1);
+    });
+
+    it('calls every alarm with this page now on each beat of the ticker, after raising the tick', () => {
+      const env = setup();
+      const order: string[] = [];
+      env.service.wakeAlarm(noop, (nowMs) => order.push(`first:${typeof nowMs}`));
+      env.service.wakeAlarm(noop, (nowMs) => order.push(`second:${typeof nowMs}`));
+      env.events.push = (...items: AsidSenderEvent[]) => {
+        order.push(...items.map((item) => item.kind));
+        return order.length;
+      };
+
+      env.tick();
+
+      expect(order).toEqual(['tick', 'first:number', 'second:number']);
+    });
+  });
+
+  describe('the zone', () => {
+    it('installs the port handler inside runOutsideAngular', () => {
+      const env = setup();
+      const seen: { before: unknown; after: unknown }[] = [];
+      vi.spyOn(env.zone, 'runOutsideAngular').mockImplementation((fn) => {
+        const port = env.ports[env.ports.length - 1];
+        const before = port.onmessage;
+        const result = fn();
+        seen.push({ before, after: port.onmessage });
+        return result;
+      });
+
+      env.service.open();
+
+      expect(seen).toHaveLength(1);
+      expect(seen[0].before).toBeNull();
+      expect(seen[0].after).not.toBeNull();
+    });
+
+    it('dispatches a wake right there and runs every other message inside the zone', () => {
+      const env = setup();
+      env.service.open();
+      env.loadFrame();
+      const run = vi.spyOn(env.zone, 'run');
+      const onWake = vi.fn();
+      env.service.wakeAlarm(onWake, () => undefined);
+
+      env.fromSender({ k: 'wake', id: 1, at: TIME_ORIGIN + 5, t: TIME_ORIGIN + 5 });
+
+      expect(onWake).toHaveBeenCalledTimes(1);
+      expect(run).not.toHaveBeenCalled();
+
+      env.fromSender({ k: 'pong', seq: 1 });
+
+      expect(run).toHaveBeenCalled();
+      expect(env.events).toContainEqual({ kind: 'pong' });
     });
   });
 });

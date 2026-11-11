@@ -38,11 +38,17 @@ const selectMapping = (id: string, controllerId: string, number: number) => ({
 const settings = (
   controllers: KnownControllerRecord[],
   mappings: MidiSettingsRecord['mappings'] = controllers.map((known) => speedMapping(known.id))
-): MidiSettingsRecord => ({ controllers, mappings, deckBindings: [], deckSettings: [] });
+): MidiSettingsRecord => ({
+  controllers,
+  mappings,
+  deckBindings: [],
+  deckSettings: [],
+  send: { lookaheadMs: 15, senderEnabled: true },
+});
 
 const MISSING_ALERT = `MIDI controller "${NAME}" is not connected. Its mappings are kept and work again when it returns.`;
 const UNAVAILABLE_ALERT = `MIDI controller "${NAME}" could not be opened. Another application, such as a DAW, may be using it. Its mappings are kept; switch its listening off and on to retry.`;
-const UNMATCHED_ALERT = `MIDI controller "${NAME}" matches more than one port. Choose its port in the Bindings panel.`;
+const UNMATCHED_ALERT = `MIDI controller "${NAME}" matches more than one port. Choose its port in the Setup panel.`;
 
 describe('MidiControllers', () => {
   let h: MappingHarness;

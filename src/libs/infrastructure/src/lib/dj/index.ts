@@ -4,7 +4,7 @@ export * from './midi-settings';
 export * from './midi/midi-access.service';
 export * from './midi/midi-input.service';
 export * from './sender/asid-sender-link.service';
-export * from './clock/script-processor-frame-clock';
+export * from './clock/deck-tick-clock';
 export * from './analysis/worker-analysis-scanner';
 export * from './analysis/worker-tune-indexer';
 export * from './providers';

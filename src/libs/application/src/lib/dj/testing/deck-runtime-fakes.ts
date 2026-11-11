@@ -1,10 +1,20 @@
 import { signal, type WritableSignal } from '@angular/core';
 import { vi } from 'vitest';
+import { FakeClock } from '@sidablist/core';
 import type { RegisterRecord, ReplayRunner } from '@sidablist/core';
 import type { MidiOutputPort } from '@sidablist/asid';
 import type { Playable } from '@sidablist/tunes';
 import type { IMidiAccess, MidiAccessState, MidiPermission, MidiPortOption } from '../ports/midi-access';
-import type { AsidSenderEvent, IAsidSenderLink, RegisterRecorder, SelfTestResult } from '../ports';
+import type {
+  AsidSenderEvent,
+  DeckFrameClock,
+  IAsidSenderLink,
+  RegisterRecorder,
+  SelfTestResult,
+  SenderWakeAlarm,
+  TickSource,
+  WakeReadings,
+} from '../ports';
 import type { SenderTimingReport } from '@teensyrom-nx/asid-sender-protocol';
 
 /** Only `dispose()` is exercised in most specs, so `run` is never expected to be called. */
@@ -13,6 +23,34 @@ export class FakeReplayRunner implements ReplayRunner {
   run = vi.fn();
   dispose(): void {
     this.disposed = true;
+  }
+}
+
+const NO_LATENESS = { count: 0, p50: 0, p99: 0, max: 0 };
+const NO_WAKES: WakeReadings = {
+  wakes: 0,
+  early: 0,
+  guardRearms: 0,
+  senderLateMs: NO_LATENESS,
+  mixerLateMs: NO_LATENESS,
+};
+
+/** A `FakeClock` that also keeps the tick source it was handed, and reads the wakes a spec sets. */
+export class FakeDeckClock extends FakeClock implements DeckFrameClock {
+  source: TickSource = 'audio';
+  wakeResets = 0;
+  wakes: WakeReadings = NO_WAKES;
+
+  setSource(source: TickSource): void {
+    this.source = source;
+  }
+
+  wakeReadings(): WakeReadings {
+    return this.wakes;
+  }
+
+  resetWakeReadings(): void {
+    this.wakeResets++;
   }
 }
 
@@ -200,6 +238,10 @@ export class FakeSenderLink implements IAsidSenderLink {
 
   clearTiming(): void {
     this.timingClears++;
+  }
+
+  wakeAlarm(): SenderWakeAlarm {
+    return { arm: (): void => undefined, cancel: (): void => undefined };
   }
 
   /** Raises an event as the helper's frame would. */

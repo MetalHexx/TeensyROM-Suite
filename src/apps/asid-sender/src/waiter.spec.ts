@@ -1,3 +1,4 @@
+import { MAX_WAKE_ALARMS } from '@teensyrom-nx/asid-sender-protocol';
 import { ReleaseQueue, type HeldPacket } from './release-queue';
 import { PROBE_KEEP_ALIVE_MS, PROBE_MAX_MS, PROBE_MIN_MS, Waiter } from './waiter';
 import { MARGIN_FLOOR_MS, WakeMargin } from './wake-margin';
@@ -14,6 +15,9 @@ function rig(random = () => 0.5) {
   const armed: Armed[] = [];
   const probes: { seq: number; delayMs: number }[] = [];
   const released: { held: HeldPacket; nowMs: number }[] = [];
+  const woken: { id: number; askedAtMs: number; nowMs: number }[] = [];
+  /** Every send in the order it left, packets as their token and wakes as `wake:<id>`. */
+  const order: string[] = [];
   const wakes: { latenessMs: number; probe: boolean }[] = [];
   const counts = { disarms: 0, turns: 0 };
   const sendCostMs = { value: 0 };
@@ -31,6 +35,12 @@ function rig(random = () => 0.5) {
     postTurn: () => counts.turns++,
     release: (held, nowMs) => {
       released.push({ held, nowMs });
+      order.push(held.token);
+      clock.t += sendCostMs.value;
+    },
+    wake: (id, askedAtMs, nowMs) => {
+      woken.push({ id, askedAtMs, nowMs });
+      order.push(`wake:${id}`);
       clock.t += sendCostMs.value;
     },
     recordWake: (latenessMs, _nowMs, probe) => wakes.push({ latenessMs, probe }),
@@ -57,6 +67,8 @@ function rig(random = () => 0.5) {
     armed,
     probes,
     released,
+    woken,
+    order,
     wakes,
     counts,
     sendCostMs,
@@ -194,6 +206,171 @@ describe('Waiter', () => {
         r.waiter.onTurn();
       }
       expect(r.margin.marginMs).toBeGreaterThan(MARGIN_FLOOR_MS);
+    });
+  });
+
+  describe('wake alarms', () => {
+    it('sends a wake for a time already past on the next turn, at once from idle', () => {
+      const r = rig();
+      expect(r.waiter.arm(1, 990)).toBe(true);
+      expect(r.woken).toEqual([{ id: 1, askedAtMs: 990, nowMs: 1000 }]);
+      expect(r.armed).toHaveLength(0);
+    });
+
+    it('sleeps for a future wake, spins into it and sends it no earlier than its time', () => {
+      const r = rig();
+      r.waiter.arm(1, 1100);
+      expect(r.woken).toHaveLength(0);
+      expect(r.armed).toEqual([{ id: 1, delayMs: 100 - MARGIN_FLOOR_MS }]);
+
+      r.fireAlarm(0.4);
+      expect(r.woken).toHaveLength(0);
+      expect(r.counts.turns).toBe(1);
+
+      r.clock.t = 1099.9;
+      r.waiter.onTurn();
+      expect(r.woken).toHaveLength(0);
+      expect(r.counts.turns).toBe(2);
+
+      r.clock.t = 1100;
+      r.waiter.onTurn();
+      expect(r.woken).toEqual([{ id: 1, askedAtMs: 1100, nowMs: 1100 }]);
+      expect(r.counts.turns).toBe(2);
+    });
+
+    it('sends a due wake and a due packet in one turn, in time order', () => {
+      const r = rig();
+      r.waiter.arm(1, 1010);
+      r.waiter.submit('a', BYTES, 1012);
+      r.waiter.submit('b', BYTES, 1008);
+      r.fireAlarm();
+      r.clock.t = 1020;
+      r.waiter.onTurn();
+      expect(r.order).toEqual(['b', 'wake:1', 'a']);
+    });
+
+    it('sends the packet first when a wake and a packet fall due together', () => {
+      const r = rig();
+      r.waiter.arm(1, 1010);
+      r.waiter.submit('a', BYTES, 1010);
+      r.fireAlarm();
+      r.clock.t = 1010;
+      r.waiter.onTurn();
+      expect(r.order).toEqual(['a', 'wake:1']);
+    });
+
+    it('re-reads the clock after each send, so a wake that falls due during a send waits its turn', () => {
+      const r = rig();
+      r.sendCostMs.value = 5;
+      r.waiter.submit('a', BYTES, 1010);
+      r.waiter.arm(1, 1013);
+      r.fireAlarm();
+      r.clock.t = 1010;
+      r.waiter.onTurn();
+      expect(r.order).toEqual(['a', 'wake:1']);
+      expect(r.woken[0].nowMs).toBe(1015);
+    });
+
+    it('replaces the time of an id armed again', () => {
+      const r = rig();
+      r.waiter.arm(1, 1100);
+      r.waiter.arm(1, 1300);
+      r.clock.t = 1100;
+      r.waiter.onAlarm(r.armed[r.armed.length - 1].id);
+      expect(r.woken).toHaveLength(0);
+
+      r.waiter.arm(1, 1050);
+      expect(r.woken).toEqual([{ id: 1, askedAtMs: 1050, nowMs: 1100 }]);
+    });
+
+    it('re-sleeps for an earlier wake than the one it sleeps for, and ignores the stale alarm', () => {
+      const r = rig();
+      r.waiter.arm(1, 1100);
+      r.waiter.arm(2, 1050);
+      expect(r.counts.disarms).toBe(1);
+      expect(r.armed).toEqual([
+        { id: 1, delayMs: 97 },
+        { id: 2, delayMs: 47 },
+      ]);
+      r.clock.t = 1100;
+      r.waiter.onAlarm(1);
+      expect(r.woken).toHaveLength(0);
+    });
+
+    it('leaves the alarm alone for a later wake, and re-sleeps for a wake before a held packet', () => {
+      const r = rig();
+      r.waiter.submit('a', BYTES, 1100);
+      r.waiter.arm(1, 1200);
+      expect(r.counts.disarms).toBe(0);
+      r.waiter.arm(2, 1050);
+      expect(r.counts.disarms).toBe(1);
+      expect(r.armed[r.armed.length - 1].delayMs).toBe(47);
+    });
+
+    it('sends nothing for a cancelled wake, though its sleep may wake early', () => {
+      const r = rig();
+      r.waiter.arm(1, 1100);
+      r.waiter.cancel(1);
+      r.fireAlarm();
+      r.waiter.onTurn();
+      expect(r.woken).toHaveLength(0);
+      const armedAfter = r.armed.length;
+      r.waiter.onTurn();
+      expect(r.armed).toHaveLength(armedAfter);
+    });
+
+    it('sleeps again for the packet that is left when the wake is cancelled', () => {
+      const r = rig();
+      r.waiter.arm(1, 1050);
+      r.waiter.submit('a', BYTES, 1100);
+      r.waiter.cancel(1);
+      r.fireAlarm();
+      expect(r.armed[r.armed.length - 1].delayMs).toBeCloseTo(1100 - 3 - r.clock.t, 6);
+    });
+
+    it('refuses a new id at capacity and still re-arms one that is armed', () => {
+      const r = rig();
+      for (let id = 1; id <= MAX_WAKE_ALARMS; id++) {
+        expect(r.waiter.arm(id, 5000 + id)).toBe(true);
+      }
+      const armedBefore = r.armed.length;
+      expect(r.waiter.arm(MAX_WAKE_ALARMS + 1, 1500)).toBe(false);
+      expect(r.armed).toHaveLength(armedBefore);
+      expect(r.waiter.arm(1, 6000)).toBe(true);
+    });
+
+    it('feeds the margin from a wake-up for a wake, as for a packet', () => {
+      const r = rig();
+      r.waiter.arm(1, 1100);
+      r.fireAlarm(2.5);
+      expect(r.wakes).toEqual([{ latenessMs: 2.5, probe: false }]);
+    });
+  });
+
+  describe('the steady check with wakes only', () => {
+    it('starts with the first wake armed and keeps the margin learning', () => {
+      const r = rig();
+      r.waiter.arm(1, 1000 + 5 * PROBE_KEEP_ALIVE_MS);
+      expect(r.probes).toHaveLength(1);
+      for (let i = 0; i < 25; i++) {
+        r.waiter.arm(1, 1000 + 5 * PROBE_KEEP_ALIVE_MS);
+        r.fireProbe(9);
+      }
+      expect(r.wakes.every((w) => w.probe && w.latenessMs === 9)).toBe(true);
+      expect(r.margin.marginMs).toBe(10);
+    });
+
+    it('stops 1,000 ms after the last wake was armed', () => {
+      const r = rig();
+      r.waiter.arm(1, 1000 + 5 * PROBE_KEEP_ALIVE_MS);
+      const armedAt = r.clock.t;
+      let rounds = 0;
+      while (r.fireProbe()) {
+        rounds++;
+        expect(rounds).toBeLessThan(200);
+      }
+      expect(r.clock.t - armedAt).toBeGreaterThanOrEqual(PROBE_KEEP_ALIVE_MS);
+      expect(r.clock.t - armedAt).toBeLessThan(PROBE_KEEP_ALIVE_MS + PROBE_MAX_MS + 1);
     });
   });
 

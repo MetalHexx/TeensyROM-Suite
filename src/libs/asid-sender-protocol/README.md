@@ -11,6 +11,7 @@ the reverse), so it gets a process and thread of its own. This library is the si
 - the TeensyROM port-name token (`teensyRomToken`)
 - the steady tick cadence both sides run on (`SENDER_TICK_MS`)
 - the shape of the timing report the sender hands the dev bench
+- the 0.1 ms histogram both pages' timing readings use
 
 ## Why it is its own library
 

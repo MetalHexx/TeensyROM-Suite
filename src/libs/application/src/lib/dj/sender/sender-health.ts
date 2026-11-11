@@ -38,6 +38,7 @@ export type SenderHealthEvent =
       readonly detail: string;
     }
   | { readonly kind: 'self-test'; readonly result: SelfTestResult }
+  | { readonly kind: 'enable'; readonly on: boolean } // the DJ's switch for the timing helper
   | { readonly kind: 'prefer'; readonly path: SendPath } // the dev flip
   | { readonly kind: 'break' }; // the dev break: the same failure path as a real one
 
@@ -50,7 +51,8 @@ export type SenderCommand =
   | { readonly kind: 'alert'; readonly alert: 'down' | 'back' | 'unavailable' }
   | { readonly kind: 'log'; readonly message: string };
 
-/** `parked` is the dev flip: the sender closed on purpose while the decks play on the mixer. */
+/** `parked` is the dev flip: the sender closed on purpose while the decks play on the mixer. `off`
+ *  is the DJ's switch: the sender closed and kept closed until it is switched back on. */
 export type SenderHealthState =
   | 'idle'
   | 'unavailable'
@@ -58,7 +60,8 @@ export type SenderHealthState =
   | 'testing'
   | 'up'
   | 'down'
-  | 'parked';
+  | 'parked'
+  | 'off';
 
 /**
  * The rules for when the timing helper may carry the decks' packets: a pure state machine that is
@@ -89,6 +92,10 @@ export class SenderHealth {
   private attempt = 0;
   private retryAt = 0;
 
+  private enabled = true;
+  /** Whether MIDI has been granted, and if so whether this address has another local name. */
+  private grantedWithAddress: boolean | null = null;
+
   get state(): SenderHealthState {
     return this.currentState;
   }
@@ -100,6 +107,9 @@ export class SenderHealth {
 
   /** The commands to carry out for `event`, in order. `nowMs` is the time the event happened. */
   handle(event: SenderHealthEvent, nowMs: number): readonly SenderCommand[] {
+    if (event.kind === 'enable') {
+      return this.enable(event.on, nowMs);
+    }
     if (event.kind === 'prefer') {
       return this.prefer(event.path, nowMs);
     }
@@ -124,6 +134,11 @@ export class SenderHealth {
         return [];
       case 'unavailable':
         return [];
+      case 'off':
+        if (event.kind === 'midi-granted') {
+          this.grantedWithAddress = event.senderAddress;
+        }
+        return [];
     }
   }
 
@@ -136,6 +151,7 @@ export class SenderHealth {
   }
 
   private grant(senderAddress: boolean, nowMs: number): readonly SenderCommand[] {
+    this.grantedWithAddress = senderAddress;
     if (!senderAddress) {
       return [
         this.enter('unavailable', 'this address has no other local name'),
@@ -269,6 +285,44 @@ export class SenderHealth {
       commands.push({ kind: 'open' }, this.enter('opening', 'retrying'));
     }
     return commands;
+  }
+
+  /** The DJ's switch. `unavailable` only records it: there is nothing to open or close there. */
+  private enable(on: boolean, nowMs: number): readonly SenderCommand[] {
+    if (on === this.enabled) {
+      return [{ kind: 'log', message: `enable ${on} ignored: already ${on ? 'on' : 'off'}` }];
+    }
+    this.enabled = on;
+    if (this.currentState === 'unavailable') {
+      return [{ kind: 'log', message: `switch recorded as ${on ? 'on' : 'off'} (unavailable)` }];
+    }
+    return on ? this.switchedOn(nowMs) : this.switchedOff();
+  }
+
+  /** Closes the frame, puts the decks back on the mixer when they were on the sender, and stays
+   *  closed: no retry, no alert. What a later start-up needs is reset, so it begins as a fresh one. */
+  private switchedOff(): readonly SenderCommand[] {
+    const commands: SenderCommand[] = [];
+    if (this.isFrameOpen()) {
+      commands.push({ kind: 'close' });
+      if (this.currentPath === 'sender') {
+        this.currentPath = 'mixer';
+        commands.push({ kind: 'route', path: 'mixer' });
+      }
+    }
+    this.selfTestPending = false;
+    this.everUp = false;
+    this.downAlertShown = false;
+    this.attempt = 0;
+    commands.push(this.enter('off', 'switched off'));
+    return commands;
+  }
+
+  private switchedOn(nowMs: number): readonly SenderCommand[] {
+    if (this.grantedWithAddress === null) {
+      return [this.enter('idle', 'switched on, waiting for MIDI')];
+    }
+    return [{ kind: 'log', message: 'switched on' }, ...this.grant(this.grantedWithAddress, nowMs)];
   }
 
   private prefer(path: SendPath, nowMs: number): readonly SenderCommand[] {

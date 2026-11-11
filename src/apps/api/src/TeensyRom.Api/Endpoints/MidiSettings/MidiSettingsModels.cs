@@ -155,6 +155,22 @@ namespace TeensyRom.Api.Endpoints.MidiSettings
     }
 
     /// <summary>
+    /// The sender path's lookahead and whether the decks send through the timing helper.
+    /// </summary>
+    public record SendSettingsDto
+    {
+        /// <summary>
+        /// Whole milliseconds each frame is stamped past its due time on the sender path: from the floor to 40.
+        /// </summary>
+        [Required] public int LookaheadMs { get; set; }
+
+        /// <summary>
+        /// Whether the decks send through the timing helper.
+        /// </summary>
+        [Required] public bool SenderEnabled { get; set; }
+    }
+
+    /// <summary>
     /// What the save request accepts. Anything outside these lists is rejected rather than stored.
     /// </summary>
     public static class MidiSettingsAllowLists
@@ -164,6 +180,13 @@ namespace TeensyRom.Api.Endpoints.MidiSettings
         public const int MaxDeckBindings = 2;
         public const int MaxDeckSettings = 2;
         public const double LiveLoopBeatsMax = 128;
+
+        /// <summary>
+        /// The lowest lookahead that held in ASID-DJ-21's table; ASID-DJ-22 did not sweep below it.
+        /// The app's SENDER_LOOKAHEAD_FLOOR_MS holds the same value.
+        /// </summary>
+        public const int LookaheadMinMs = 15;
+        public const int LookaheadMaxMs = 40;
 
         public const string MixerOwner = "mixer";
         public const string SetOwner = "set";
@@ -407,6 +430,16 @@ namespace TeensyRom.Api.Endpoints.MidiSettings
             RuleFor(x => x.LastSeenName)
                 .NotNull().WithMessage("Last seen name is required.")
                 .MaximumLength(128).WithMessage("Last seen name must be at most 128 characters.");
+        }
+    }
+
+    public class SendSettingsValidator : AbstractValidator<SendSettingsDto>
+    {
+        public SendSettingsValidator()
+        {
+            RuleFor(x => x.LookaheadMs)
+                .InclusiveBetween(MidiSettingsAllowLists.LookaheadMinMs, MidiSettingsAllowLists.LookaheadMaxMs)
+                .WithMessage($"Lookahead must be between {MidiSettingsAllowLists.LookaheadMinMs} and {MidiSettingsAllowLists.LookaheadMaxMs} ms.");
         }
     }
 

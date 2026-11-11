@@ -27,6 +27,12 @@ namespace TeensyRom.Api.Endpoints.MidiSettings.SaveMidiSettings
         /// Absent or null saves an empty list.
         /// </summary>
         public List<DeckSettingsDto>? DeckSettings { get; set; } = [];
+
+        /// <summary>
+        /// The sender path's lookahead and whether the decks send through the timing helper. Optional;
+        /// absent or null saves nothing, and the app's defaults apply.
+        /// </summary>
+        public SendSettingsDto? SendSettings { get; set; }
     }
 
     /// <summary>
@@ -79,6 +85,10 @@ namespace TeensyRom.Api.Endpoints.MidiSettings.SaveMidiSettings
             RuleForEach(x => x.DeckSettings)
                 .NotNull().WithMessage("Deck settings entries must not be null.")
                 .SetValidator(new DeckSettingsValidator());
+
+            RuleFor(x => x.SendSettings!)
+                .SetValidator(new SendSettingsValidator())
+                .When(x => x.SendSettings is not null);
 
             RuleFor(x => x).Custom(ValidateAcrossEntries);
         }

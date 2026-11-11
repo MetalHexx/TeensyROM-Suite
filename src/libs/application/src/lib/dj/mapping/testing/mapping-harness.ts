@@ -1,7 +1,7 @@
 import { signal, type WritableSignal } from '@angular/core';
 import { TestBed } from '@angular/core/testing';
 import { vi } from 'vitest';
-import { FakeClock, SID_REGISTER_COUNT } from '@sidablist/core';
+import { SID_REGISTER_COUNT } from '@sidablist/core';
 import type { RegisterRecord, ReplayRunner } from '@sidablist/core';
 import { InMemorySetStore, InMemoryTuneMemoryStore, createRow, createSet } from '@sidablist/tunes';
 import type { TuneReference } from '@sidablist/tunes';
@@ -36,6 +36,7 @@ import type {
   RegisterRecorder,
 } from '../../ports';
 import type { Slot } from '../../slot';
+import { FakeDeckClock } from '../../testing/deck-runtime-fakes';
 import { MappableControls } from '../mappable-controls';
 import { FakeMidiInput } from './fake-midi-input';
 import type { MidiSource, SourceEvent } from '../mapping.models';
@@ -52,6 +53,7 @@ export const EMPTY_SETTINGS: MidiSettingsRecord = {
   mappings: [],
   deckBindings: [],
   deckSettings: [],
+  send: { lookaheadMs: 15, senderEnabled: true },
 };
 
 const TUNE: TuneReference = {
@@ -117,7 +119,7 @@ export interface MappingHarness {
   readonly accessState: WritableSignal<MidiAccessState>;
   readonly requestAccess: ReturnType<typeof vi.fn>;
   /** The frame clock each deck slot built, in build order: A then B. */
-  readonly clocks: FakeClock[];
+  readonly clocks: FakeDeckClock[];
   readonly recorder: FakeRegisterRecorder;
   /** What `TUNE_RESOLVER.resolve` answers; unset it answers nothing. */
   readonly resolve: ReturnType<typeof vi.fn>;
@@ -167,7 +169,7 @@ export function setUpMappingHarness(
     release: (): void => undefined,
     outputPortFor: () => null,
   };
-  const clocks: FakeClock[] = [];
+  const clocks: FakeDeckClock[] = [];
   const resolve = vi.fn();
   const recorder: FakeRegisterRecorder = { requests: [], answer: indexedRecord(RECORD_FRAMES) };
 
@@ -181,8 +183,8 @@ export function setUpMappingHarness(
       },
       {
         provide: FRAME_CLOCK_FACTORY,
-        useValue: (): FakeClock => {
-          const clock = new FakeClock();
+        useValue: (): FakeDeckClock => {
+          const clock = new FakeDeckClock();
           clocks.push(clock);
           return clock;
         },

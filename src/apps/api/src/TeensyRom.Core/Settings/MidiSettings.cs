@@ -2,7 +2,7 @@ namespace TeensyRom.Core.Settings
 {
     /// <summary>
     /// The MIDI controller setup: known controllers, their control mappings, the deck-to-cartridge bindings and each
-    /// deck's own settings.
+    /// deck's own settings, plus the sender path's settings when the app has saved them.
     /// Persisted on its own in midi-settings.json, independent of Settings.json.
     /// </summary>
     public record MidiSettings
@@ -11,6 +11,7 @@ namespace TeensyRom.Core.Settings
         public List<MidiControlMapping> Mappings { get; init; } = [];
         public List<DeckDeviceBinding> DeckBindings { get; init; } = [];
         public List<DeckSettings> DeckSettings { get; init; } = [];
+        public SendSettings? SendSettings { get; init; }
     }
 
     /// <summary>
@@ -66,6 +67,15 @@ namespace TeensyRom.Core.Settings
         public string Slot { get; init; } = string.Empty;
         public string DeviceId { get; init; } = string.Empty;
         public string LastSeenName { get; init; } = string.Empty;
+    }
+
+    /// <summary>
+    /// The sender path's settings: the lookahead in whole milliseconds and whether the decks send through the timing helper.
+    /// </summary>
+    public record SendSettings
+    {
+        public int LookaheadMs { get; init; }
+        public bool SenderEnabled { get; init; }
     }
 
     /// <summary>

@@ -1501,3 +1501,197 @@ before the sender, and the operator accepts it for this project.
 The individual checks above were not reported back, so their boxes stay unticked and no readings are recorded here. Add them
 if they were taken. Where the remaining drops come from is not known; the hand-over for the next performance iteration is in
 the project's requirements document, section *Outcome and Handover*.
+
+## The sender's wake as the tick (ASID-DJ-22)
+
+The decks now tick from the sender's wake instead of the mixer's silent audio graph, with a saved
+lookahead and a timing-helper switch on Setup -> Settings. This section records the checks that need no
+cartridge, run and recorded here, and the bench checklist for the operator to run after the pipeline.
+**No bench ran inside this pipeline**: no hardware, no listening, no real-cartridge `djBench` reading
+and no Edge task manager reading is in the checks below. The operator ran part of the bench afterwards;
+see Readings and the checklist. No code was changed by these checks: none of them found anything broken.
+
+**How this was driven.** The automated commands ran from `src/` with `pnpm nx`, `--skip-nx-cache` on the
+test, lint, typecheck and build runs, so each was run, not read from the cache. The browser checks were
+driven through the DevTools protocol by small throwaway scripts (not committed) against headless Edge
+157.0.4341.42 on a throwaway profile, with MIDI and SysEx granted through `Browser.grantPermissions` for
+`localhost:4200` and `127.0.0.1:4200`. Claude in Chrome had no browser connected, so it was not used.
+Unlike ASID-DJ-21's run, `navigator.requestMIDIAccess({ sysex: true })` resolved here, with one input and
+one output and no cartridge (no serial ports at all), so the MIDI start-up in these checks was the real
+one and no stub stood in for it. Nothing was bound to a port, so no packet left any deck. The page was
+brought to the front and given focus emulation so timers ran at full rate; headless Edge otherwise reads
+hidden. The dev server (`pnpm nx run teensyrom-ui:serve`), the production build on `serve-static`, and the
+API (`dotnet run`, port 10213, `TEENSYROM_DATA_DIR` pointed at a scratch folder so no real settings file
+was touched) were started by this session and stopped by process id afterwards.
+
+A tune was loaded without a cartridge by calling `DeckService.load` through the dev build's Angular debug
+API (`ng.getComponent` on the deck column), with the page's `/files/content` request answered by the
+bundled `InSID3_Out.sid` (5,200 bytes) through the protocol's request interception.
+
+### Automated commands
+
+| command | result |
+| --- | --- |
+| `pnpm nx run-many -t test -p application,infrastructure,app-bootstrap,asid-sender,asid-sender-protocol,dj-mixer,ui-components,teensyrom-ui` | all eight passed in 2 m 14 s. `application` 104 files, 2862 tests. `infrastructure` 41 files passed and 2 skipped (724 tests passed, 2 skipped: the device and storage integration specs). `app-bootstrap` 2 files, 16 tests. `asid-sender` 9 files, 144 tests. `asid-sender-protocol` 5 files, 124 tests. `dj-mixer` 12 files, 358 tests. `ui-components` 135 files, 2343 tests. `teensyrom-ui` 1 file, 1 test. The error lines in the output (failed settings loads, launch failures and the like) are the specs' own expected failures |
+| `pnpm nx run-many -t lint -p` (the same eight) | 0 errors on all eight. 18 warnings: 10 in `application`, 5 in `ui-components` and 3 in `infrastructure`; the other five projects had none. They were not triaged against this project's diff |
+| `pnpm nx run-many -t typecheck -p asid-sender,asid-sender-protocol` | both passed (`tsc --noEmit -p tsconfig.app.json` and `tsc --noEmit -p tsconfig.lib.json`). `asid-sender-protocol` has a `typecheck` target now; ASID-DJ-21 found none |
+| `dotnet test apps/api/src/TeensyRom.Api.Tests.Unit` | passed: 1155 of 1155 |
+| `dotnet test apps/api/src/TeensyRom.Core.Tests` | passed: 246 of 246 |
+| `dotnet build apps/cli/TeensyRom.Cli.sln` | succeeded, 0 errors, 12 warnings (CS9107) on a clean compile, all in CLI files this project did not touch (the build run at the end was up to date and compiled nothing, so its "0 warnings" meant nothing; the phase 3 and phase 4 reviews measured the 12 on a clean compile). Not rebuilt |
+| `pnpm nx build teensyrom-ui --configuration=production` | built, 42 s (the bundle itself 33.9 s). Initial total **2.47 MB raw (510.11 kB transfer)**, over the 2.00 MB budget by **473.36 kB** (a warning; budgets in `project.json` unchanged). ASID-DJ-21's reading, in its section above: 2.46 MB raw (506.70 kB transfer), over by 460.17 kB. So +13.19 kB over budget and +3.41 kB transfer since, across all of ASID-DJ-22's changes; this section does not split the growth between them. The sender is in the bundle as `asid-sender/index.html` (226 bytes), `asid-sender/assets/index-B7vW-z9l.js` (18,063 bytes, against 16,434 in ASID-DJ-21's reading) and `asid-sender/assets/alarm.worker-CuHvwMaF.js` (243 bytes). The app's own `sender-ticker-worker` (40 bytes) is a lazy chunk |
+| `git status` in the `SIDablist` sibling | on `main` at `62cbd74`, up to date with `origin/main`, nothing changed (checked after the tests and the build, and again at the end) |
+
+### Browser checks, without a cartridge
+
+All on headless Edge 157, nothing bound to a port. Times are from the script's clock. The log lines are
+the `ASID sender:` lines in the console.
+
+**Dev server: the sender at version 2.**
+- The frame is `http://127.0.0.1:4200/asid-sender/index.html?v=2`, a separate target beside the page on
+  `localhost`. The log read `idle -> opening: MIDI granted`, `opening -> testing: ready; own-thread test
+  next`, `testing -> up: own-thread test passed`, in every dev load that had the sender switched on.
+- `await djBench.sender()` with nothing playing read `path sender`, `state up`, `answered true`, wake
+  margin 3 ms (now and max), no decks.
+
+**A deck playing with nothing bound** (InSID3 Out on deck A, loaded as above, about 6 s after play):
+`djBench.report()` read `tick.source` `'sender'`, with `tick.wake` counting 299 wakes, 0 early and 0
+`guardRearms`, against 303 frames. (Headless, no hardware: this says the wake chain runs, not how well.)
+
+**A version-1 sender.** The frame's request was answered by a page that replies to `connect` with `hello`
+at version 1. The hello failed: `opening -> down: wrong identity or version (teensyrom-asid-sender v1)`,
+and the supervisor retried after about 1.0, 2.2, 4.2 and 8.2 s (the 1, 2, 4, 8 s start of its ladder),
+failing the same way each time. `await djBench.sender()` read `path mixer`, `state down`, `answered
+false`. No deck was playing in this run, so "the decks stay on the mixer's own sending" is the path
+reading only; the down alert was not read.
+
+**The `i` flip and the `b` fallback** (dev build, deck A playing, 264 samples of `djBench.report()` at
+100 ms, page 20 to 34 s old; the click before each key on an empty part of the page):
+- `i` at the sender: the first sample after the press, 134 ms later, read `tick.source` `'audio'`, and no
+  other value came between. Log: `up -> parked: dev flip to the mixer`.
+- `i` again, 4 s later: `parked -> opening: dev flip to the sender`, then `opening -> up: ready` 0.38 s
+  after, and `tick.source` read `'sender'` in the first sample, 404 ms after the press.
+- `b`, with the page 32 s old (past the 10 s grace): `up -> down: broken on purpose`; `tick.source`
+  read `'audio'` 92 ms after the press, and `'sender'` again 1,494 ms after it; the log read `down ->
+  opening: retrying` 1.2 s after the break and `opening -> up: ready` 0.2 s later, with nothing done by
+  hand.
+- Across all of it the frame count rose in every sample (never backwards), and the longest stretch
+  between two changes of the count was 156 ms at a 100 ms sampling; `guardRearms` stayed 0. That is no
+  stall long enough for these samples to see. The ear is the check for the rest: the no-click part and
+  the beat-matching stay on the bench below.
+- `await djBench.sender()` takes up to 3 s to return `answered false` while the sender is parked or down
+  (the link waits `TIMING_REPLY_TIMEOUT_MS`, 3 s, for a reply). It was seen: `path mixer`, `state
+  parked` first read about 3 s after the flip. Read `report()`'s `tick.source` right after a flip, and
+  `sender()` when the state has settled.
+- The down and back alerts were not captured.
+
+**Setup -> Settings** (dev server, with the API running on port 10213 and `TEENSYROM_DATA_DIR` at a
+scratch folder). The panel's tablist read Bindings, Settings.
+- First view: the stepper at 15, its Lower button disabled and its Raise button enabled; the Timing
+  helper switch on.
+- One Raise press: 16 ms, Lower enabled. The switch turned off: `up -> off: switched off`, and
+  `await djBench.sender()` read `path mixer`, `state off`.
+- `GET /api/midi-settings` returned `"sendSettings":{"lookaheadMs":16,"senderEnabled":false}`, and the
+  saved file, `<data dir>/api/Assets/System/Config/midi-settings.json`, held the same block.
+- A reload: Settings showed 16 ms with the switch off, and the log read `idle -> off: switched off`, so
+  the saved value won over the new default 15.
+- The Raise-pressed values are test values in a scratch data folder, not the operator's settings.
+
+**Production build** on `pnpm nx run teensyrom-ui:serve-static` (port 4200):
+- `curl` on `http://127.0.0.1:4200/asid-sender/index.html`: 200, `text/html; charset=UTF-8`, 226 bytes.
+- `typeof window.djBench` is `undefined` and no `SEND:` text is on the page. The Setup panel has the
+  Bindings and Settings tabs. Settings read 15 ms with Lower disabled and the switch on. The API on port
+  10213 held 16 ms and off at that moment, so this page was not reading it: `serve-static` has no API
+  behind it, so a production page there reads the defaults. The saved-value check above was made on the
+  dev server only, and no check has read the saved values back on a production build.
+- The sender comes up: the same three log lines, own-thread test passed, the frame an `iframe` target on
+  `127.0.0.1:4200` with `?v=2`.
+
+### Not run, and why
+
+- **Everything that needs a cartridge or the operator's ears:** playback on real hardware, wire timing,
+  press-to-wire, the sender's own lateness, spare p1 and frames past their stamp on a real device.
+- **The `i` and `b` keys on the production build.** Not driven here; ASID-DJ-21 recorded them doing
+  nothing there, on its own build.
+- **The 30-minute hidden run and the API-served production build.** Bench checks 6.1 and 6.6 below.
+- **Reading the saved lookahead and switch back on a production build.** `serve-static` cannot (no
+  API behind it); check 6.6 below does it on the API-served build.
+- **Edge's task manager** (the sender under one core, in a process of its own): the browser's own UI.
+- **Hidden-page behaviour:** these runs forced the page visible; no hidden reading was taken.
+- **Claude in Chrome:** no browser was connected, so nothing was attached to the operator's Edge.
+
+### Readings
+
+The shipped lookahead (`SENDER_SCHEDULE_AHEAD_MS`) and the floor (`SENDER_LOOKAHEAD_FLOOR_MS`, and the
+API's `MidiSettingsAllowLists.LookaheadMinMs`) are **15 ms each**, by the operator's choice with the
+sweep skipped. The operator ran the bench after the pipeline, with Claude in Chrome reading `djBench` at
+the start and end of each stretch: two decks at lookahead 15 for 5 minutes each, the old audio tick (a
+checkout of `d994bd74`) against the sender's wake tick. The full record is in
+`C:/Users/Metal/.radorc/shared/projects/ASID-DJ-22/reference/bench/READINGS.md`.
+
+| Mixer | Reading | Audio tick | Wake tick |
+| --- | --- | --- | --- |
+| Showing | Frames past their stamp | 1.08% (507 of 46773) | 0.15% (72 of 48465) |
+| Showing | Spare p1 | 1.25 to 1.45 ms | 3.15 to 3.45 ms |
+| Showing | Mixer lateness p99 | 14.55 to 14.75 ms | 8.6 to 9.2 ms |
+| Hidden | Frames past their stamp | 8.43% (3935 of 46679) | 0.51% (241 of 46921) |
+| Hidden | Spare p1 | 0.15 ms | 2.75 to 3.45 ms |
+| Hidden | Mixer lateness p99 | 15.65 to 15.75 ms | 10.5 to 10.9 ms |
+
+Not measured: press-to-wire, Edge's task manager CPU, and anything below 15 ms. The prework's wake test
+is in `reference/wake-test/RESULTS.md`, and ASID-DJ-21's table is in the doc comment of
+`SENDER_SCHEDULE_AHEAD_MS`.
+
+### Bench checklist (operator, after the pipeline completes)
+
+Conditions: the operator's PC, Edge, Ableton and OBS on, Dashlane off, sleeping tabs off, DevTools closed
+while listening, both cartridges, a freshly loaded `http://localhost:4200/dj-mixer`. Read only at the
+start and end of a stretch: Claude in Chrome's debugger makes a hidden page read as visible while
+attached. Deck A is Aces High at 1x on its double-kick loop and deck B is InSID3 Out at 2x, all voices.
+Readings go to `C:/Users/Metal/.radorc/shared/projects/ASID-DJ-22/reference/bench/READINGS.md`, which the
+first check creates, with an entry in the portfolio's performance log
+(`C:\Users\Metal\.radorc\shared\projects\ASID-DJ-ROOT\ASID-DJ-PERFORMANCE-LOG.md`).
+
+- [x] **1. The baseline on the old tick**, from a separate checkout of `d994bd74`, which has every bench
+  probe and the old audio tick, at lookahead 15 on the sender. Ran as two decks (A Aces High loop at 1x,
+  B InSID3 Out at 2x), 5 minutes showing and 5 minutes hidden, recorded under **Baseline (old tick)**.
+  - [x] The checkout: a separate worktree of `d994bd74`, its own dev server on port 4200, against the
+    branch's API on port 10213.
+  - [ ] Not run, by the operator's decision (the two-deck 5-minute runs were enough): the one-deck runs,
+    the 10-minute two-deck runs, the presses, and Edge's task manager CPU.
+- [x] **2. The new tick at lookahead 15**, back on `radorch/ASID-DJ-22`: two decks, 5 minutes showing and
+  5 minutes hidden, with each deck's `tick` readings. Recorded under **After (new tick)**.
+  - [ ] Not run, by the operator's decision: the one-deck and 10-minute runs, the presses, and the CPU.
+- [ ] **3. The sweep.** Not run, by the operator's decision: 15 still has drops and feels good as far as
+  latency, and going lower is left to a later project with larger changes.
+- [x] **4. Choose**, with the operator: lookahead 15 ms, floor 15 ms, by skipping the sweep. Both pass the
+  margin test (spare p1 wider than the baseline's, showing and hidden). Recorded under **Chosen**.
+  - [ ] Not run, by the operator's decision (nothing below 15 was tried): the 10-minute hidden run and the
+    press series at the candidate.
+- [x] **5. Reconcile.**
+  - [x] The placeholder wording is removed from the doc comments of `SENDER_SCHEDULE_AHEAD_MS`,
+    `SENDER_LOOKAHEAD_FLOOR_MS` and `MidiSettingsAllowLists.LookaheadMinMs`, from the
+    `asid-dj-diagnostics` skill and from this section. `SENDER_SCHEDULE_AHEAD_MS`'s comment carries the
+    ASID-DJ-22 readings.
+  - [x] Chosen is 15 / 15, so no constant, spec or API floor changed, and the API needs no rebuild.
+  - [x] The saved value: a stored 15 now equals the default, so there is nothing to migrate. Final review
+    finding 1 (the first unrelated save pins the default) is closed by this choice.
+- [ ] **6. The final bench.** Not run, by the operator's decision: 15 / 15 stands as chosen.
+  - [ ] 6.1 The 30-minute hidden run. Not run.
+  - [ ] 6.2 Two decks showing, 10 minutes, and the sender under one core in Edge's task manager. Not run.
+  - [ ] 6.3 Press-to-wire for every kind against the baseline. Not run.
+  - [ ] 6.4 The fallback without a click, by `b` and by ending the sender's process. Not run.
+  - [ ] 6.5 The switch mid-set and its survival of a reload. Not run.
+  - [ ] 6.6 A production build served by the API, with Setup then Settings matching
+    `GET /api/midi-settings`. Not run.
+- [ ] Not run, by the operator's decision: the P01 and P02 browser checks and the two P03-T02 dev-server
+  console checks, on the operator's own Edge. The headless Edge checks recorded above stand for them.
+- Never ask for a C64 or a MIDI device to be powered off: it freezes Edge (a known Chromium bug).
+- [ ] If deck B's C64 crashes on its own during the bench, record what happened. Nothing was recorded.
+
+### Verdict
+
+The operator, by ear on run 1 (new tick, showing): "everything is sounding pretty good. Is it perfect? No.
+We still get drops once in a while when we're going full blast on both decks and the aces high loop going.
+But its what I expected this project to deliver." That is sounding pretty good, not perfect, with a drop
+once in a while at full blast on both decks with the Aces High loop, as expected from the prework. The
+readings are in `C:/Users/Metal/.radorc/shared/projects/ASID-DJ-22/reference/bench/READINGS.md`.

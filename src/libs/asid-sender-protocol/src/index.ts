@@ -1,4 +1,5 @@
 export * from './lib/addresses';
+export * from './lib/histogram';
 export * from './lib/messages';
 export * from './lib/shared-time';
 export * from './lib/teensyrom-token';

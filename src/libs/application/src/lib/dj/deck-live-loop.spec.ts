@@ -1,13 +1,14 @@
 import { TestBed } from '@angular/core/testing';
 import { signal } from '@angular/core';
 import { describe, it, expect, beforeEach, vi } from 'vitest';
-import { FakeClock, SID_REGISTER_COUNT, milliseconds, replayToFrame } from '@sidablist/core';
+import { SID_REGISTER_COUNT, milliseconds, replayToFrame } from '@sidablist/core';
 import type {
   RegisterRecord,
   ReplayRequest,
   ReplayResponse,
   ReplayRunner,
 } from '@sidablist/core';
+import { FakeDeckClock } from './testing/deck-runtime-fakes';
 import type { MidiOutputPort } from '@sidablist/asid';
 import { InMemoryLoopPositionsStore } from '@sidablist/tunes';
 import type { LoopMarker, Playable, TuneIdentity } from '@sidablist/tunes';
@@ -161,7 +162,7 @@ describe('DeckLiveLoop', () => {
   let positions: InMemoryLoopPositionsStore;
   let replayRunners: FakeReplayRunner[];
   let prepareRunners: FakeReplayRunner[];
-  let clockOf: Record<Slot, FakeClock>;
+  let clockOf: Record<Slot, FakeDeckClock>;
   let tickCount: number;
   let record: RegisterRecord | null;
 
@@ -169,7 +170,7 @@ describe('DeckLiveLoop', () => {
     vi.mocked(logWarn).mockClear();
     replayRunners = [];
     prepareRunners = [];
-    const clocks: FakeClock[] = [];
+    const clocks: FakeDeckClock[] = [];
     tickCount = 0;
     record = null;
     positions = new InMemoryLoopPositionsStore();
@@ -179,8 +180,8 @@ describe('DeckLiveLoop', () => {
       providers: [
         {
           provide: FRAME_CLOCK_FACTORY,
-          useValue: (): FakeClock => {
-            const clock = new FakeClock();
+          useValue: (): FakeDeckClock => {
+            const clock = new FakeDeckClock();
             clocks.push(clock);
             return clock;
           },

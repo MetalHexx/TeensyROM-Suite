@@ -25,6 +25,7 @@ const saved = (listening = true): MidiSettingsRecord => ({
   ],
   deckBindings: [],
   deckSettings: [],
+  send: { lookaheadMs: 15, senderEnabled: true },
 });
 
 describe('MidiInputRouter', () => {

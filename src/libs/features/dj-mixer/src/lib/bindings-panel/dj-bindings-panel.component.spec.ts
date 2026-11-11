@@ -9,6 +9,9 @@ import {
   MidiLearn,
   MidiMappings,
   MidiMappingStore,
+  SENDER_LOOKAHEAD_CEILING_MS,
+  SENDER_LOOKAHEAD_FLOOR_MS,
+  SenderSupervisor,
   type ControlIdentity,
   type ControlMapping,
   type ControllerStatus,
@@ -137,6 +140,17 @@ function render(controls: readonly MappableControl[] = CONTROLS) {
   };
   const learn = { select: vi.fn(), cancel: vi.fn(), relearn: vi.fn().mockResolvedValue(undefined) };
   const mappings = { setStyle: vi.fn(), remove: vi.fn() };
+  const settings = signal({ lookaheadMs: 20, senderEnabled: true });
+  const supervisor = {
+    settings,
+    setLookahead: vi.fn((ms: number) =>
+      settings.update((current) => ({
+        ...current,
+        lookaheadMs: Math.min(SENDER_LOOKAHEAD_CEILING_MS, Math.max(SENDER_LOOKAHEAD_FLOOR_MS, ms)),
+      }))
+    ),
+    setEnabled: vi.fn(),
+  };
 
   TestBed.configureTestingModule({
     imports: [DjBindingsPanelComponent],
@@ -155,6 +169,7 @@ function render(controls: readonly MappableControl[] = CONTROLS) {
       { provide: MidiControllers, useValue: controllers },
       { provide: MidiLearn, useValue: learn },
       { provide: MidiMappings, useValue: mappings },
+      { provide: SenderSupervisor, useValue: supervisor },
     ],
   });
 
@@ -180,7 +195,7 @@ function render(controls: readonly MappableControl[] = CONTROLS) {
     fixture.detectChanges();
   };
 
-  return { fixture, store, controllers, learn, mappings, seed };
+  return { fixture, store, controllers, learn, mappings, supervisor, settings, seed };
 }
 
 type Fixture = ComponentFixture<DjBindingsPanelComponent>;
@@ -812,6 +827,189 @@ describe('DjBindingsPanelComponent', () => {
       clickButton(fixture, 'Cancel mapping');
 
       expect(learn.cancel).toHaveBeenCalledTimes(1);
+    });
+  });
+
+  describe('the Setup tabs', () => {
+    const tab = (fixture: Fixture, name: string) =>
+      Array.from<HTMLButtonElement>(fixture.nativeElement.querySelectorAll('[role="tab"]')).find(
+        (button) => button.textContent?.trim() === name
+      ) as HTMLButtonElement;
+    const press = (fixture: Fixture, from: HTMLElement, name: string) => {
+      from.dispatchEvent(
+        new KeyboardEvent('keydown', { key: name, bubbles: true, cancelable: true })
+      );
+      fixture.detectChanges();
+    };
+    const mappingSwitch = (fixture: Fixture) =>
+      fixture.nativeElement.querySelector('mat-slide-toggle button[role="switch"]');
+
+    it('is a tablist named Setup, with Bindings selected and the roving tabindex on it', () => {
+      const { fixture } = render();
+
+      expect(
+        fixture.nativeElement.querySelector('[role="tablist"]').getAttribute('aria-label')
+      ).toBe('Setup');
+      expect(tab(fixture, 'Bindings').getAttribute('aria-selected')).toBe('true');
+      expect(tab(fixture, 'Bindings').getAttribute('tabindex')).toBe('0');
+      expect(tab(fixture, 'Settings').getAttribute('aria-selected')).toBe('false');
+      expect(tab(fixture, 'Settings').getAttribute('tabindex')).toBe('-1');
+      const panel = fixture.nativeElement.querySelector('[role="tabpanel"]') as HTMLElement;
+      expect(tab(fixture, 'Bindings').getAttribute('aria-controls')).toBe(panel.id);
+      expect(panel.getAttribute('aria-labelledby')).toBe(tab(fixture, 'Bindings').id);
+    });
+
+    it('switches by click and renders only the selected panel', () => {
+      const { fixture } = render();
+
+      tab(fixture, 'Settings').click();
+      fixture.detectChanges();
+
+      expect(tab(fixture, 'Settings').getAttribute('aria-selected')).toBe('true');
+      expect(tab(fixture, 'Settings').getAttribute('tabindex')).toBe('0');
+      expect(tab(fixture, 'Bindings').getAttribute('tabindex')).toBe('-1');
+      expect(fixture.nativeElement.querySelectorAll('[role="tabpanel"]')).toHaveLength(1);
+      expect(fixture.nativeElement.querySelector('.bindings-content')).toBeNull();
+      expect(fixture.nativeElement.textContent).toContain('Timing helper');
+    });
+
+    it('moves focus and selection with the arrow keys (wrapping), Home and End', () => {
+      const { fixture } = render();
+      document.body.appendChild(fixture.nativeElement);
+
+      press(fixture, tab(fixture, 'Bindings'), 'ArrowRight');
+      expect(tab(fixture, 'Settings').getAttribute('aria-selected')).toBe('true');
+      expect(document.activeElement).toBe(tab(fixture, 'Settings'));
+
+      press(fixture, tab(fixture, 'Settings'), 'ArrowRight');
+      expect(tab(fixture, 'Bindings').getAttribute('aria-selected')).toBe('true');
+      expect(document.activeElement).toBe(tab(fixture, 'Bindings'));
+
+      press(fixture, tab(fixture, 'Bindings'), 'ArrowLeft');
+      expect(tab(fixture, 'Settings').getAttribute('aria-selected')).toBe('true');
+
+      press(fixture, tab(fixture, 'Settings'), 'Home');
+      expect(tab(fixture, 'Bindings').getAttribute('aria-selected')).toBe('true');
+
+      press(fixture, tab(fixture, 'Bindings'), 'End');
+      expect(tab(fixture, 'Settings').getAttribute('aria-selected')).toBe('true');
+      expect(document.activeElement).toBe(tab(fixture, 'Settings'));
+
+      fixture.nativeElement.remove();
+    });
+
+    it('shows Mapping mode only on Bindings, and selecting Settings ends it when on', () => {
+      const { fixture, store, controllers } = render();
+      expect(fixture.nativeElement.textContent).toContain('Mapping mode');
+      store.setMappingMode({ on: true });
+      fixture.detectChanges();
+
+      tab(fixture, 'Settings').click();
+      fixture.detectChanges();
+
+      expect(controllers.setMappingMode).toHaveBeenCalledWith(false);
+      expect(fixture.nativeElement.textContent).not.toContain('Mapping mode');
+    });
+
+    it('leaves mapping mode alone when selecting Settings with it off', () => {
+      const { fixture, controllers } = render();
+
+      tab(fixture, 'Settings').click();
+
+      expect(controllers.setMappingMode).not.toHaveBeenCalled();
+    });
+
+    it('focusEntry selects Bindings and focuses the Mapping mode switch', () => {
+      const { fixture } = render();
+      document.body.appendChild(fixture.nativeElement);
+      tab(fixture, 'Settings').click();
+      fixture.detectChanges();
+
+      fixture.componentInstance.focusEntry();
+
+      expect(tab(fixture, 'Bindings').getAttribute('aria-selected')).toBe('true');
+      expect(document.activeElement).toBe(mappingSwitch(fixture));
+      fixture.nativeElement.remove();
+    });
+  });
+
+  describe('the Settings tab', () => {
+    function openSettings() {
+      const ctx = render();
+      const button = Array.from<HTMLButtonElement>(
+        ctx.fixture.nativeElement.querySelectorAll('[role="tab"]')
+      ).find((candidate) => candidate.textContent?.trim() === 'Settings') as HTMLButtonElement;
+      button.click();
+      ctx.fixture.detectChanges();
+      return ctx;
+    }
+    const stepper = (fixture: Fixture) => fixture.nativeElement.querySelector('lib-stepper');
+    const stepButton = (fixture: Fixture, label: string) =>
+      stepper(fixture).querySelector(`button[aria-label="${label}"]`) as HTMLButtonElement;
+
+    it('shows the lookahead in a signs stepper', () => {
+      const { fixture } = openSettings();
+
+      expect(stepper(fixture).textContent).toContain('20 ms');
+      expect(stepButton(fixture, 'Lower the lookahead').textContent?.trim()).toBe('−');
+      expect(stepButton(fixture, 'Raise the lookahead').textContent?.trim()).toBe('+');
+    });
+
+    it('disables the stepper only at its ends', () => {
+      const { fixture, settings } = openSettings();
+      expect(stepButton(fixture, 'Lower the lookahead').disabled).toBe(false);
+      expect(stepButton(fixture, 'Raise the lookahead').disabled).toBe(false);
+
+      settings.set({ lookaheadMs: SENDER_LOOKAHEAD_FLOOR_MS, senderEnabled: true });
+      fixture.detectChanges();
+      expect(stepButton(fixture, 'Lower the lookahead').disabled).toBe(true);
+      expect(stepButton(fixture, 'Raise the lookahead').disabled).toBe(false);
+
+      settings.set({ lookaheadMs: SENDER_LOOKAHEAD_CEILING_MS, senderEnabled: true });
+      fixture.detectChanges();
+      expect(stepButton(fixture, 'Lower the lookahead').disabled).toBe(false);
+      expect(stepButton(fixture, 'Raise the lookahead').disabled).toBe(true);
+    });
+
+    it('steps the lookahead by one and announces it in its own live region', () => {
+      const { fixture, supervisor, store } = openSettings();
+      const before = store.announcement();
+
+      stepButton(fixture, 'Raise the lookahead').click();
+      fixture.detectChanges();
+      expect(supervisor.setLookahead).toHaveBeenLastCalledWith(21);
+      const region = fixture.nativeElement.querySelector('[aria-live="polite"]') as HTMLElement;
+      expect(region.textContent?.trim()).toBe('Lookahead 21 ms');
+
+      stepButton(fixture, 'Lower the lookahead').click();
+      fixture.detectChanges();
+      expect(supervisor.setLookahead).toHaveBeenLastCalledWith(20);
+      expect(region.textContent?.trim()).toBe('Lookahead 20 ms');
+      expect(store.announcement()).toBe(before);
+    });
+
+    it('announces the lookahead the supervisor kept, not the one asked for', () => {
+      const { fixture, supervisor, settings } = openSettings();
+      settings.set({ lookaheadMs: SENDER_LOOKAHEAD_CEILING_MS, senderEnabled: true });
+
+      fixture.componentInstance.onLookaheadStep(1);
+      fixture.detectChanges();
+
+      expect(supervisor.setLookahead).toHaveBeenLastCalledWith(SENDER_LOOKAHEAD_CEILING_MS + 1);
+      const region = fixture.nativeElement.querySelector('[aria-live="polite"]') as HTMLElement;
+      expect(region.textContent?.trim()).toBe(`Lookahead ${SENDER_LOOKAHEAD_CEILING_MS} ms`);
+    });
+
+    it('switches the timing helper through the supervisor', () => {
+      const { fixture, supervisor } = openSettings();
+      const toggle = fixture.nativeElement.querySelector(
+        'mat-slide-toggle button[role="switch"]'
+      ) as HTMLButtonElement;
+      expect(toggle.getAttribute('aria-checked')).toBe('true');
+
+      toggle.click();
+
+      expect(supervisor.setEnabled).toHaveBeenCalledWith(false);
     });
   });
 

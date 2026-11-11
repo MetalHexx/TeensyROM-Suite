@@ -87,6 +87,7 @@ export class MixerApplier {
       for (const { field, value } of fieldHolds) {
         this.lock(slot, field, value);
       }
+      this.runtime.notePressApplied(slot);
     } catch (error) {
       this.report(slot, error);
     }

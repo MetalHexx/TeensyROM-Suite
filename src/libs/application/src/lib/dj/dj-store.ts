@@ -4,6 +4,7 @@ import { withDjActions } from './actions';
 import { withDjSelectors } from './selectors';
 import type { Slot } from './slot';
 import type { DjFileKey } from './dj-file-key.util';
+import { SENDER_SCHEDULE_AHEAD_MS } from './sender/deck-send-route';
 import type { MoveStep } from './grid/beat-math';
 import type { MidiAccessState, MidiPortOption } from './ports/midi-access';
 import type { SetSummary, TuneReference, TuneSet } from '@sidablist/tunes';
@@ -320,6 +321,8 @@ export interface DjState {
   sets: DjSetsState;
   /** True only while `AsidPlayerLauncher` is starting the ASID player on the bound cartridges. */
   asidLaunching: boolean;
+  /** The timing helper's saved settings. */
+  send: { lookaheadMs: number; senderEnabled: boolean };
 }
 
 /** A deck holding no markers: its loop state while nothing is attached. */
@@ -404,6 +407,7 @@ const initialState: DjState = {
     announcement: null,
   },
   asidLaunching: false,
+  send: { lookaheadMs: SENDER_SCHEDULE_AHEAD_MS, senderEnabled: true },
 };
 
 export const DjStore = signalStore(

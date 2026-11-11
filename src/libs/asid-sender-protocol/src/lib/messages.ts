@@ -2,11 +2,14 @@ import { isTeensyRomToken } from './teensyrom-token';
 import type { SenderTimingReport } from './timing-report';
 
 export const ASID_SENDER_IDENTITY = 'teensyrom-asid-sender';
-export const ASID_SENDER_PROTOCOL_VERSION = 1;
+export const ASID_SENDER_PROTOCOL_VERSION = 2;
 
 /** The smallest and largest packet the sender accepts, in bytes. */
 export const MIN_PACKET_BYTES = 3;
 export const MAX_PACKET_BYTES = 1024;
+
+/** The most wake alarms the sender holds armed at once. */
+export const MAX_WAKE_ALARMS = 8;
 
 const SYSEX_START = 0xf0;
 const SYSEX_END = 0xf7;
@@ -38,7 +41,10 @@ export type AppToSender =
       readonly holdEnd: number;
     }
   | { readonly k: 'timing'; readonly id: number }
-  | { readonly k: 'timing-clear' };
+  | { readonly k: 'timing-clear' }
+  /** `at` is the shared clock. Replaces any wake armed under `id`. */
+  | { readonly k: 'wake-at'; readonly id: number; readonly at: number }
+  | { readonly k: 'wake-cancel'; readonly id: number };
 
 /** Everything the sender sends back over the connected `MessagePort`. */
 export type SenderToApp =
@@ -56,7 +62,9 @@ export type SenderToApp =
       readonly fault: 'midi-lost' | 'send-failed';
       readonly token?: string;
       readonly detail: string;
-    };
+    }
+  /** A due wake. `at` is the time asked for, `t` when the sender sent it; both the shared clock. */
+  | { readonly k: 'wake'; readonly id: number; readonly at: number; readonly t: number };
 
 type Fields = Record<string, unknown>;
 
@@ -70,6 +78,10 @@ function isNumber(value: unknown): value is number {
 
 function hasNumbers(value: unknown, keys: readonly string[]): boolean {
   return isFields(value) && keys.every((key) => isNumber(value[key]));
+}
+
+function isWakeId(value: unknown): boolean {
+  return Number.isSafeInteger(value) && (value as number) > 0;
 }
 
 function isVisibility(value: unknown): boolean {
@@ -102,7 +114,7 @@ export function isConnectMessage(value: unknown): value is ConnectMessage {
 /**
  * An app message of a known kind with well-formed fields. A `packet` passes only when it is
  * valid: a token of the TeensyROM pattern, 3 to 1024 bytes that start with 0xF0 and end with
- * 0xF7, and a due time that is null or finite.
+ * 0xF7, and a due time that is null or finite. A wake's `id` must be a positive safe integer.
  */
 export function isAppToSender(value: unknown): value is AppToSender {
   if (!isFields(value)) {
@@ -120,6 +132,10 @@ export function isAppToSender(value: unknown): value is AppToSender {
       return hasNumbers(value, ['id', 'holdStart', 'holdEnd']);
     case 'timing-clear':
       return true;
+    case 'wake-at':
+      return isWakeId(value['id']) && isNumber(value['at']);
+    case 'wake-cancel':
+      return isWakeId(value['id']);
     default:
       return false;
   }
@@ -208,6 +224,8 @@ export function isSenderToApp(value: unknown): value is SenderToApp {
         (value['token'] === undefined || typeof value['token'] === 'string') &&
         typeof value['detail'] === 'string'
       );
+    case 'wake':
+      return isWakeId(value['id']) && hasNumbers(value, ['at', 't']);
     default:
       return false;
   }

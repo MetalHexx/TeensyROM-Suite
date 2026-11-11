@@ -1,7 +1,6 @@
 import { TestBed } from '@angular/core/testing';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
-import { FakeClock } from '@sidablist/core';
-import type { FrameClock, ReplayRunner } from '@sidablist/core';
+import type { ReplayRunner } from '@sidablist/core';
 import {
   ASID_SENDER_IDENTITY,
   ASID_SENDER_PROTOCOL_VERSION,
@@ -13,14 +12,16 @@ import {
   ASID_SENDER_LINK,
   FRAME_CLOCK_FACTORY,
   MIDI_ACCESS,
+  MIDI_SETTINGS_REPOSITORY,
   REGISTER_RECORDER_FACTORY,
   REPLAY_RUNNER_FACTORY,
 } from '../ports';
 import type { RegisterRecorder } from '../ports';
-import { DeckSendRoute } from '../sender/deck-send-route';
+import { DeckSendRoute, SENDER_SCHEDULE_AHEAD_MS } from '../sender/deck-send-route';
 import { TICK_MS } from '../sender/sender-health';
 import { SenderSupervisor } from '../sender/sender-supervisor';
 import {
+  FakeDeckClock,
   FakeRegisterRecorder,
   FakeReplayRunner,
   FakeSenderLink,
@@ -89,6 +90,7 @@ describe('sender bench', () => {
   /** Brings the sender up with deck A playing, then takes over the bench from the one `start` installed. */
   async function bringUp(): Promise<void> {
     supervisor.start();
+    await settle();
     TestBed.flushEffects();
     frameLoads();
     nowMs += TICK_MS;
@@ -117,10 +119,23 @@ describe('sender bench', () => {
       providers: [
         { provide: ASID_SENDER_LINK, useValue: link },
         {
+          provide: MIDI_SETTINGS_REPOSITORY,
+          useValue: {
+            load: async () => ({
+              controllers: [],
+              mappings: [],
+              deckBindings: [],
+              deckSettings: [],
+              send: { lookaheadMs: SENDER_SCHEDULE_AHEAD_MS, senderEnabled: true },
+            }),
+            save: async () => undefined,
+          },
+        },
+        {
           provide: ALERT_SERVICE,
           useValue: { warning: vi.fn(), info: vi.fn() } as unknown as IAlertService,
         },
-        { provide: FRAME_CLOCK_FACTORY, useValue: (): FrameClock => new FakeClock() },
+        { provide: FRAME_CLOCK_FACTORY, useValue: (): FakeDeckClock => new FakeDeckClock() },
         { provide: REPLAY_RUNNER_FACTORY, useValue: (): ReplayRunner => new FakeReplayRunner() },
         {
           provide: REGISTER_RECORDER_FACTORY,
@@ -267,6 +282,12 @@ describe('sender bench', () => {
       expect(effective).toEqual([7, 7]);
       expect(route.lookaheadFor('sender')).toBe(7);
       expect(route.lookaheadFor('mixer')).toBe(mixer);
+    });
+
+    it('lookahead ends with a full reset, the sender record included', () => {
+      commands().lookahead(7);
+
+      expect(link.timingClears).toBe(1);
     });
 
     it('reset clears the sender record through the link', () => {

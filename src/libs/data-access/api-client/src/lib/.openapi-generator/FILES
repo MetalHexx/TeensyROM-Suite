@@ -122,6 +122,7 @@ models/SealJobResponse.ts
 models/SearchResponse.ts
 models/SearchSettingsDto.ts
 models/SearchWeightsDto.ts
+models/SendSettingsDto.ts
 models/SetWatchFolderDeviceBody.ts
 models/SetWatchFolderDeviceResponse.ts
 models/SetWatchFolderEnabledBody.ts

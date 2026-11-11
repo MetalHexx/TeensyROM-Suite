@@ -5,6 +5,7 @@ import { DjStore } from './dj-store';
 import { MidiSettingsPersistence } from './midi-settings-persistence';
 import { MidiMappingStore } from './mapping/midi-mapping-store';
 import { MIDI_SETTINGS_REPOSITORY } from './ports';
+import { SENDER_LOOKAHEAD_CEILING_MS, SENDER_SCHEDULE_AHEAD_MS } from './sender/deck-send-route';
 import type { IMidiSettingsRepository, MidiSettingsRecord } from './ports';
 
 const SERVER_SET: MidiSettingsRecord = {
@@ -20,6 +21,7 @@ const SERVER_SET: MidiSettingsRecord = {
   ],
   deckBindings: [{ slot: 'B', deviceId: '19277260', lastSeenName: 'TR-2' }],
   deckSettings: [{ slot: 'A', slip: true, liveLoopBeats: 2 }],
+  send: { lookaheadMs: SENDER_SCHEDULE_AHEAD_MS, senderEnabled: true },
 };
 
 const HOME_DECK_SETTINGS = [
@@ -125,7 +127,13 @@ describe('MidiSettingsPersistence', () => {
 
       const settings = await persistence.load();
 
-      expect(settings).toEqual({ controllers: [], mappings: [], deckBindings: [], deckSettings: [] });
+      expect(settings).toEqual({
+        controllers: [],
+        mappings: [],
+        deckBindings: [],
+        deckSettings: [],
+        send: { lookaheadMs: SENDER_SCHEDULE_AHEAD_MS, senderEnabled: true },
+      });
       expect(alertService.warning).toHaveBeenCalledTimes(1);
     });
 
@@ -160,6 +168,17 @@ describe('MidiSettingsPersistence', () => {
         { slot: 'A', slip: false, liveLoopBeats: 4 },
         { slot: 'B', slip: true, liveLoopBeats: 0.5 },
       ]);
+    });
+
+    it('takes the timing helper settings from the store', async () => {
+      await persistence.load();
+      store.setSendSettings({ lookaheadMs: SENDER_LOOKAHEAD_CEILING_MS });
+      store.setSendSettings({ senderEnabled: false });
+
+      expect(persistence.snapshot().send).toEqual({
+        lookaheadMs: SENDER_LOOKAHEAD_CEILING_MS,
+        senderEnabled: false,
+      });
     });
 
     it('passes controllers and mappings through exactly as loaded', async () => {
@@ -224,6 +243,7 @@ describe('MidiSettingsPersistence', () => {
         mappings: SERVER_SET.mappings,
         deckBindings: [{ slot: 'A', deviceId: '14470230', lastSeenName: 'TR-1' }],
         deckSettings: HOME_DECK_SETTINGS,
+        send: SERVER_SET.send,
       });
     });
 
@@ -296,6 +316,7 @@ describe('MidiSettingsPersistence', () => {
           mappings: SERVER_SET.mappings,
           deckBindings: [{ slot: 'A', deviceId: '14470230', lastSeenName: 'TR-1' }],
           deckSettings: HOME_DECK_SETTINGS,
+          send: SERVER_SET.send,
         },
         { keepalive: true }
       );

@@ -16,7 +16,6 @@ import type {
   SidPlayer,
   PlayerSnapshot,
   Frames,
-  FrameClock,
   Milliseconds,
   ReplayRunner,
   JumpSettings,
@@ -38,23 +37,24 @@ import {
   REGISTER_RECORDER_FACTORY,
   MIDI_ACCESS,
 } from './ports';
-import type { RegisterRecorder } from './ports';
+import type { DeckFrameClock, RegisterRecorder, TickSource } from './ports';
 import type { Slot } from './slot';
 import { DeliveryProbe } from './bench/delivery-probe';
+import { PressProbe, type PressKind } from './bench/press-probe';
 import { installDeckBench } from './bench/deck-bench';
-import { DeckSendRoute } from './sender/deck-send-route';
+import { DeckSendRoute, tickSourceOf } from './sender/deck-send-route';
 
 /** How many seconds of play a tune's register record covers beyond the longest position the
  *  transport can show, so a hand has room to run past the end of the bar. */
 const RECORD_MARGIN_SECONDS = 5;
 
-/** One deck slot's whole engine bundle: the core player, its ASID sink, the audio-graph clock
- *  driving it, the two replay threads it uses — one for jumps, one for prepared builds — and the
- *  recorder that scans the loaded tune's register record. */
+/** One deck slot's whole engine bundle: the core player, its ASID sink, the clock driving it (from
+ *  the sender's wake or the audio graph), the two replay threads it uses — one for jumps, one for
+ *  prepared builds — and the recorder that scans the loaded tune's register record. */
 export interface SlotRuntime {
   readonly player: SidPlayer;
   readonly sink: AsidSink;
-  readonly clock: FrameClock;
+  readonly clock: DeckFrameClock;
   readonly replay: ReplayRunner;
   readonly prepare: ReplayRunner;
   readonly recorder: RegisterRecorder;
@@ -122,8 +122,9 @@ function createRegisterImage(): RegisterImage {
  * says so, through the timing helper; the supervisor owns that decision and this class only acts
  * on it.
  *
- * `build` creates no `AudioContext`: the clock's graph starts on the first `play`, inside the
- * factory-supplied `FrameClock`'s own `start()` — never here.
+ * `build` creates no `AudioContext`: the clock's graph starts on the first `play` — and only when
+ * the clock ticks from the audio source — inside the factory-supplied `DeckFrameClock`'s own
+ * `start()`, never here. `build` only points the clock at the source the live send path calls for.
  */
 @Injectable({ providedIn: 'root' })
 export class DeckRuntime {
@@ -144,22 +145,27 @@ export class DeckRuntime {
   private readonly noteStartsBySlot = new Map<Slot, NoteStarts>();
   /** Each slot's delivery probe — dev builds only, read through the console bench. */
   private readonly probes = new Map<Slot, DeliveryProbe>();
+  /** Each slot's press probe — dev builds only, read through the console bench. */
+  private readonly pressProbes = new Map<Slot, PressProbe>();
 
   constructor() {
     if (isDevMode()) {
       installDeckBench(() =>
-        [...this.slots].map(([slot, { player, sink }]) => ({
+        [...this.slots].map(([slot, { player, sink, clock }]) => ({
           slot,
           player,
           sink,
+          clock,
           probe: this.requireProbe(slot),
+          presses: this.requirePressProbe(slot),
         }))
       );
     }
   }
 
   /** Builds this slot's engine bundle, once. A second call is a no-op — the sink, the player, the
-   *  clock and the replay threads are never rebuilt for a slot already built. */
+   *  clock and the replay threads are never rebuilt for a slot already built. Each clock keeps one
+   *  wake alarm in the link for the page's life, so the link's `MAX_WAKE_ALARMS` caps the slots. */
   build(slot: Slot): void {
     if (this.slots.has(slot)) {
       return;
@@ -173,11 +179,13 @@ export class DeckRuntime {
       const probe = new DeliveryProbe();
       probe.setScheduleAhead(scheduleAheadMs);
       this.probes.set(slot, probe);
+      this.pressProbes.set(slot, new PressProbe());
     }
 
     const port = this.createOutputPort(slot, facade);
     const sink = createAsidSink(port, { scheduleAheadMs });
     const clock = this.clockFactory();
+    clock.setSource(tickSourceOf(this.route.path()));
     const replay = this.replayFactory();
     const prepare = this.replayFactory();
     const recorder = this.recorderFactory();
@@ -216,7 +224,8 @@ export class DeckRuntime {
   }
 
   /** Sets how far past its due time this slot's sink stamps each frame, and in dev builds points the
-   *  delivery probe at the value the sink settled on. Does nothing for a slot not built. */
+   *  delivery probe at the value the sink settled on, keeping what it has recorded: a path change
+   *  must not restart a reading. Does nothing for a slot not built. */
   setScheduleAhead(slot: Slot, ms: Milliseconds): void {
     const entry = this.slots.get(slot);
     if (entry === undefined) {
@@ -226,8 +235,25 @@ export class DeckRuntime {
     const probe = this.probes.get(slot);
     if (probe !== undefined) {
       probe.setScheduleAhead(entry.sink.capabilities.scheduleAheadMs ?? 0);
-      probe.reset();
     }
+  }
+
+  /** Hands this slot's frame clock to `source` at once, keeping its place. Does nothing for a slot
+   *  not built. */
+  setTickSource(slot: Slot, source: TickSource): void {
+    this.slots.get(slot)?.clock.setSource(source);
+  }
+
+  /** Dev builds: marks a press reaching this slot's engine, for the press-to-wire reading. Does
+   *  nothing in production or for a slot not built. */
+  markPress(slot: Slot, kind: PressKind): void {
+    this.pressProbes.get(slot)?.mark(kind, performance.now());
+  }
+
+  /** Dev builds: the engine has taken the press pending on this slot — a nudge's panel apply. Does
+   *  nothing in production or for a slot not built. */
+  notePressApplied(slot: Slot): void {
+    this.pressProbes.get(slot)?.applied();
   }
 
   /** The schedule-ahead this slot's sink settled on, in ms (it caps the value asked for); 0 for a
@@ -636,6 +662,7 @@ export class DeckRuntime {
     };
     // Recorded before the port resolves, so a deck with nothing bound still measures its timing.
     const probe = this.probes.get(slot) ?? null;
+    const pressProbe = this.pressProbes.get(slot) ?? null;
 
     return {
       get portId(): string | null {
@@ -653,6 +680,7 @@ export class DeckRuntime {
         if (probe !== null && timestampMs !== undefined) {
           probe.record(timestampMs);
         }
+        pressProbe?.sent(bytes, timestampMs, performance.now());
 
         if (!onSender()) {
           const resolved = resolve();
@@ -693,6 +721,14 @@ export class DeckRuntime {
 
   private requireProbe(slot: Slot): DeliveryProbe {
     const probe = this.probes.get(slot);
+    if (probe === undefined) {
+      throw new Error(`DeckRuntime: slot ${slot} has not been built`);
+    }
+    return probe;
+  }
+
+  private requirePressProbe(slot: Slot): PressProbe {
+    const probe = this.pressProbes.get(slot);
     if (probe === undefined) {
       throw new Error(`DeckRuntime: slot ${slot} has not been built`);
     }
