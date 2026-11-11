@@ -10,76 +10,65 @@ Release notes for TeensyROM Suite, newest first. Releases before 1.0.0-beta.1 sh
 
 ### ⏱️ DJ Mixer: Tighter Timing
 
-In beta.1 the DJ Mixer sent every note from the same page that draws it, so a busy screen could hold notes back on their way to the C64. Now a timing helper sends them: a hidden page of its own that does nothing else, and whose clock also drives the decks. Drawing the mixer no longer gets between the tune and the SID.
+The biggest upgrade in this release is one you hear. The DJ Mixer now hands every note to a dedicated timing helper that does nothing but feed your carts, so a busy screen no longer gets between the tune and the SID. Push both decks with every voice running and the groove holds.
 
-- **Steadier playback**: far fewer late, dropped and slurred notes, with one deck or both and every voice playing, on screen or behind another tab
-- **Recovers on its own**: if the timing helper stops, the decks keep playing without it, and an alert tells you when it goes and another when it's back
-- **Setup → Settings** *(new tab)*: **Lookahead** sets how far ahead notes go to the timing helper, from 15 to 40 ms. Higher plays steadier, lower answers your presses sooner. **Timing helper** switches it off, and the decks play as they did in beta.1. Both are saved with your mappings
-- The timing helper runs when Trom UI is open at `localhost` on the computer that runs the suite. At any other address the decks play without it
+- **Cleaner playback**: far fewer dropped and slurred notes, on screen or in a background tab
+- **Looks after itself**: if the timing helper ever stops, the music keeps playing and you're told when it's back
+- **Yours to tune**: a new Settings tab in Setup trades a touch of response for extra steadiness, or switches the helper off
 
 ---
 
 ### 🔁 Live Loops & Slip
 
-Loop on the fly and stutter on the beat, without the mix losing its place.
+Grab a loop on the beat, stutter it down to a sixteenth, and drop back in like you never left.
 
-- **Live loop**: one press loops on the beat, right where the tune is, at the length you pick, with no marker set first. Tap it to start and again to end, or hold it and let go. Halve, double or pick the length while it plays, and press Add to keep it in the list
-- **Slip**: with SLIP on, the tune carries on underneath a loop, live or saved, or a hand on the record. Let go and the deck lands on the exact frame where the tune would have been
-- **Second playhead**: while slip has the deck away, a fainter playhead on the strip shows where the tune is
-- **Down to 1/16 of a beat**: live loops and saved loops go to 1/8 and 1/16 of a beat, for stutters and build-ups
-- **Loops over loops**: a live loop over a running loop drops back into it when it ends, never restarting it
-- **On your controller**: map the live loop, its length, halve, double and SLIP, with hold-to-loop on a key and the length on a knob
-- **Kept per deck**: each deck remembers its SLIP and live loop length. SLIP starts on
+- **Live loop**: one press loops right where the tune is, on the beat, at the length you pick. Hold it for a loop that lasts as long as your finger, and keep the good ones in your list
+- **Slip**: the tune keeps running underneath your loops and hand moves, and letting go lands you exactly where it would have been. A second playhead on the strip shows where that is
+- **Stutters and build-ups**: loops as short as 1/16 of a beat
+- **On your controller**: live loop, its length and slip are all mappable
 
 ---
 
 ### 🎚️ DJ Mixer: Smoother to Play
 
-Fixes for the moments that got in the way mid-set.
+A round of polish for playing live.
 
-- **Loop keys fire on press**: on screen, a loop's play and play-now keys act as the button goes down, and pressing one selects that loop
-- **Dup**: copy the selected loop or cue, with its own settings, from the key beside Add or from your controller. A copy of the playing loop takes over without a sound, so you can change it and keep the original
-- **Loop N and Cue N**: unnamed markers are labelled by kind
-- **Pads light while held**: each voice's Kill and Punch pads and each deck's nudge pads, from the screen or a controller
-- **Speed display**, redrawn: the percent and BPM read at a glance, with clear nudge and no-beat states
-- **Simpler loop editing**: step a loop a beat shorter or longer, or pick No End to make it a cue again
-- **Set rows** drag from anywhere on the row, to reorder the set or drop a tune onto a deck
-- **Rename** shows the whole name as you type
-- **Repeat is gone**: every tune repeats when it ends
+- **Instant loop keys**: loops fire the moment you press
+- **Dup**: copy a loop or cue, even the one that's playing, and tweak the copy without losing the original
+- **Clearer at a glance**: a redrawn speed display, pads that light while held, and loops and cues labelled by kind
+- **Simpler loop editing**, and set rows you can drag from anywhere
 
 ---
 
 ### 🍓 Raspberry Pi & Linux ARM64
 
-The suite now ships for 64-bit ARM Linux, so a Raspberry Pi can run Trom API, Trom UI and Trom Terminal.
+The whole suite now runs on a Raspberry Pi. Set one up beside your C64 and run Trom API, Trom UI and Trom Terminal from it.
 
-- **New package** for a Raspberry Pi with a 64-bit Raspberry Pi OS. The Pi 5 is tested, and the Pi 3, 4 and Zero 2 W are expected to work
-- **Raspberry Pi OS Lite** needs two libraries first; [Getting started](https://github.com/MetalHexx/TeensyROM-Suite/blob/main/docs/getting-started.md#raspberry-pi) has the line to run
-- **Updates and Trom Agent**: `trom update` and Trom Agent pick the ARM64 package on a Pi
+- **New package** for 64-bit Raspberry Pi OS: tested on the Pi 5, and the Pi 3, 4 and Zero 2 W are expected to work
+- **Updates included**: `trom update` and Trom Agent pick the ARM64 package on a Pi
 
 ---
 
 ### 🔒 Secure Address for MIDI and Video
 
-Trom API now serves Trom UI over HTTPS too, on port 10214 beside http on 10213. Browsers allow MIDI controllers and capture-card video only on a secure address, so from a phone, tablet or another computer, open the secure address that `trom ui` lists.
+MIDI controllers and capture-card video now work from a phone, tablet or another computer. Trom API serves Trom UI over HTTPS too, and `trom ui` lists the secure address.
 
-- **Self-signed certificate**: Trom API makes it on your computer and keeps it in your data home. The browser warns once, and again after the computer gets a new address or name
-- **Points you there**: on a plain http address, the DJ Mixer's MIDI message, the Player's video view and the Theme preview ask for the secure address and give you its link
-- **Notices**: `trom api start`, `trom api status`, `trom ui` and `trom init` show the secure address, the certificate's expiry and a notice when a certificate is created or re-issued
-- **Trusted local networks only**: HTTPS protects against passive snooping on your home network. It is not for exposing Trom API to the internet
+- **No setup**: Trom API makes its own certificate, and your browser asks you to trust it once
+- **Points you there**: open the plain address and Trom UI offers you the secure link
+- **Made for home**: built for your local network, not for putting Trom API on the internet
 
 ---
 
 ### ✨ Also New
 
-- **Full firmware version**: Trom UI's device card shows the whole version, build tags included, and Trom Terminal shows each cart's firmware in `trom init` and `trom device list`, `discover`, `reconnect` and `rename`
+- **Full firmware version**, build tags and all, on Trom UI's device card and in Trom Terminal
 
 ---
 
 ### ⚠️ Upgrade Notes
 
-- **Removed DJ controls**: Repeat, In, Out, Clear End and the loop start and end arrows are gone. Controller mappings to them are dropped when the mixer loads
-- **SLIP starts on** for each deck until you switch it off
+- **Retired DJ controls**: Repeat (every tune now repeats) and the loop In, Out, Clear End and start and end arrows. Controller mappings to them are dropped
+- **SLIP starts on** for each deck
 
 ### Update
 - Already on a suite release: `trom update` (`trom update --check` only looks).

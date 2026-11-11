@@ -104,11 +104,11 @@ The decks play through the ASID player on each cart with a click of a button.
 
 ## Timing helper
 
-The mixer sends each deck's notes to its cart through a timing helper, a hidden page that does nothing else, so drawing the mixer doesn't hold them back. It runs when Trom UI is open at `localhost` on the computer that runs the suite; at any other address the decks play without it. If it stops, the decks keep playing without it, and an alert says so, and another when it is back.
+A timing helper feeds each deck's notes to its cart from a hidden page of its own, so a busy screen doesn't hold them back. It runs when Trom UI is open at `localhost` on the computer that runs the suite. If it ever stops, the music keeps playing and an alert tells you when it's back.
 
-Open **Setup** with its button at the top of the SID panel, then the **Settings** tab:
+In **Setup → Settings**:
 
-- **Lookahead:** how far ahead notes go to the timing helper, from 15 to 40 ms, 15 by default. Higher plays steadier, lower answers your presses sooner.
+- **Lookahead:** raise it for steadier playback, or lower it for quicker response to your presses.
 - **Timing helper:** switch it off to play straight from the mixer.
 
 ## What's remembered
