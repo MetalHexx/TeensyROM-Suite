@@ -2,7 +2,7 @@
 
 ## What it is
 
-Two decks of SID music, played live through one or two real C64s. Every note is made by the SID chip itself, and none by an emulator. Load a tune on each deck, match their tempos by BPM, shape the sound, loop and cue on the beat, scratch, and mix between them.
+Two decks of SID music, played live through real C64s. Every note is made by the SID chip itself, and none by an emulator. Load a tune on each deck, match their tempos by BPM, shape the sound, loop and cue on the beat, scratch, and mix between them.
 
 The DJ Mixer is part of Trom UI.
 

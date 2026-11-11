@@ -10,7 +10,7 @@
 
 TeensyROM Suite is a set of apps for the [TeensyROM](https://github.com/SensoriumEmbedded/TeensyROM) cartridge. They put everything on your cart, every game, demo, SID tune and image, a click, a command or a sentence away, and it all plays on your real C64.
 
-Browse your library from the couch, stream it like a music service, script it, ask an AI for a set, or take the stage with one or two C64s as your decks. Pick the app that suits the moment. They all run on Trom API, so they work with the same carts at the same time, on Windows, macOS, Linux and Raspberry Pi.
+Browse your library from the couch, stream it like a music service, script it, ask an AI for a set, or take the stage with real C64s as your decks. Pick the app that suits the moment. They all run on Trom API, so they work with the same carts at the same time, on Windows, macOS, Linux and Raspberry Pi.
 
 ## Trom UI
 
@@ -23,7 +23,7 @@ Browse your library from the couch, stream it like a music service, script it, a
 
 - **Stream it:** shuffle and auto-play games, demos, SIDs and images, hands-free.
 - **Watch it:** see your C64's picture in the browser, with CRT effects.
-- **Mix it:** the [DJ Mixer](docs/dj-mixer.md) turns one or two C64s into decks you play live, with every note from a real SID chip.
+- **Mix it:** the [DJ Mixer](docs/dj-mixer.md) turns real C64s into decks you play live, with every note from a real SID chip.
 - **Make it yours:** copy files to your cart with drag and drop or watch folders, and set your C64's menu colors.
 
 [Explore Trom UI →](docs/trom-ui.md)

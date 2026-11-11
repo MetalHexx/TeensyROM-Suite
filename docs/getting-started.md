@@ -135,7 +135,7 @@ Your settings and library index live in `~/.teensyrom` (`%USERPROFILE%\.teensyro
 ## Next
 
 - [Trom UI](trom-ui.md): play, search, copy files, watch folders and themes.
-- [DJ Mixer](dj-mixer.md): two SID decks played live through one or two real C64s.
+- [DJ Mixer](dj-mixer.md): two SID decks played live through real C64s.
 - [Trom Terminal](trom-terminal.md): the same library from your command line.
 - [Trom Agent](trom-agent.md): drive the suite from Claude Code.
 - [Contributing](contributing.md): build the suite from source.
