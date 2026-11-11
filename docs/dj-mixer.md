@@ -67,13 +67,13 @@ The settings show the chip's live values as the tune plays, and every voice has 
 
 Each deck keeps a list of loops and cues for the tune it holds. When the tune has a beat grid, they land on beats.
 
-- **Live loop:** press the Live loop key to loop the beats just played, without setting a marker first. Tap it, or hold it and let go to end the loop. Halve or double its length, or pick one, at any time. Press Add while it runs to keep it in the list.
-- **Slip:** SLIP starts on, and stays as you last set it. With SLIP on, the tune carries on underneath a loop or a hand hold, and playing returns to where it would have been when you let go. While it is away, a fainter second playhead on the position strip shows where the tune is.
+- **Live loop:** press the Live loop key to loop the beats just played, without setting a marker first. Tap it, or hold it and let go to end the loop. Halve or double its length, or pick one, at any time. Keep one you like with Add.
+- **Slip:** SLIP starts on, and stays as you last set it. With SLIP on, the tune carries on underneath a loop or a hand hold, and playing returns to where it would have been when you let go. A second playhead shows where the tune would be.
 - **Set:** add a marker at the current position. Give it an end to make it a loop, or leave it as a cue. Stop a running loop at any time.
-- **Dup:** copy the selected loop or cue, with its own settings, right after it in the list. A copy of the loop that is playing takes over without a sound, so you can change it and keep the original.
-- **Length:** halve or double a loop, make it a beat shorter or longer, or set its length in beats, from 1/16 of a beat up to 128. Pick No End to turn a loop back into a cue.
+- **Dup:** copy a loop or cue, even the one that's playing, and change the copy without losing the original.
+- **Length:** halve or double a loop, make it a beat shorter or longer, or set its length, from 1/16 of a beat up to 128 beats. Pick No End to turn a loop back into a cue.
 - **Move:** move a loop by 1, 2, 4, 8 or 16 beats, or by 1 frame at a time with the 1 FRAME step.
-- **Name:** rename any marker. An unnamed one reads Loop 1, Cue 1 and so on, counted by kind.
+- **Name:** rename any marker.
 - **Jump:** jump to a marker, or start it right away.
 - **Own mixer settings:** a marker follows the deck's settings by default. Give it voice, filter and key settings of its own, and the list shows which markers have them.
 
@@ -96,7 +96,7 @@ If you have a pitch bend touch trip like on the [Arturia Minilab 3](https://www.
 
 ## MIDI Controllers
 
-Just about every control on the UI surface is mappable to any number of MIDI Controllers with an intuitive visual interface and many tuning options. Map them from the Bindings tab in Setup.
+Just about every control on the UI surface is mappable to any number of MIDI Controllers with an intuitive visual interface and many tuning options.
 
 ## Start the ASID player
 
@@ -104,12 +104,7 @@ The decks play through the ASID player on each cart with a click of a button.
 
 ## Timing helper
 
-A timing helper feeds each deck's notes to its cart from a hidden page of its own, so a busy screen doesn't hold them back. It runs when Trom UI is open at `localhost` on the computer that runs the suite. If it ever stops, the music keeps playing and an alert tells you when it's back.
-
-In **Setup → Settings**:
-
-- **Lookahead:** raise it for steadier playback, or lower it for quicker response to your presses.
-- **Timing helper:** switch it off to play straight from the mixer.
+The timing helper keeps your notes on time, even while the screen is busy, and looks after itself if it ever stops. Fine-tune it, or switch it off, in **Setup → Settings**.
 
 ## What's remembered
 
@@ -118,4 +113,4 @@ The mixer remembers your work across a refresh of the page:
 - A tune's loops, cues, beat grid, SID register settings are kept per tune and per loop/cue.
 - Your sets, and the settings and markers of each tune in them, are kept per set.
 - Your controller mappings and their settings are stored and kept safe on your disk.
-- Each deck's SLIP and live loop length, and the lookahead and timing helper switch, are stored on your disk with your mappings.
+- Each deck's slip and live loop settings, and your timing helper settings, are kept on your disk too.
