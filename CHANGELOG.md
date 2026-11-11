@@ -12,31 +12,31 @@ Release notes for TeensyROM Suite, newest first. Releases before 1.0.0-beta.1 sh
 
 Grab a loop on the beat, stutter it down to a sixteenth, and drop back in like you never left.
 
-- **Live loop**: one press loops right where the tune is, on the beat, at the length you pick. Hold it for a loop that lasts as long as your finger, and keep the good ones in your list
-- **Slip mode**: the tune keeps running underneath your loops and hand moves, and letting go lands you exactly where it would have been. A second playhead on the strip shows where that is
+- **Live loops**: loop on the beat with one press, or hold and let go. Keep the good ones in your list
+- **Slip mode**: the tune keeps running under your loops and scratches, so letting go lands you right back in time
 - **Stutters and build-ups**: loops as short as 1/16 of a beat
-- **On your controller**: live loop, its length and slip mode are all mappable
+- **Fully mappable** to your MIDI controller
 
 ---
 
 ### ⏱️ DJ Mixer: Tighter Timing
 
-The other big upgrade is one you hear. The DJ Mixer now hands every note to a dedicated timing helper that does nothing but feed your carts, so a busy screen no longer gets between the tune and the SID. Push both decks with every voice running and the groove holds.
+The DJ Mixer's timing has been reworked. Push both decks with every voice running, and the groove holds.
 
 - **Cleaner playback**: far fewer dropped and slurred notes, on screen or in a background tab
-- **Looks after itself**: if the timing helper ever stops, the music keeps playing and you're told when it's back
-- **Yours to tune**: a new Settings tab in Setup trades a touch of response for extra steadiness, or switches the helper off
+- **Recovers on its own**: if anything interrupts it, the music keeps playing
+- **Yours to tune**: favour response or steadiness in Setup → Settings
 
 ---
 
 ### 🎚️ DJ Mixer: Smoother to Play
 
-A round of polish for playing live.
+Polish for playing live.
 
-- **Instant loop keys**: loops fire the moment you press
-- **Dup**: copy a loop or cue, even the one that's playing, and tweak the copy without losing the original
-- **Clearer at a glance**: a redrawn speed display, pads that light while held, and loops and cues labelled by kind
-- **Simpler loop editing**, and set rows you can drag from anywhere
+- **Instant loop keys** that fire the moment you press
+- **Dup**: copy any loop or cue, even the one that's playing, and tweak the copy freely
+- **Clearer at a glance**: a redrawn speed display, pads that light while held, and labelled loops and cues
+- **Simpler loop editing**, and set rows that drag from anywhere
 
 ---
 
@@ -44,24 +44,24 @@ A round of polish for playing live.
 
 The whole suite now runs on a Raspberry Pi. Set one up beside your C64 and run Trom API, Trom UI and Trom Terminal from it.
 
-- **New package** for 64-bit Raspberry Pi OS: tested on the Pi 5, and the Pi 3, 4 and Zero 2 W are expected to work
-- **Updates included**: `trom update` and Trom Agent pick the ARM64 package on a Pi
+- **New package** for 64-bit Raspberry Pi OS, tested on the Pi 5 and expected to work on the Pi 3, 4 and Zero 2 W
+- **Updates included**: `trom update` and Trom Agent pick the right package on a Pi
 
 ---
 
 ### 🔒 Secure Address for MIDI and Video
 
-MIDI controllers and capture-card video now work from a phone, tablet or another computer. Trom API serves Trom UI over HTTPS too, and `trom ui` lists the secure address.
+Use MIDI controllers and capture-card video from a phone, tablet or another computer. Trom UI is now served over HTTPS too, and `trom ui` lists the secure address.
 
 - **No setup**: Trom API makes its own certificate, and your browser asks you to trust it once
-- **Points you there**: open the plain address and Trom UI offers you the secure link
-- **Made for home**: built for your local network, not for putting Trom API on the internet
+- **Points you there**: open the plain address and Trom UI offers the secure link
+- **Made for home**: built for your local network, not the open internet
 
 ---
 
 ### ✨ Also New
 
-- **Full firmware version**, build tags and all, on Trom UI's device card and in Trom Terminal
+- **Full firmware version**, build tags and all, in Trom UI and Trom Terminal
 
 ---
 
