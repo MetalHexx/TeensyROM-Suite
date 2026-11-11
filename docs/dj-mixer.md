@@ -67,10 +67,11 @@ The settings show the chip's live values as the tune plays, and every voice has 
 
 Each deck keeps a list of loops and cues for the tune it holds. When the tune has a beat grid, they land on beats.
 
-- **Live loop:** press the Live loop key to loop the beats just played, without setting a marker first. Tap it, or hold it and let go to end the loop. Halve or double its length, or pick one, at any time.
-- **Slip:** SLIP starts on, and stays as you last set it. With SLIP on, the tune carries on underneath a loop or a hand hold, and playing returns to where it would have been when you let go.
+- **Live loop:** press the Live loop key to loop the beats just played, without setting a marker first. Tap it, or hold it and let go to end the loop. Halve or double its length, or pick one, at any time. Keep one you like with Add.
+- **Slip:** SLIP starts on, and stays as you last set it. With SLIP on, the tune carries on underneath a loop or a hand hold, and playing returns to where it would have been when you let go. A second playhead shows where the tune would be.
 - **Set:** add a marker at the current position. Give it an end to make it a loop, or leave it as a cue. Stop a running loop at any time.
-- **Length:** halve or double a loop, make it a beat shorter or longer, or set its length in beats, up to 128. Pick No End to turn a loop back into a cue.
+- **Dup:** copy a loop or cue, even the one that's playing, and change the copy without losing the original.
+- **Length:** halve or double a loop, make it a beat shorter or longer, or set its length, from 1/16 of a beat up to 128 beats. Pick No End to turn a loop back into a cue.
 - **Move:** move a loop by 1, 2, 4, 8 or 16 beats, or by 1 frame at a time with the 1 FRAME step.
 - **Name:** rename any marker.
 - **Jump:** jump to a marker, or start it right away.
@@ -101,6 +102,10 @@ Just about every control on the UI surface is mappable to any number of MIDI Con
 
 The decks play through the ASID player on each cart with a click of a button.
 
+## Timing helper
+
+The timing helper keeps your notes on time, even while the screen is busy, and looks after itself if it ever stops. Fine-tune it, or switch it off, in **Setup → Settings**.
+
 ## What's remembered
 
 The mixer remembers your work across a refresh of the page:
@@ -108,3 +113,4 @@ The mixer remembers your work across a refresh of the page:
 - A tune's loops, cues, beat grid, SID register settings are kept per tune and per loop/cue.
 - Your sets, and the settings and markers of each tune in them, are kept per set.
 - Your controller mappings and their settings are stored and kept safe on your disk.
+- Each deck's slip and live loop settings, and your timing helper settings, are kept on your disk too.

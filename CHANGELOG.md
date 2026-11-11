@@ -4,26 +4,54 @@ Release notes for TeensyROM Suite, newest first. Releases before 1.0.0-beta.1 sh
 
 <!-- release.yml publishes the section under each "## [version]" heading as that release's GitHub notes. Write it before tagging: the release fails without it. -->
 
-## [Unreleased]
+## [1.0.0-beta.2](https://github.com/MetalHexx/TeensyROM-Suite/releases/tag/v1.0.0-beta.2) - 2026-11-11
 
-### 🍓 Raspberry Pi and Linux ARM64
+> **Firmware Requirement**: TeensyROM firmware **0.8.0.9** or later is required for this release.
 
-The suite now ships for 64-bit ARM Linux, so a Raspberry Pi can run Trom API, Trom UI and Trom Terminal.
+### 🔁 DJ Mixer: Live Looper & Slip Mode
 
-- **New package**: `TeensyROM-Suite-{version}-linux-arm64.tar.gz`, for a Raspberry Pi with a 64-bit Raspberry Pi OS. The Pi 5 is tested, and the Pi 3, 4 and Zero 2 W are expected to work.
-- **Updates and Trom Agent**: `trom update` and Trom Agent pick the ARM64 package on a Pi.
+Grab a loop on the beat, stutter it down to a sixteenth, and drop back in like you never left.
+
+- **[Live Looper](https://github.com/MetalHexx/TeensyROM-Suite/blob/main/docs/dj-mixer.md#loops-and-cues)**: loop on the beat with one press, or hold and let go. Keep the good ones in your list
+- **[Slip mode](https://github.com/MetalHexx/TeensyROM-Suite/blob/main/docs/dj-mixer.md#loops-and-cues)**: the tune keeps running under your loops and scratches, so letting go lands you right back in time
+- **[Stutters and build-ups](https://github.com/MetalHexx/TeensyROM-Suite/blob/main/docs/dj-mixer.md#loops-and-cues)**: loops as short as 1/16 of a beat
+- **[Fully mappable](https://github.com/MetalHexx/TeensyROM-Suite/blob/main/docs/dj-mixer.md#midi-controllers)** to your MIDI controller
+
+---
+
+### 🎚️ DJ Mixer: Streamlined Interface & Workflow
+
+Tighter timing, a cleaner deck and a quicker workflow, from the first loop to the last tune in the set.
+
+- **[Tighter timing](https://github.com/MetalHexx/TeensyROM-Suite/blob/main/docs/dj-mixer.md#timing-helper)**: far fewer dropped and slurred notes with both decks running every voice, and a setting to favour response or steadiness
+- **[Dup](https://github.com/MetalHexx/TeensyROM-Suite/blob/main/docs/dj-mixer.md#loops-and-cues)**: copy any loop or cue, even the one that's playing, and make the copy your own
+- **[Streamlined loop editing](https://github.com/MetalHexx/TeensyROM-Suite/blob/main/docs/dj-mixer.md#loops-and-cues)**: loop keys fire the moment they go down, and a loop steps a beat longer or shorter or turns back into a cue
+- **[A new speed display](https://github.com/MetalHexx/TeensyROM-Suite/blob/main/docs/dj-mixer.md#play-a-deck)** with a clear BPM readout, and pads that light while held, from the screen or your controller
+- **[Sets](https://github.com/MetalHexx/TeensyROM-Suite/blob/main/docs/dj-mixer.md#sets)**: drag a tune from anywhere on its row to reorder it or load it onto a deck
 
 ---
 
-### 🔒 Secure address for MIDI and video
+### 🍓 Raspberry Pi & Linux ARM64
 
-Trom API serves the same app over HTTPS on port 10214, beside http on 10213. From another device, open the secure address that `trom ui` lists for MIDI controllers and capture-card video.
+The whole suite now runs on a Raspberry Pi. Set one up beside your C64 and run Trom API, Trom UI and Trom Terminal from it.
 
-- **Self-signed certificate**: Trom API makes it on your computer and keeps it in your data home. The browser warns once, and again after the computer gets a new address or name.
-- **Notices**: `trom api start`, `trom api status`, `trom ui` and `trom init` show the secure address, the certificate's expiry and a notice when a certificate is created or re-issued.
-- **Trusted local networks only**: HTTPS protects against passive snooping on your home network. It is not for exposing Trom API to the internet.
+- **[New package](https://github.com/MetalHexx/TeensyROM-Suite/blob/main/docs/getting-started.md#raspberry-pi)** for 64-bit Raspberry Pi OS, tested on the Pi 5 and expected to work on the Pi 3, 4 and Zero 2 W
+- **[Secure address](https://github.com/MetalHexx/TeensyROM-Suite/blob/main/docs/trom-ui.md#secure-address-for-midi-and-video)**: open Trom UI from another computer, and MIDI and video capture work in its browser too
+- **[Trom Agent](https://github.com/MetalHexx/TeensyROM-Suite/blob/main/docs/trom-agent.md#install-and-update-the-suite)** installs and updates the suite on a Pi, and `trom update` picks the right package there
 
----
+### Update
+- Already on a suite release: `trom update` (`trom update --check` only looks).
+- Installed with Homebrew: `brew update && brew upgrade teensyrom-suite`.
+- Fresh install on a Mac: `brew tap MetalHexx/TeensyROM-Suite https://github.com/MetalHexx/TeensyROM-Suite`, then `brew install teensyrom-suite` and `trom ui`.
+- Fresh install on Windows, Linux or a Raspberry Pi: download the package below, unpack it and run `cli/trom ui` (`cli\trom ui` on Windows).
+
+### Downloads
+- Windows x64: `TeensyROM-Suite-1.0.0-beta.2-win-x64.zip`
+- Linux x64: `TeensyROM-Suite-1.0.0-beta.2-linux-x64.tar.gz`
+- Linux ARM64 (Raspberry Pi with a 64-bit OS): `TeensyROM-Suite-1.0.0-beta.2-linux-arm64.tar.gz`
+- macOS: install with Homebrew, above. The `osx-arm64` and `osx-x64` packages are the ones Homebrew installs.
+
+Docs: https://github.com/MetalHexx/TeensyROM-Suite/blob/main/docs/getting-started.md
 
 ## [1.0.0-beta.1](https://github.com/MetalHexx/TeensyROM-Suite/releases/tag/v1.0.0-beta.1) - 2026-11-02
 
