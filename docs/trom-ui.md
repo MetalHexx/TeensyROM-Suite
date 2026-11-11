@@ -162,4 +162,4 @@ The certificate is made by Trom API on your computer and isn't signed by a publi
 
 ## DJ Mixer
 
-The DJ Mixer plays two SID tunes live on two decks, through real C64s, with a deck for each cart. See [DJ Mixer](dj-mixer.md) for what it needs and how to use it.
+The DJ Mixer plays SID tunes live on two decks, through one or two real C64s, with a deck for each cart. See [DJ Mixer](dj-mixer.md) for what it needs and how to use it.

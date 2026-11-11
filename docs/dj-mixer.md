@@ -2,7 +2,7 @@
 
 ## What it is
 
-Two decks of SID music, played live through real C64s. Every note is made by the SID chip itself, and none by an emulator. Load a tune on each deck, match their tempos by BPM, shape the sound, loop and cue on the beat, scratch, and mix between them.
+Two decks of SID music, played live through one or two real C64s. Every note is made by the SID chip itself, and none by an emulator. Load a tune on each deck, match their tempos by BPM, shape the sound, loop and cue on the beat, scratch, and mix between them.
 
 The DJ Mixer is part of Trom UI.
 
@@ -67,12 +67,13 @@ The settings show the chip's live values as the tune plays, and every voice has 
 
 Each deck keeps a list of loops and cues for the tune it holds. When the tune has a beat grid, they land on beats.
 
-- **Live loop:** press the Live loop key to loop the beats just played, without setting a marker first. Tap it, or hold it and let go to end the loop. Halve or double its length, or pick one, at any time.
-- **Slip:** SLIP starts on, and stays as you last set it. With SLIP on, the tune carries on underneath a loop or a hand hold, and playing returns to where it would have been when you let go.
+- **Live loop:** press the Live loop key to loop the beats just played, without setting a marker first. Tap it, or hold it and let go to end the loop. Halve or double its length, or pick one, at any time. Press Add while it runs to keep it in the list.
+- **Slip:** SLIP starts on, and stays as you last set it. With SLIP on, the tune carries on underneath a loop or a hand hold, and playing returns to where it would have been when you let go. While it is away, a fainter second playhead on the position strip shows where the tune is.
 - **Set:** add a marker at the current position. Give it an end to make it a loop, or leave it as a cue. Stop a running loop at any time.
-- **Length:** halve or double a loop, make it a beat shorter or longer, or set its length in beats, up to 128. Pick No End to turn a loop back into a cue.
+- **Dup:** copy the selected loop or cue, with its own settings, right after it in the list. A copy of the loop that is playing takes over without a sound, so you can change it and keep the original.
+- **Length:** halve or double a loop, make it a beat shorter or longer, or set its length in beats, from 1/16 of a beat up to 128. Pick No End to turn a loop back into a cue.
 - **Move:** move a loop by 1, 2, 4, 8 or 16 beats, or by 1 frame at a time with the 1 FRAME step.
-- **Name:** rename any marker.
+- **Name:** rename any marker. An unnamed one reads Loop 1, Cue 1 and so on, counted by kind.
 - **Jump:** jump to a marker, or start it right away.
 - **Own mixer settings:** a marker follows the deck's settings by default. Give it voice, filter and key settings of its own, and the list shows which markers have them.
 
@@ -95,11 +96,20 @@ If you have a pitch bend touch trip like on the [Arturia Minilab 3](https://www.
 
 ## MIDI Controllers
 
-Just about every control on the UI surface is mappable to any number of MIDI Controllers with an intuitive visual interface and many tuning options.
+Just about every control on the UI surface is mappable to any number of MIDI Controllers with an intuitive visual interface and many tuning options. Map them from the Bindings tab in Setup.
 
 ## Start the ASID player
 
 The decks play through the ASID player on each cart with a click of a button.
+
+## Timing helper
+
+The mixer sends each deck's notes to its cart through a timing helper, a hidden page that does nothing else, so drawing the mixer doesn't hold them back. It runs when Trom UI is open at `localhost` on the computer that runs the suite; at any other address the decks play without it. If it stops, the decks keep playing without it, and an alert says so, and another when it is back.
+
+Open **Setup** with its button at the top of the SID panel, then the **Settings** tab:
+
+- **Lookahead:** how far ahead notes go to the timing helper, from 15 to 40 ms, 15 by default. Higher plays steadier, lower answers your presses sooner.
+- **Timing helper:** switch it off to play straight from the mixer.
 
 ## What's remembered
 
@@ -108,3 +118,4 @@ The mixer remembers your work across a refresh of the page:
 - A tune's loops, cues, beat grid, SID register settings are kept per tune and per loop/cue.
 - Your sets, and the settings and markers of each tune in them, are kept per set.
 - Your controller mappings and their settings are stored and kept safe on your disk.
+- Each deck's SLIP and live loop length, and the lookahead and timing helper switch, are stored on your disk with your mappings.
