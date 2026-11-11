@@ -8,7 +8,7 @@ Release notes for TeensyROM Suite, newest first. Releases before 1.0.0-beta.1 sh
 
 > **Firmware Requirement**: TeensyROM firmware **0.8.0.9** or later is required for this release.
 
-### 🔁 Live Loops & Slip Mode
+### 🔁 DJ Mixer: Live Loops & Slip Mode
 
 Grab a loop on the beat, stutter it down to a sixteenth, and drop back in like you never left.
 
