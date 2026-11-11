@@ -12,10 +12,10 @@ Release notes for TeensyROM Suite, newest first. Releases before 1.0.0-beta.1 sh
 
 Grab a loop on the beat, stutter it down to a sixteenth, and drop back in like you never left.
 
-- **Live loops**: loop on the beat with one press, or hold and let go. Keep the good ones in your list
-- **Slip mode**: the tune keeps running under your loops and scratches, so letting go lands you right back in time
-- **Stutters and build-ups**: loops as short as 1/16 of a beat
-- **Fully mappable** to your MIDI controller
+- **[Live loops](https://github.com/MetalHexx/TeensyROM-Suite/blob/main/docs/dj-mixer.md#loops-and-cues)**: loop on the beat with one press, or hold and let go. Keep the good ones in your list
+- **[Slip mode](https://github.com/MetalHexx/TeensyROM-Suite/blob/main/docs/dj-mixer.md#loops-and-cues)**: the tune keeps running under your loops and scratches, so letting go lands you right back in time
+- **[Stutters and build-ups](https://github.com/MetalHexx/TeensyROM-Suite/blob/main/docs/dj-mixer.md#loops-and-cues)**: loops as short as 1/16 of a beat
+- **[Fully mappable](https://github.com/MetalHexx/TeensyROM-Suite/blob/main/docs/dj-mixer.md#midi-controllers)** to your MIDI controller
 
 ---
 
@@ -23,20 +23,20 @@ Grab a loop on the beat, stutter it down to a sixteenth, and drop back in like y
 
 The DJ Mixer's timing has been reworked. Push both decks with every voice running, and the groove holds.
 
-- **Cleaner playback**: far fewer dropped and slurred notes, on screen or in a background tab
-- **Recovers on its own**: if anything interrupts it, the music keeps playing
-- **Yours to tune**: favour response or steadiness in Setup → Settings
+- **[Cleaner playback](https://github.com/MetalHexx/TeensyROM-Suite/blob/main/docs/dj-mixer.md#timing-helper)**: far fewer dropped and slurred notes, on screen or in a background tab
+- **[Yours to tune](https://github.com/MetalHexx/TeensyROM-Suite/blob/main/docs/dj-mixer.md#timing-helper)**: favour response or steadiness in Setup → Settings
 
 ---
 
-### 🎚️ DJ Mixer: Smoother to Play
+### 🎚️ DJ Mixer: Streamlined Interface & Workflow
 
-Polish for playing live.
+A cleaner deck and a quicker workflow, from the first loop to the last tune in the set.
 
-- **Instant loop keys** that fire the moment you press
-- **Dup**: copy any loop or cue, even the one that's playing, and tweak the copy freely
-- **Clearer at a glance**: a redrawn speed display, pads that light while held, and labelled loops and cues
-- **Simpler loop editing**, and set rows that drag from anywhere
+- **[Dup](https://github.com/MetalHexx/TeensyROM-Suite/blob/main/docs/dj-mixer.md#loops-and-cues)**: copy any loop or cue, even the one that's playing, and make the copy your own
+- **[Fire on press](https://github.com/MetalHexx/TeensyROM-Suite/blob/main/docs/dj-mixer.md#loops-and-cues)**: loop keys trigger the moment they go down
+- **[Streamlined loop editing](https://github.com/MetalHexx/TeensyROM-Suite/blob/main/docs/dj-mixer.md#loops-and-cues)**: step a loop a beat longer or shorter, or turn it back into a cue
+- **[A new speed display](https://github.com/MetalHexx/TeensyROM-Suite/blob/main/docs/dj-mixer.md#play-a-deck)** with a clear BPM readout, and pads that light while held, from the screen or your controller
+- **[Sets](https://github.com/MetalHexx/TeensyROM-Suite/blob/main/docs/dj-mixer.md#sets)**: drag a tune from anywhere on its row to reorder it or load it onto a deck
 
 ---
 
@@ -44,31 +44,9 @@ Polish for playing live.
 
 The whole suite now runs on a Raspberry Pi. Set one up beside your C64 and run Trom API, Trom UI and Trom Terminal from it.
 
-- **New package** for 64-bit Raspberry Pi OS, tested on the Pi 5 and expected to work on the Pi 3, 4 and Zero 2 W
-- **Updates included**: `trom update` and Trom Agent pick the right package on a Pi
-
----
-
-### 🔒 Secure Address for MIDI and Video
-
-Use MIDI controllers and capture-card video from a phone, tablet or another computer. Trom UI is now served over HTTPS too, and `trom ui` lists the secure address.
-
-- **No setup**: Trom API makes its own certificate, and your browser asks you to trust it once
-- **Points you there**: open the plain address and Trom UI offers the secure link
-- **Made for home**: built for your local network, not the open internet
-
----
-
-### ✨ Also New
-
-- **Full firmware version**, build tags and all, in Trom UI and Trom Terminal
-
----
-
-### ⚠️ Upgrade Notes
-
-- **Retired DJ controls**: Repeat (every tune now repeats) and the loop In, Out, Clear End and start and end arrows. Controller mappings to them are dropped
-- **Slip mode starts on** for each deck
+- **[New package](https://github.com/MetalHexx/TeensyROM-Suite/blob/main/docs/getting-started.md#raspberry-pi)** for 64-bit Raspberry Pi OS, tested on the Pi 5 and expected to work on the Pi 3, 4 and Zero 2 W
+- **[Secure address](https://github.com/MetalHexx/TeensyROM-Suite/blob/main/docs/trom-ui.md#secure-address-for-midi-and-video)**: open Trom UI from another computer, and MIDI and video capture work in its browser too
+- **[Trom Agent](https://github.com/MetalHexx/TeensyROM-Suite/blob/main/docs/trom-agent.md#install-and-update-the-suite)** installs and updates the suite on a Pi, and `trom update` picks the right package there
 
 ### Update
 - Already on a suite release: `trom update` (`trom update --check` only looks).
