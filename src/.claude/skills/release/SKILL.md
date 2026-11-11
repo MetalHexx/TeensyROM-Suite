@@ -11,7 +11,7 @@ This skill releases TeensyROM Suite: it bumps the version, writes the release no
 
 ## Prerequisites
 
-- All changes must be committed and pushed to main branch
+- Every feature going into the release is merged to `main`. The release prep itself (the bump, the notes and any doc updates) goes through a PR in Step 1
 - You must have the new version number ready (e.g., `1.0.0`, `1.0.0-alpha.1`, `2.1.0-beta.2`)
 - Follow semantic versioning: `MAJOR.MINOR.PATCH` or `MAJOR.MINOR.PATCH-prerelease`
 
@@ -42,6 +42,12 @@ Example versions:
 - Stable release: `1.0.0`, `1.2.3`, `2.0.0`
 - Pre-release: `1.0.0-alpha.1`, `1.0.0-beta.1`, `2.0.0-rc.1`
 
+#### Find what shipped
+
+Cover every user-facing change since the last release, not only the area the user names; they won't remember it all. Read each squashed commit since the last tag (`git log v{previous}..origin/main`, with each commit's body), and the rad-orc portfolio and project docs for what each one delivered. Check a feature against the shipped code before describing it.
+
+#### Write the release notes
+
 Write the release notes at the top of `CHANGELOG.md` (repo root), under a heading of this shape:
 
 ```markdown
@@ -50,7 +56,17 @@ Write the release notes at the top of `CHANGELOG.md` (repo root), under a headin
 
 If `CHANGELOG.md` has a `## [Unreleased]` section, fold its notes into this new version heading and remove the `[Unreleased]` heading; `changelog-section.sh` only extracts `## [<version>]` sections.
 
-Everything under it, up to the next `## [` heading, becomes the GitHub release body (`.github/scripts/changelog-section.sh` extracts it); use `###` and lower inside. Lead with what users will notice, grouped by product area, and leave out internal changes. End with this:
+Everything under it, up to the next `## [` heading, becomes the GitHub release body (`.github/scripts/changelog-section.sh` extracts it); use `###` and lower inside.
+
+Market the release, in the voice of the `1.0.0-beta.1` section:
+
+- **Sell each section.** Group by product area and lead with what users will notice most. Each `###` section opens with one or two sentences that sell it, then three to five short bold-led bullets of what a user gets, with `---` between sections.
+- **Stay at feature level.** Say what a user can now do, not how it works inside. Leave out test, bench and measurement figures, settings ranges, flag and command lists, and install fine print.
+- **Never name internal work.** No rad-orc project or portfolio names (such as `ASID-DJ-22`), no iteration or phase titles, and no review or bench language. This holds for the notes, the docs and the release PR's title and description.
+- **Leave out internal changes**: CI, skills, refactors and tests.
+- **Removed controls and changed defaults** a user must know about go in a `### ⚠️ Upgrade Notes` section, just before Update.
+
+End with this:
 
 ````markdown
 ### Update
@@ -68,12 +84,25 @@ Everything under it, up to the next `## [` heading, becomes the GitHub release b
 Docs: https://github.com/MetalHexx/TeensyROM-Suite/blob/main/docs/getting-started.md
 ````
 
-Commit the version bump and the notes:
+#### Bring the user docs up to date
+
+When a feature in the notes is missing from `docs/` or the README, or the docs describe something that has changed, update them in the same PR. Keep them high level, like the rest of each page: what a feature lets you do and where to find it, in a sentence or two. Leave out internals, numbers and ranges, edge cases, and labels a user doesn't need. User docs describe features only: no troubleshooting, tips, roadmap or known issues.
+
+#### Open the release PR
+
+Put the doc updates, the version bump and the notes on a release branch, and open a PR so the user can review them on GitHub:
+
 ```bash
+git switch -c release/{version} origin/main
+git add docs/ README.md        # the doc updates, if any
+git commit -m "docs: ..."
 git add src/apps/Version.props src/plugins/trom-agent/claude/.claude-plugin/plugin.json src/plugins/trom-agent/claude/skills/trom/SKILL.md CHANGELOG.md
 git commit -m "chore: bump version to {version}"
-git push origin main
+git push -u origin release/{version}
+gh pr create -R MetalHexx/TeensyROM-Suite --base main --head release/{version} --title "Release {version}: changelog, version bump and docs" --body-file <file>
 ```
+
+The PR description lists the notes' sections and the docs it touches, at the same level as the notes. Fold the user's corrections into the branch, and go to Step 2 once they have merged it.
 
 ### Step 2: Run Package Test on main
 
@@ -148,10 +177,10 @@ Run this after every release: Trom Agent's version moves in lockstep with the su
 User: /release
 Agent: What version would you like to release? (e.g., 1.0.0 or 1.0.0-alpha.1)
 User: 1.2.0
-Agent: [Updates src/apps/Version.props and the plugin version, drafts the 1.2.0 section of CHANGELOG.md]
-Agent: Here are the release notes for 1.2.0. Anything to change?
-User: Looks good.
-Agent: [Commits and pushes, runs Package Test on main and waits for it]
+Agent: [Reads every commit since the last tag, drafts the 1.2.0 section of CHANGELOG.md and any doc updates, bumps the versions, opens the release PR]
+Agent: The 1.2.0 notes and doc updates are in PR #123. Anything to change?
+User: Merged.
+Agent: [Runs Package Test on main and waits for it]
 Agent: Package Test passed on abc1234. Tag v1.2.0 there?
 User: Yes.
 Agent: [Creates and pushes tag v1.2.0, watches the release workflow]
