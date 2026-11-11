@@ -8,24 +8,24 @@ Release notes for TeensyROM Suite, newest first. Releases before 1.0.0-beta.1 sh
 
 > **Firmware Requirement**: TeensyROM firmware **0.8.0.9** or later is required for this release.
 
-### ⏱️ DJ Mixer: Tighter Timing
-
-The biggest upgrade in this release is one you hear. The DJ Mixer now hands every note to a dedicated timing helper that does nothing but feed your carts, so a busy screen no longer gets between the tune and the SID. Push both decks with every voice running and the groove holds.
-
-- **Cleaner playback**: far fewer dropped and slurred notes, on screen or in a background tab
-- **Looks after itself**: if the timing helper ever stops, the music keeps playing and you're told when it's back
-- **Yours to tune**: a new Settings tab in Setup trades a touch of response for extra steadiness, or switches the helper off
-
----
-
-### 🔁 Live Loops & Slip
+### 🔁 Live Loops & Slip Mode
 
 Grab a loop on the beat, stutter it down to a sixteenth, and drop back in like you never left.
 
 - **Live loop**: one press loops right where the tune is, on the beat, at the length you pick. Hold it for a loop that lasts as long as your finger, and keep the good ones in your list
-- **Slip**: the tune keeps running underneath your loops and hand moves, and letting go lands you exactly where it would have been. A second playhead on the strip shows where that is
+- **Slip mode**: the tune keeps running underneath your loops and hand moves, and letting go lands you exactly where it would have been. A second playhead on the strip shows where that is
 - **Stutters and build-ups**: loops as short as 1/16 of a beat
-- **On your controller**: live loop, its length and slip are all mappable
+- **On your controller**: live loop, its length and slip mode are all mappable
+
+---
+
+### ⏱️ DJ Mixer: Tighter Timing
+
+The other big upgrade is one you hear. The DJ Mixer now hands every note to a dedicated timing helper that does nothing but feed your carts, so a busy screen no longer gets between the tune and the SID. Push both decks with every voice running and the groove holds.
+
+- **Cleaner playback**: far fewer dropped and slurred notes, on screen or in a background tab
+- **Looks after itself**: if the timing helper ever stops, the music keeps playing and you're told when it's back
+- **Yours to tune**: a new Settings tab in Setup trades a touch of response for extra steadiness, or switches the helper off
 
 ---
 
@@ -68,7 +68,7 @@ MIDI controllers and capture-card video now work from a phone, tablet or another
 ### ⚠️ Upgrade Notes
 
 - **Retired DJ controls**: Repeat (every tune now repeats) and the loop In, Out, Clear End and start and end arrows. Controller mappings to them are dropped
-- **SLIP starts on** for each deck
+- **Slip mode starts on** for each deck
 
 ### Update
 - Already on a suite release: `trom update` (`trom update --check` only looks).
