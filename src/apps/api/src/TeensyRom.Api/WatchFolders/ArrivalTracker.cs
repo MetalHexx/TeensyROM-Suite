@@ -201,9 +201,19 @@ namespace TeensyRom.Api.WatchFolders
             try
             {
                 return archives.ReadIndex(archivePath).Entries.Any(entry =>
-                    !entry.IsDirectory
-                    && !TransferExclusions.IsExcluded(entry.Path)
-                    && (allFileTypesInArchives || TransferableFileTypes.IsTransferable(entry.Path) || archives.IsArchiveExtension(entry.Path)));
+                {
+                    if (entry.IsDirectory) return false;
+
+                    // An entry the resolver refuses is not judged for exclusion: the archive is admitted as before and expansion fails that entry visibly.
+                    var path = entry.Path;
+                    if (ArchiveEntryPathResolver.TryResolve(entry.Path, out var resolved, out _))
+                    {
+                        if (TransferExclusions.IsExcluded(resolved)) return false;
+                        path = resolved;
+                    }
+
+                    return allFileTypesInArchives || TransferableFileTypes.IsTransferable(path) || archives.IsArchiveExtension(path);
+                });
             }
             catch (Exception ex) when (ex is ArchiveReadException or IOException or UnauthorizedAccessException)
             {

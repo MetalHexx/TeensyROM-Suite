@@ -151,7 +151,7 @@ Transfer settings change only through `PUT /api/settings/file-transfer`. `POST /
 
 `WatchFolders` are not a settings category. They live in `Settings.json` as `TeensySettings.WatchFolders`, but only the `/api/watch-folders` endpoints change them, and a whole-settings save preserves them. Each folder carries its own `allFileTypes` and `allFileTypesInArchives`.
 
-`TeensySettings.SettingsVersion` records which one-time upgrades `Settings.json` has had (`SettingsUpgrades.CurrentVersion`, now 1). It is not user-editable, and a whole-settings save keeps it. Upgrade 1 runs once on load for a file written before it: auto-launch used to gate watch-folder launches, so when it was off, every destination's `launch` is set to false, and the file is written back with the new version. That keeps folders that never launched from starting to. See `backend-architecture` (`references/FILE_TRANSFER.md`, Watched Folders).
+`TeensySettings.SettingsVersion` records which one-time upgrades `Settings.json` has had (`SettingsUpgrades.CurrentVersion`, now 1). It is not user-editable, and a whole-settings save keeps it. Upgrade 1 runs once on load for a file written before it: auto-launch used to gate watch-folder launches, so when it was off, every destination's `launch` is set to false, and the file is written back with the new version (an unwritable file is upgraded in memory with a logged warning and written at the next save). That keeps folders that never launched from starting to. See `backend-architecture` (`references/FILE_TRANSFER.md`, Watched Folders).
 
 ---
 

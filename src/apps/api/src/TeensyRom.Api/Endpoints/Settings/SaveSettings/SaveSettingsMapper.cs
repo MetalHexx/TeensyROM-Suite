@@ -18,7 +18,7 @@ namespace TeensyRom.Api.Endpoints.Settings.SaveSettings
         /// Maps request to entity while preserving backend-managed fields from existing settings.
         /// Device entries are applied by ID onto the existing list: a request never adds or removes an entry,
         /// an entry the request omits is kept as-is, and an ID repeated in the request uses its first occurrence.
-        /// Watch folders and the settings version are not part of the request and are preserved from the existing settings.
+        /// Transfer settings, watch folders and the settings version are not saved from this request and are preserved from the existing settings.
         /// </summary>
         public TeensySettings ToEntity(SaveSettingsRequest request)
         {
@@ -38,7 +38,7 @@ namespace TeensyRom.Api.Endpoints.Settings.SaveSettings
                         : existing)
                     .ToList(),
                 PlayerSettings = MapPlayerSettings(request.PlayerSettings),
-                FileTransferSettings = MapFileTransferSettings(request.FileTransferSettings),
+                FileTransferSettings = existingSettings.FileTransferSettings,
                 SearchSettings = MapSearchSettings(request.SearchSettings),
                 AppSettings = MapAppSettings(request.AppSettings),
                 WatchFolders = existingSettings.WatchFolders,
@@ -104,16 +104,6 @@ namespace TeensyRom.Api.Endpoints.Settings.SaveSettings
             {
                 SourceChannel = dto.SourceChannel,
                 Enabled = dto.Enabled
-            };
-        }
-
-        private static FileTransferSettings MapFileTransferSettings(FileTransferSettingsDto dto)
-        {
-            return new FileTransferSettings
-            {
-                AutoLaunchOnCopyEnabled = dto.AutoLaunchOnCopyEnabled,
-                AllFileTypesInFolders = dto.AllFileTypesInFolders,
-                AllFileTypesInArchives = dto.AllFileTypesInArchives
             };
         }
 
