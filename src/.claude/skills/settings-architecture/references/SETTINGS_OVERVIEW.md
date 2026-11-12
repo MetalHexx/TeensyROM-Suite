@@ -71,7 +71,9 @@ flowchart TB
 apps/api/src/
 ├── TeensyRom.Api/Endpoints/Settings/
 │   ├── GetSettings/GetSettingsEndpoint.cs    # GET /settings
-│   ├── SaveSettings/SaveSettingsEndpoint.cs  # POST /settings
+│   ├── SaveSettings/SaveSettingsEndpoint.cs  # POST /settings (keeps the stored transfer settings)
+│   ├── GetFileTransferSettings/              # GET /settings/file-transfer
+│   ├── SetFileTransferSettings/              # PUT /settings/file-transfer
 │   └── SettingsModels.cs                     # DTOs for all settings sections
 └── TeensyRom.Core/Settings/
     ├── TeensySettings.cs           # Root settings container
@@ -80,7 +82,8 @@ apps/api/src/
     ├── ConnectionSettings.cs       # Device connectivity
     ├── PlayerSettings.cs           # Playback behavior
     ├── VideoSettings.cs            # Video capture toggle
-    ├── FileTransferSettings.cs     # Auto-launch after copy
+    ├── FileTransferSettings.cs     # Upload settings: auto-launch, all types in folders and archives
+    ├── SettingsUpgrades.cs         # One-time upgrades, tracked by TeensySettings.SettingsVersion
     ├── SearchSettings.cs           # Search weights + exclusions
     ├── SearchWeights.cs            # Field weight configuration
     └── AppSettings.cs              # Application lifecycle state
@@ -108,7 +111,9 @@ libs/features/settings/src/lib/settings-view/
 └── search-settings-section/        # Search weights + exclusions
 ```
 
-File Transfer has no settings-view section: its auto-launch switch lives in the Transfer Settings panel of the File Transfer view (`libs/features/file-transfer`), which writes it through `SettingsStore.updateSettings` and `saveSettings`.
+File Transfer has no settings-view section: its three switches live in the Uploads section of the Transfer Settings panel in the File Transfer view (`libs/features/file-transfer`): Auto launch, All file types in folders and All file types in archives. The panel writes them through `SettingsStore.saveFileTransferSettings(change)`, which calls `PUT /api/settings/file-transfer` with only the changed switches and puts the answer into the store's current settings, stored current and every history entry (they are outside the Settings view's undo). `SettingsStore.refreshFileTransferSettings()` re-reads them with `GET /api/settings/file-transfer` without touching the rest of the document or the history, so a change made from `trom transfer set` shows up.
+
+Transfer settings change only through `PUT /api/settings/file-transfer`. `POST /api/settings` accepts the section but keeps the stored values, so a stale whole-settings save can never revert one.
 
 ---
 
@@ -140,11 +145,13 @@ File Transfer has no settings-view section: its auto-launch switch lives in the 
 | **Connection** | `ConnectionSettings` | `ConnectionSettings` | Serial/TCP connection type, auto-connect toggle |
 | **Player** | `PlayerSettings` | `PlayerSettings` | Repeat mode, play timer, mute options, startup filter |
 | **Video** | `VideoSettings` | `VideoSettings` | Enable video capture component visibility |
-| **File Transfer** | `FileTransferSettings` | `FileTransferSettings` | Auto-launch after copy |
+| **File Transfer** | `FileTransferSettings` | `FileTransferSettings` | Upload settings: `autoLaunchOnCopyEnabled`, `allFileTypesInFolders`, `allFileTypesInArchives` |
 | **Search** | `SearchSettings` | `SearchSettings` | Field weights, stop words, banned dirs/files |
 | **App** | `AppSettings` | `AppSettings` | First-time setup flag |
 
-`WatchFolders` are not a settings category. They live in `Settings.json` as `TeensySettings.WatchFolders`, but only the `/api/watch-folders` endpoints change them, and a whole-settings save preserves them. See `backend-architecture` (`references/FILE_TRANSFER.md`, Watched Folders).
+`WatchFolders` are not a settings category. They live in `Settings.json` as `TeensySettings.WatchFolders`, but only the `/api/watch-folders` endpoints change them, and a whole-settings save preserves them. Each folder carries its own `allFileTypes` and `allFileTypesInArchives`.
+
+`TeensySettings.SettingsVersion` records which one-time upgrades `Settings.json` has had (`SettingsUpgrades.CurrentVersion`, now 1). It is not user-editable, and a whole-settings save keeps it. Upgrade 1 runs once on load for a file written before it: auto-launch used to gate watch-folder launches, so when it was off, every destination's `launch` is set to false, and the file is written back with the new version. That keeps folders that never launched from starting to. See `backend-architecture` (`references/FILE_TRANSFER.md`, Watched Folders).
 
 ---
 
@@ -163,7 +170,9 @@ These settings are actively affecting business logic in the application:
 #### **File Transfer Settings (Backend)**
 | Setting | Where Used | Business Logic Impact |
 |---------|-----------|----------------------|
-| `fileTransferSettings.autoLaunchOnCopyEnabled` | [TransferAutoLauncher.cs](../../../../apps/api/src/TeensyRom.Api/Transfers/TransferAutoLauncher.cs) | Launches one transferred file after an upload when on; a watch-folder job also needs its destination's `launch` flag |
+| `fileTransferSettings.autoLaunchOnCopyEnabled` | [TransferAutoLauncher.cs](../../../../apps/api/src/TeensyRom.Api/Transfers/TransferAutoLauncher.cs) | Launches one transferred file after an upload when on. Watch-folder jobs ignore it: they launch by their destination's `launch` flag alone |
+| `fileTransferSettings.allFileTypesInArchives` | [CreateJobEndpoint.cs](../../../../apps/api/src/TeensyRom.Api/Endpoints/Transfers/CreateJob/CreateJobEndpoint.cs) | The default for a new job's `AllFileTypesInArchives` when the request doesn't give one; the job then keeps everything an archive holds, not only known types |
+| `fileTransferSettings.allFileTypesInFolders` | [drop-scanner.ts](../../../../libs/application/src/lib/transfer/drop-scanner.ts), the CLI's `trom file upload` | Read by the clients, not the engine: a folder drop or folder upload sends every file, not only known types. Named files are always sent |
 
 #### **Player Behavior (Frontend)**
 | Setting | Where Used | Business Logic Impact |
