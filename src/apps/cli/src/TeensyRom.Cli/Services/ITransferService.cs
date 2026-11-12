@@ -12,8 +12,9 @@ internal interface ITransferService
     /// <summary>Starts a job on the selected device, whose files land in <paramref name="deviceFolder"/>.</summary>
     /// <param name="expectedArchiveCount">How many of the files that will be uploaded are archives for tr-web to expand.</param>
     /// <param name="launch">Asks tr-web to launch the one file once it lands; the job's <c>LaunchState</c> then tells how that went.</param>
+    /// <param name="allInArchives">Keeps everything inside the job's archives. False sends nothing, so tr-web applies its own upload setting.</param>
     /// <exception cref="Errors.CliException"><see cref="Errors.CliExitCode.Failed"/> when the device is already transferring.</exception>
-    Task<TransferJobDto> CreateAsync(TeensyStorageType storage, string deviceFolder, int expectedArchiveCount, bool launch, CancellationToken ct);
+    Task<TransferJobDto> CreateAsync(TeensyStorageType storage, string deviceFolder, int expectedArchiveCount, bool launch, bool allInArchives, CancellationToken ct);
 
     /// <summary>Opens <paramref name="localFile"/> for async read and streams it into the job at <paramref name="relativePath"/>.</summary>
     /// <param name="relativePath">Relative to the job's folder and '/'-separated; never holds <c>..</c> or a root.</param>

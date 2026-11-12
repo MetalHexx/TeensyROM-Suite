@@ -32,6 +32,7 @@ internal sealed class UploadRunner(ITransferService transfers, ILastLaunchStore 
     /// can't be read is that file's rejection and the rest carry on; anything else ends the run.
     /// </summary>
     /// <param name="launch">Asks tr-web to launch the one file once it lands; the result's job says how that went.</param>
+    /// <param name="allInArchives">Keeps everything inside the archives, whatever tr-web's own upload setting says.</param>
     /// <param name="progress">Told about the job at least every poll; runs on the poll's thread.</param>
     /// <exception cref="CliException"><see cref="CliExitCode.Failed"/> when <paramref name="ct"/> is cancelled; the job is cancelled first.</exception>
     public async Task<UploadRunResult> RunAsync(
@@ -39,6 +40,7 @@ internal sealed class UploadRunner(ITransferService transfers, ILastLaunchStore 
         string deviceFolder,
         IReadOnlyList<UploadFile> files,
         bool launch,
+        bool allInArchives,
         Action<UploadProgress>? progress,
         CancellationToken ct)
     {
@@ -51,7 +53,7 @@ internal sealed class UploadRunner(ITransferService transfers, ILastLaunchStore 
 
         try
         {
-            created = await transfers.CreateAsync(storage, deviceFolder, files.Count(file => file.IsArchive), launch, ct);
+            created = await transfers.CreateAsync(storage, deviceFolder, files.Count(file => file.IsArchive), launch, allInArchives, ct);
             latest = created;
             poll = PollAsync(created.JobId, stopPoll.Token);
 
