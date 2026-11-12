@@ -127,7 +127,7 @@ internal static class CliHost
         ]),
         new("file", "Browse, search and launch the files on a TeensyROM's storage.",
         [
-            PublicVerb.Of<FileLsCommand, FileLsSettings>("ls", "List a directory: its subdirectories, then its files.", ["file", "ls", "/music"]),
+            PublicVerb.Of<FileLsCommand, FileLsSettings>("ls", "List a directory: its subdirectories, then its files. Files the TeensyROM can't launch are listed too, with launchable false in --json.", ["file", "ls", "/music"]),
             PublicVerb.Of<FileSearchCommand, FileSearchSettings>("search", "Search the files Trom API has cached for a storage. Until a full index is built (trom index build) results can be incomplete, and a notice on stderr says so.", ["file", "search", "commando", "--filter", "music", "--take", "10"]),
             PublicVerb.Of<FileLaunchOneShotCommand, FileLaunchOneShotSettings>("launch", "Launch one file; --player then opens the player on it.", ["file", "launch", "/music/MUSICIANS/T/Tjelta_Geir/Artillery.sid"]),
             PublicVerb.Of<FileRandomOneShotCommand, FileRandomOneShotSettings>("random", "Launch a random file; --player then opens the player on it. Picks from the files Trom API has cached, so a storage that is not fully indexed gets a notice on stderr.", ["file", "random", "--filter", "music", "--directory", "/music"]),
@@ -209,6 +209,8 @@ internal static class CliHost
         (typeof(PlayerCommand), typeof(PlayerSettings)),
         (typeof(IndexCommand), typeof(IndexSettings)),
         (typeof(PortListCommand), typeof(PortListSettings)),
+        (typeof(FileTransferCommand), typeof(FileTransferMenuSettings)),
+        (typeof(UploadSettingsCommand), typeof(UploadSettingsMenuSettings)),
         (typeof(WatchFoldersCommand), typeof(WatchFoldersSettings)),
         (typeof(ThemeScreenCommand), typeof(ThemeScreenSettings)),
         (typeof(SettingsCommand), typeof(SettingsCommandSettings)),
@@ -444,6 +446,8 @@ internal static class CliHost
             config.AddCommand<PortListCommand>("ports");
             config.AddCommand<GeneratePresetsCommand>("chipsynth");
             config.AddCommand<SettingsCommand>("settings").IsHidden();
+            config.AddCommand<FileTransferCommand>("file-transfer").IsHidden();
+            config.AddCommand<UploadSettingsCommand>("upload-settings").IsHidden();
             config.AddCommand<WatchFoldersCommand>("watch-folders").IsHidden();
             config.AddCommand<ThemeScreenCommand>("theme").IsHidden();
             config.AddCommand<CreditsCommand>("credits");

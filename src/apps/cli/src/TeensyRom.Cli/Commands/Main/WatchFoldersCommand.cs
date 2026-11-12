@@ -12,12 +12,13 @@ namespace TeensyRom.Cli.Commands.Main;
 
 /// <summary>
 /// The Watch Folders screen of the menu: the watch folders and the transfers running now, kept fresh while the user
-/// picks what to change.
+/// picks what to change. Opened from the File Transfer hub.
 /// </summary>
 internal class WatchFoldersCommand(IWatchFolderService watchFolders, ITransferService transfers, IDeviceService devices)
     : AsyncCommand<WatchFoldersSettings>
 {
     private const string AddFolder = "Add Watch Folder";
+    private const string FolderFileTypes = "Folder File Types";
     private const string AddDestination = "Add Destination";
     private const string EditDestination = "Edit Destination";
     private const string RemoveDestination = "Remove Destination";
@@ -29,7 +30,7 @@ internal class WatchFoldersCommand(IWatchFolderService watchFolders, ITransferSe
 
     private static readonly TimeSpan RefreshInterval = TimeSpan.FromSeconds(1);
 
-    private static readonly string[] Choices = [AddFolder, AddDestination, EditDestination, RemoveDestination, ToggleFolder, RemoveFolder, Back];
+    private static readonly string[] Choices = [AddFolder, FolderFileTypes, AddDestination, EditDestination, RemoveDestination, ToggleFolder, RemoveFolder, Back];
 
     public override async Task<int> ExecuteAsync(CommandContext context, WatchFoldersSettings settings)
     {
@@ -44,6 +45,7 @@ internal class WatchFoldersCommand(IWatchFolderService watchFolders, ITransferSe
                 switch (choice)
                 {
                     case AddFolder: await AddFolderAsync(); break;
+                    case FolderFileTypes: await FolderFileTypesAsync(); break;
                     case AddDestination: await AddDestinationAsync(); break;
                     case EditDestination: await EditDestinationAsync(); break;
                     case RemoveDestination: await RemoveDestinationAsync(); break;
@@ -66,22 +68,15 @@ internal class WatchFoldersCommand(IWatchFolderService watchFolders, ITransferSe
     private async Task<IRenderable> BuildHeaderAsync(CancellationToken ct)
     {
         var folders = await watchFolders.ListAsync(ct);
-        var running = (await transfers.ListAsync(ct))
-            .Where(job => job.State is TransferJobState.Created or TransferJobState.Receiving or TransferJobState.Sealed)
-            .ToList();
-        var names = running.Count == 0
-            ? new Dictionary<string, string>()
-            : (await devices.GetDevicesAsync(ct)).ToDictionary(device => device.Id, device => device.Name);
 
         var rows = new List<IRenderable>
         {
             RadHelper.BuildMenu("Watch Folders", "Send files that land in a folder to your TeensyROM."),
             LiveChoicePrompt.BlankLine,
             FoldersTable(folders),
-            LiveChoicePrompt.BlankLine,
-            new Markup($"[{RadHelper.Theme.Primary}]Running transfers[/]"),
-            running.Count == 0 ? new Markup("Nothing is being sent.") : TransfersTable(running, names)
+            LiveChoicePrompt.BlankLine
         };
+        rows.AddRange(await RunningTransfers.SectionAsync(transfers, devices, ct));
         return new Rows(rows);
     }
 
@@ -90,29 +85,6 @@ internal class WatchFoldersCommand(IWatchFolderService watchFolders, ITransferSe
         if (folders.Count == 0) return new Markup(NoFolders);
 
         return WatchFolderTable.Build(folders.Select(WatchFolderOutput.ToJson));
-    }
-
-    private static IRenderable TransfersTable(IReadOnlyList<TransferJobDto> jobs, IReadOnlyDictionary<string, string> names)
-    {
-        var table = NewTable("Device", "From", "Files", "State");
-
-        foreach (var job in jobs)
-        {
-            table.AddRow(
-                new Text(names.GetValueOrDefault(job.DeviceId) ?? job.DeviceId),
-                new Text(job.Origin.WatchFolderPath ?? "upload"),
-                new Text($"{job.FilesSent} of {job.TotalFiles ?? job.FilesReceived}"),
-                new Text(job.State == TransferJobState.Sealed ? "Sending" : "Receiving"));
-        }
-        return table;
-    }
-
-    private static Table NewTable(params string[] headers)
-    {
-        var table = new Table().BorderColor(RadHelper.Theme.Secondary.Color).Border(TableBorder.Rounded);
-
-        foreach (var header in headers) table.AddColumn(header);
-        return table;
     }
 
     private static string Storage(WatchFolderDestinationDto destination) => destination.StorageType.ToString().ToUpperInvariant();
@@ -138,7 +110,7 @@ internal class WatchFoldersCommand(IWatchFolderService watchFolders, ITransferSe
             RadHelper.WriteError($"{folder} isn't a folder on this computer.");
             return;
         }
-        await AddDestinationToAsync(folder, new HashSet<string>());
+        await AddDestinationToAsync(folder, new HashSet<string>(), askFileTypes: true);
     }
 
     private async Task AddDestinationAsync()
@@ -147,10 +119,10 @@ internal class WatchFoldersCommand(IWatchFolderService watchFolders, ITransferSe
 
         if (folder is null) return;
 
-        await AddDestinationToAsync(folder.Path, folder.Destinations.Select(destination => destination.DeviceId).ToHashSet());
+        await AddDestinationToAsync(folder.Path, folder.Destinations.Select(destination => destination.DeviceId).ToHashSet(), askFileTypes: false);
     }
 
-    private async Task AddDestinationToAsync(string folder, IReadOnlySet<string> takenDeviceIds)
+    private async Task AddDestinationToAsync(string folder, IReadOnlySet<string> takenDeviceIds, bool askFileTypes)
     {
         var online = (await devices.GetDevicesAsync()).Where(device => device.IsOnline).ToList();
         var offered = online.Where(device => !takenDeviceIds.Contains(device.Id)).ToList();
@@ -168,8 +140,23 @@ internal class WatchFoldersCommand(IWatchFolderService watchFolders, ITransferSe
 
         var devicePath = PromptHelper.DefaultValueTextPrompt("Device folder", 1, DefaultDeviceFolder);
         var launch = PromptHelper.Confirm("Launch files sent here?", false);
+        var allTypes = askFileTypes && PromptHelper.Confirm("Send all file types?", false);
+        var allInArchives = askFileTypes && PromptHelper.Confirm("Send all file types in archives?", false);
 
-        await watchFolders.AddAsync(folder, device.Id, storage.Value, devicePath, launch, false, false, CancellationToken.None);
+        await watchFolders.AddAsync(folder, device.Id, storage.Value, devicePath, launch, allTypes, allInArchives, CancellationToken.None);
+    }
+
+    private async Task FolderFileTypesAsync()
+    {
+        var folders = await watchFolders.ListAsync(CancellationToken.None);
+        var folder = folders.Count == 1 ? folders[0] : await PickFolderAsync();
+
+        if (folder is null) return;
+
+        var allTypes = PromptHelper.Confirm("Send all file types?", folder.AllFileTypes);
+        var allInArchives = PromptHelper.Confirm("Send all file types in archives?", folder.AllFileTypesInArchives);
+
+        await watchFolders.SetFileTypesAsync(folder.Id, allTypes, allInArchives, CancellationToken.None);
     }
 
     private async Task EditDestinationAsync()

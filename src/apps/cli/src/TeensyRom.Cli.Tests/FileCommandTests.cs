@@ -120,7 +120,7 @@ public sealed class FileCommandTests : IDisposable
     private static string[] Names(JsonElement element) => element.EnumerateObject().Select(p => p.Name).ToArray();
 
     private static readonly string[] ItemShape =
-        ["name", "path", "storage", "fileType", "size", "isFavorite", "isCompatible", "title", "creator", "releaseInfo", "shareUrl", "playLength"];
+        ["name", "path", "storage", "fileType", "size", "isFavorite", "isCompatible", "launchable", "title", "creator", "releaseInfo", "shareUrl", "playLength"];
 
     private static void Leave(TestHost host)
     {
@@ -179,6 +179,43 @@ public sealed class FileCommandTests : IDisposable
         file.GetProperty("path").GetString().Should().Be("/music/a.sid");
         file.GetProperty("fileType").GetString().Should().Be("sid");
         file.GetProperty("storage").GetString().Should().Be("usb");
+    }
+
+    [Fact]
+    public async Task AnUnknownTypeFile_IsListedAsNotLaunchable_AndLaunchingItIsNotFound()
+    {
+        var api = Substitute.For<ITeensyRomApiClient>();
+        api.GetDirectoryAsync(Arg.Any<string>(), Arg.Any<ApiStorageType>(), "/", Arg.Any<CancellationToken>())
+            .Returns(new GetDirectoryResponse
+            {
+                StorageItem = new StorageCacheDto
+                {
+                    Path = "/",
+                    Directories = [],
+                    Files =
+                    [
+                        new FileItemDto { Name = "x.bin", Path = "/x.bin", Type = FileItemType.Unknown, IsCompatible = true },
+                        new FileItemDto { Name = "a.sid", Path = "/a.sid", Type = FileItemType.Song, IsCompatible = true }
+                    ]
+                }
+            });
+        void UseRealStorage(IServiceCollection services)
+        {
+            services.Replace(ServiceDescriptor.Singleton<IStorageService, StorageService>());
+            services.Replace(ServiceDescriptor.Singleton(api));
+        }
+        var listing = NewHost(extra: UseRealStorage);
+
+        (await listing.RunAsync("file", "ls", "/", "--json")).Should().Be(0, listing.Consoles.StdErr);
+        var files = Parse(listing.Consoles.StdOut).GetProperty("files");
+        files.GetArrayLength().Should().Be(2);
+        files[0].GetProperty("launchable").GetBoolean().Should().BeFalse();
+        files[1].GetProperty("launchable").GetBoolean().Should().BeTrue();
+
+        var launching = NewHost(extra: UseRealStorage);
+
+        (await launching.RunAsync("file", "launch", "/x.bin")).Should().Be((int)CliExitCode.NotFound);
+        launching.Consoles.StdErr.Should().Contain("There is no launchable file at /x.bin.");
     }
 
     [Fact]

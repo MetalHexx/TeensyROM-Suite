@@ -139,7 +139,7 @@ namespace TeensyRom.Cli.Services
             EnsureRestored();
 
             var directory = await _storage.GetDirectory(path.GetUnixParentPath());
-            var fileItem = directory.Files.FirstOrDefault(f => f.Path.Contains(path));
+            var fileItem = directory.Files.FirstOrDefault(f => f.Path.Equals(path, StringComparison.OrdinalIgnoreCase));
 
             if (fileItem is not ILaunchableItem launchItem)
             {
@@ -573,7 +573,7 @@ namespace TeensyRom.Cli.Services
             var currentPath = _state.CurrentItem.Path.GetUnixParentPath();
             var currentDirectory = await _storage.GetDirectory(currentPath);
 
-            var compatibleFiles = currentDirectory.Files.Any(f => f.IsCompatible);
+            var compatibleFiles = currentDirectory.Files.OfType<ILaunchableItem>().Any(f => f.IsCompatible);
 
             if (!compatibleFiles) return null;
 
