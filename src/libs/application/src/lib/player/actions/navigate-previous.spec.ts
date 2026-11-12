@@ -5,6 +5,7 @@ import { updateState } from '../../with-devtools';
 import {
   LaunchMode,
   PlayerStatus,
+  FileItemType,
   PLAYER_SERVICE,
   PlayerScope,
   PlayerFilterType,
@@ -153,6 +154,37 @@ describe('navigatePrevious', () => {
       // Assert: Should launch index 1 (previous file) without skipping
       expect(mockPlayerService.launchFile).toHaveBeenCalledWith(deviceId, files[1]);
       expect(mockPlayerService.launchFile).toHaveBeenCalledTimes(1);
+    });
+
+    it('steps over an unknown file backward from c.sid', async () => {
+      const files = [
+        createTestFileItem({ name: 'a.prg', type: FileItemType.Game }),
+        createTestFileItem({ name: 'b.bin', type: FileItemType.Unknown }),
+        createTestFileItem({ name: 'c.sid', type: FileItemType.Song }),
+      ];
+
+      updateState(store, 'test-set-filecontext', (state) => ({
+        players: {
+          ...state.players,
+          [deviceId]: {
+            ...state.players[deviceId],
+            fileContext: {
+              directoryPath: '/music',
+              files,
+              currentIndex: 2,
+              storageKey,
+            } as PlayerFileContext,
+          },
+        },
+      }));
+
+      vi.mocked(mockPlayerService.launchFile).mockReturnValue(of(files[0]));
+
+      await navigatePrevious(store, mockPlayerService, mockPlayerStorage).navigatePrevious({ deviceId });
+
+      expect(mockPlayerService.launchFile).toHaveBeenCalledTimes(1);
+      expect(mockPlayerService.launchFile).toHaveBeenCalledWith(deviceId, files[0]);
+      expect(store.players()[deviceId].fileContext?.currentIndex).toBe(0);
     });
 
     it('B: should skip single incompatible file and select previous compatible', async () => {

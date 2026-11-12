@@ -1,6 +1,6 @@
 import { describe, it, expect, beforeEach, vi } from 'vitest';
 import { of } from 'rxjs';
-import { LaunchMode, PlayerStatus } from '@teensyrom-nx/domain';
+import { LaunchMode, PlayerStatus, FileItemType, StorageType } from '@teensyrom-nx/domain';
 import { createPlayerHarness, type PlayerHarness } from './testing/player-context-harness';
 import { createTestFileItem } from '@teensyrom-nx/testing/fixtures';
 
@@ -93,6 +93,45 @@ describe('PlayerContextService - auto-advance', () => {
       const currentFile = harness.service.getCurrentFile(deviceId)();
       expect(currentFile?.file).toEqual(target);
       expect(currentFile?.isCompatible).toBe(true);
+    });
+
+    it('steps over an unknown file without marking it incompatible', async () => {
+      const launched = createTestFileItem({
+        name: 'bad.hex',
+        path: '/games/bad.hex',
+        isCompatible: false,
+      });
+      const unknownFile = createTestFileItem({
+        name: 'b.bin',
+        path: '/games/b.bin',
+        type: FileItemType.Unknown,
+      });
+      const target = createTestFileItem({ name: 'good.prg', path: '/games/good.prg' });
+      const markIncompatible = vi.spyOn(harness.storageStore, 'updateFileCompatibility');
+
+      await harness.service.launchFileWithContext({
+        deviceId,
+        file: launched,
+        directoryPath,
+        files: [launched, target],
+        launchMode: LaunchMode.Directory,
+      });
+      // The launch path never lets an unknown file into a context, so stage one that still holds it.
+      harness.playerStore.loadFileContext({
+        deviceId,
+        storageType: StorageType.Sd,
+        directoryPath,
+        files: [launched, unknownFile, target],
+        currentFileIndex: 0,
+        launchMode: LaunchMode.Directory,
+      });
+      await flush();
+
+      expect(harness.playerService.launchFile).toHaveBeenLastCalledWith(deviceId, target);
+      expect(harness.service.getCurrentFile(deviceId)()?.file).toEqual(target);
+      expect(markIncompatible).not.toHaveBeenCalledWith(
+        expect.objectContaining({ filePath: unknownFile.path })
+      );
     });
 
     it('wraps around to the beginning when the incompatible file is last', async () => {

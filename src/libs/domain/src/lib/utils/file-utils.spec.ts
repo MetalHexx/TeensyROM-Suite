@@ -1,7 +1,20 @@
 import { FileItemType } from '../models/file-item-type.enum';
-import { getFileIcon, formatFileSize } from './file-utils';
+import { getFileIcon, formatFileSize, isLaunchable } from './file-utils';
 
 describe('file-utils', () => {
+  describe('isLaunchable', () => {
+    it.each([FileItemType.Song, FileItemType.Game, FileItemType.Image, FileItemType.Hex])(
+      'should be launchable for %s',
+      (type) => {
+        expect(isLaunchable({ type })).toBe(true);
+      }
+    );
+
+    it('should not be launchable for Unknown', () => {
+      expect(isLaunchable({ type: FileItemType.Unknown })).toBe(false);
+    });
+  });
+
   describe('getFileIcon', () => {
     it('should return music_note for Song type', () => {
       expect(getFileIcon(FileItemType.Song)).toBe('music_note');
