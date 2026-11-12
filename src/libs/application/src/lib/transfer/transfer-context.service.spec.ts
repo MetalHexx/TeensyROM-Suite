@@ -302,12 +302,23 @@ describe('TransferContextService', () => {
     /** The scan options the service handed to the scanner, which may arrive as a promise. */
     const scanOptions = async () => await mockDropScanner.scan.mock.calls[0][3];
 
-    beforeEach(async () => {
+    const loadCachedSettings = async () => {
       TestBed.inject(SettingsStore).loadSettings();
       await flushMicrotasks();
-    });
+    };
 
     it('applies an all-types change the engine reports while the cached value is off', async () => {
+      await loadCachedSettings();
+      mockSettingsService.getFileTransferSettings = vi.fn(() =>
+        of({ ...cachedUploadSettings, allFileTypesInFolders: true })
+      );
+
+      await runStartTransfer('device-1', asFileList([new File(['x'], 'a.prg')]));
+
+      expect(await scanOptions()).toEqual({ allFileTypesInFolders: true });
+    });
+
+    it('applies the engine value even when the settings document was never loaded', async () => {
       mockSettingsService.getFileTransferSettings = vi.fn(() =>
         of({ ...cachedUploadSettings, allFileTypesInFolders: true })
       );
@@ -318,6 +329,7 @@ describe('TransferContextService', () => {
     });
 
     it('scans with the cached value when the refresh fails', async () => {
+      await loadCachedSettings();
       mockSettingsService.getFileTransferSettings = vi.fn(() =>
         throwError(() => new Error('offline'))
       );
