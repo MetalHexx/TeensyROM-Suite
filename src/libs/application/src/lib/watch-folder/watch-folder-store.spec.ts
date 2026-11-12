@@ -16,6 +16,8 @@ const folder = (id: string, overrides: Partial<WatchFolder> = {}): WatchFolder =
   path: `C:\\${id}`,
   enabled: true,
   state: WatchFolderState.Watching,
+  allFileTypes: false,
+  allFileTypesInArchives: false,
   destinations: [
     { id: `${id}-d1`, deviceId: 'dev-1', deviceName: 'Rack', storageType: StorageType.Sd, path: '/a', launch: false },
   ],
@@ -28,6 +30,8 @@ const addInput = {
   storageType: StorageType.Sd,
   devicePath: null,
   launch: false,
+  allFileTypes: false,
+  allFileTypesInArchives: false,
 };
 
 describe('WatchFolderStore', () => {
@@ -40,6 +44,7 @@ describe('WatchFolderStore', () => {
       add: vi.fn(),
       setDestination: vi.fn(),
       setEnabled: vi.fn(),
+      setFileTypes: vi.fn(),
       remove: vi.fn(),
       removeDestination: vi.fn(),
     };
@@ -111,6 +116,51 @@ describe('WatchFolderStore', () => {
 
       expect(store.error()).toBe('refused');
       expect(store.getFolders()()[0].enabled).toBe(true);
+      expect(store.isPending('a')()).toBe(false);
+    });
+  });
+
+  describe('setFolderFileTypes', () => {
+    it('replaces the folder with the one returned and clears pending', async () => {
+      service.list.mockResolvedValue([folder('a'), folder('b')]);
+      await store.loadWatchFolders();
+      service.setFileTypes.mockResolvedValue(folder('a', { allFileTypes: true }));
+
+      await store.setFolderFileTypes({ watchFolderId: 'a', change: { allFileTypes: true } });
+
+      expect(service.setFileTypes).toHaveBeenCalledWith('a', { allFileTypes: true });
+      const [a, b] = store.getFolders()();
+      expect(a.allFileTypes).toBe(true);
+      expect(b.allFileTypes).toBe(false);
+      expect(store.isPending('a')()).toBe(false);
+    });
+
+    it('marks the folder pending while the change is in flight', async () => {
+      service.list.mockResolvedValue([folder('a')]);
+      await store.loadWatchFolders();
+      let release: (f: WatchFolder) => void = () => undefined;
+      service.setFileTypes.mockReturnValue(new Promise<WatchFolder>((r) => (release = r)));
+
+      const pending = store.setFolderFileTypes({
+        watchFolderId: 'a',
+        change: { allFileTypesInArchives: true },
+      });
+
+      expect(store.isPending('a')()).toBe(true);
+      release(folder('a', { allFileTypesInArchives: true }));
+      await pending;
+      expect(store.isPending('a')()).toBe(false);
+    });
+
+    it('sets the error and leaves the folder as it was when the change fails', async () => {
+      service.list.mockResolvedValue([folder('a')]);
+      await store.loadWatchFolders();
+      service.setFileTypes.mockRejectedValue(new Error('refused'));
+
+      await store.setFolderFileTypes({ watchFolderId: 'a', change: { allFileTypes: true } });
+
+      expect(store.error()).toBe('refused');
+      expect(store.getFolders()()[0].allFileTypes).toBe(false);
       expect(store.isPending('a')()).toBe(false);
     });
   });
