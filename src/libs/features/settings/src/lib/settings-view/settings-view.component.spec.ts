@@ -239,8 +239,6 @@ describe('SettingsViewComponent', () => {
       isNavigatingHistory: isNavigatingHistorySignal.asReadonly(),
       historyPositionDisplay: historyPositionDisplaySignal.asReadonly(),
       saveSettings: vi.fn(),
-      getFileTransferSettings: vi.fn(),
-      saveFileTransferSettings: vi.fn(),
       undo: vi.fn(),
       redo: vi.fn(),
       getKnownDevices: vi.fn(() => mockForm.get('knownDevices') as FormArray),

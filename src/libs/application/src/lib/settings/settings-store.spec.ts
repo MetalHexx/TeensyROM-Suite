@@ -23,7 +23,7 @@ type SettingsStoreInstance = {
   loadSettings: () => Promise<void>;
   saveSettings: () => Promise<void>;
   saveFileTransferSettings: (change: Partial<FileTransferSettings>) => Promise<void>;
-  refreshFileTransferSettings: () => Promise<void>;
+  refreshFileTransferSettings: () => Promise<FileTransferSettings | null>;
   updateSettings: (params: { settings: Partial<Settings> }) => void;
   undo: () => void;
   redo: () => void;
@@ -1021,8 +1021,9 @@ describe('SettingsStore (NgRx Signal Store)', () => {
       await loadWithHistory();
       vi.mocked(mockSettingsService.getFileTransferSettings).mockReturnValue(of(saved));
 
-      await store.refreshFileTransferSettings();
+      const refreshed = await store.refreshFileTransferSettings();
 
+      expect(refreshed).toEqual(saved);
       expect(store.settings()?.fileTransferSettings).toEqual(saved);
       expect(store.storedCurrent()?.fileTransferSettings).toEqual(saved);
       expect(store.history()).toHaveLength(1);
@@ -1037,8 +1038,9 @@ describe('SettingsStore (NgRx Signal Store)', () => {
         throwError(() => new Error('offline'))
       );
 
-      await store.refreshFileTransferSettings();
+      const refreshed = await store.refreshFileTransferSettings();
 
+      expect(refreshed).toBeNull();
       expect(store.settings()?.fileTransferSettings.allFileTypesInFolders).toBe(false);
       expect(store.error()).toBeNull();
     });

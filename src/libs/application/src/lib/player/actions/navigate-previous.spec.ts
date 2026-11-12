@@ -13,7 +13,7 @@ import {
 } from '@teensyrom-nx/domain';
 import { createTestFileItem } from '@teensyrom-nx/testing/fixtures';
 import { navigatePrevious } from './navigate-previous';
-import { PlayerStore, PlayerState } from '../player-store';
+import { PlayerStore, PlayerState, PlayerFileContext } from '../player-store';
 import { WritableStore } from '../player-helpers';
 import { PLAYER_STORAGE } from '../player-storage.interface';
 

@@ -138,10 +138,12 @@ export class TransferContextService implements ITransferContext {
    * applies; when the refresh fails the cached value is used.
    */
   private async currentScanOptions(): Promise<DropScanOptions> {
-    await this.settingsStore.refreshFileTransferSettings();
+    const refreshed = await this.settingsStore.refreshFileTransferSettings();
     return {
       allFileTypesInFolders:
-        this.settingsStore.getSettings()()?.fileTransferSettings.allFileTypesInFolders ?? false,
+        refreshed?.allFileTypesInFolders ??
+        this.settingsStore.getSettings()()?.fileTransferSettings.allFileTypesInFolders ??
+        false,
     };
   }
 

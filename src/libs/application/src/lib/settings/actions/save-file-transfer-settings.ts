@@ -67,9 +67,10 @@ export function saveFileTransferSettings(
 
     /**
      * Re-reads the engine's upload settings without touching the rest of the document or the
-     * undo history, so a change made elsewhere shows up.
+     * undo history, so a change made elsewhere shows up. Returns the value it read, or null when
+     * the read failed, so callers do not depend on the settings document having been loaded.
      */
-    refreshFileTransferSettings: async (): Promise<void> => {
+    refreshFileTransferSettings: async (): Promise<FileTransferSettings | null> => {
       const actionMessage = createAction('refresh-file-transfer-settings');
 
       try {
@@ -79,8 +80,11 @@ export function saveFileTransferSettings(
           ...state,
           ...applyFileTransferSettings(state, current),
         }));
+
+        return current;
       } catch (error) {
         logError('RefreshFileTransferSettings: Failed to re-read upload settings:', error);
+        return null;
       }
     },
   };
