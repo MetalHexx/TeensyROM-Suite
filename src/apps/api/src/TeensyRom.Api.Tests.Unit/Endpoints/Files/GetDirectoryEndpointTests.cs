@@ -2,6 +2,7 @@ using Microsoft.AspNetCore.Http.HttpResults;
 using RadEndpoints.Testing;
 using System.Net;
 using TeensyRom.Api.Endpoints.Files.GetDirectory;
+using TeensyRom.Api.Models;
 using TeensyRom.Core.Abstractions;
 using TeensyRom.Core.Entities.Device;
 using TeensyRom.Core.Entities.Storage;
@@ -66,6 +67,25 @@ public class GetDirectoryEndpointTests
 
         endpoint.GetStatusCode().Should().Be(HttpStatusCode.OK);
         endpoint.Response!.StorageItem.Should().NotBeNull();
+    }
+
+    [Fact]
+    public async Task Handle_DirectoryWithPlainFile_ListsItAsUnknown()
+    {
+        var endpoint = GivenDevice();
+        var item = new StorageCacheItem
+        {
+            Path = new DirectoryPath("/music/"),
+            Directories = [],
+            Files = [new FileItem { Name = "disk.d64", Path = new FilePath("/music/disk.d64") }]
+        };
+        _sdStorage.ReadDirectory(Arg.Any<DirectoryPath>()).Returns(DirectoryReadResult.Found(item));
+
+        await endpoint.Handle(Request(), CancellationToken.None);
+
+        endpoint.GetStatusCode().Should().Be(HttpStatusCode.OK);
+        endpoint.Response!.StorageItem.Files.Should().ContainSingle(f => f.Name == "disk.d64")
+            .Which.Type.Should().Be(FileItemType.Unknown);
     }
 
     [Fact]

@@ -59,6 +59,17 @@ public class LaunchFileEndpointTests
     }
 
     [Fact]
+    public async Task Handle_PlainFileWithoutLaunchType_SendsBadRequest()
+    {
+        var endpoint = GivenDevice();
+        _sdStorage.LookupFile(Arg.Any<FilePath>()).Returns(FileLookupResult.Found(new FileItem { Name = "disk.bin", Path = new FilePath("/music/disk.bin") }));
+
+        await endpoint.Handle(Request(), CancellationToken.None);
+
+        endpoint.GetStatusCode().Should().Be(HttpStatusCode.BadRequest);
+    }
+
+    [Fact]
     public async Task Handle_LookupFailedWhileDeviceBusy_SendsTheSharedConflictNotBadGateway()
     {
         var endpoint = GivenDevice(LeaseDoubles.Busy());
