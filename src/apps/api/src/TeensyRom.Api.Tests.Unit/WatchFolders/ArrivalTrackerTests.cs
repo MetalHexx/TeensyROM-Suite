@@ -25,6 +25,7 @@ public class ArrivalTrackerTests
         MaxSetHold = TimeSpan.FromSeconds(20)
     };
     private readonly ArrivalTracker _tracker;
+    private ArrivalRules _rules = new(AllFileTypes: false, AllFileTypesInArchives: false);
     private DateTimeOffset _now = new(2026, 1, 1, 12, 0, 0, TimeSpan.Zero);
 
     public ArrivalTrackerTests()
@@ -32,7 +33,7 @@ public class ArrivalTrackerTests
         _fs.AddDirectory(_root);
         _archives.IsArchiveExtension(Arg.Any<string>())
             .Returns(call => ArchiveExtensions.Contains(Path.GetExtension(call.Arg<string>()), StringComparer.OrdinalIgnoreCase));
-        _tracker = new ArrivalTracker("folder-1", _root, _options, _fs, _archives, _log);
+        _tracker = new ArrivalTracker("folder-1", _root, _options, _fs, _archives, _log, () => _rules);
     }
 
     private string P(string relative) => Path.Combine(_root, relative.Replace('/', Path.DirectorySeparatorChar));
@@ -410,6 +411,225 @@ public class ArrivalTrackerTests
 
         Run(15).Should().BeEmpty();
         _log.Received(1).InternalWarning(Arg.Is<string>(m => m.Contains("broken.zip")), Arg.Any<string?>());
+    }
+
+    [Theory]
+    [InlineData(false)]
+    [InlineData(true)]
+    public void HiddenProbe_IsDropped_WhateverTheSwitch(bool allFileTypes)
+    {
+        _rules = new ArrivalRules(allFileTypes, AllFileTypesInArchives: false);
+        _fs.AddFile(P("secret.prg"), 100, hidden: true);
+        Created("secret.prg");
+
+        Run(15).Should().BeEmpty();
+    }
+
+    [Theory]
+    [InlineData(false)]
+    [InlineData(true)]
+    public void ExcludedNames_AreDropped_WhateverTheSwitch(bool allFileTypes)
+    {
+        _rules = new ArrivalRules(allFileTypes, AllFileTypesInArchives: false);
+        _fs.AddFile(P("._game.prg"), 100);
+        _fs.AddFile(P(".hidden/tune.sid"), 100);
+        _fs.AddFile(P("sub/Thumbs.db"), 100);
+        _fs.AddFile(P("desktop.ini"), 100);
+        _fs.AddFile(P("game.prg"), 100);
+        Created("._game.prg");
+        Created(".hidden/tune.sid");
+        Created("sub/Thumbs.db");
+        Created("desktop.ini");
+        Created("game.prg");
+
+        var set = Run(10).Should().ContainSingle().Subject;
+        Paths(set).Should().Equal("game.prg");
+    }
+
+    [Fact]
+    public void CopiedDirectory_SkipsExcludedFilesInsideIt()
+    {
+        _rules = new ArrivalRules(AllFileTypes: false, AllFileTypesInArchives: false);
+        _fs.AddFile(P("album/one.sid"), 100);
+        _fs.AddFile(P("album/._one.sid"), 100);
+        _fs.AddFile(P("album/.git/config.prg"), 100);
+        _fs.AddFile(P("album/__MACOSX/two.sid"), 100);
+        Created("album");
+
+        var set = Run(10).Should().ContainSingle().Subject;
+
+        Paths(set).Should().Equal("album/one.sid");
+    }
+
+    [Fact]
+    public void SwitchTurnedOnWhileWatching_SendsLaterUnsupportedTypes_WithoutARestart()
+    {
+        _fs.AddFile(P("data.bin"), 100);
+        Created("data.bin");
+        Run(15).Should().BeEmpty();
+
+        _rules = new ArrivalRules(AllFileTypes: true, AllFileTypesInArchives: false);
+        _fs.AddFile(P("data2.bin"), 100);
+        _fs.AddFile(P("report.doc"), 100);
+        Created("data2.bin");
+        Created("report.doc");
+
+        var set = Run(10).Should().ContainSingle().Subject;
+        Paths(set).Should().Equal("data2.bin", "report.doc");
+    }
+
+    [Fact]
+    public void SwitchTurnedOffBeforeAFileSettles_DropsIt()
+    {
+        _rules = new ArrivalRules(AllFileTypes: true, AllFileTypesInArchives: false);
+        _fs.AddFile(P("late.bin"), 100);
+        Created("late.bin");
+        Run(1);
+
+        _rules = new ArrivalRules(AllFileTypes: false, AllFileTypesInArchives: false);
+
+        Run(10).Should().BeEmpty("the switch was off by the time the file settled");
+    }
+
+    [Theory]
+    [InlineData(false)]
+    [InlineData(true)]
+    public void StalledPartialDownload_NeverSettlesIntoASend(bool allFileTypes)
+    {
+        _rules = new ArrivalRules(allFileTypes, AllFileTypesInArchives: false);
+        _fs.AddFile(P("game.prg.crdownload"), 100);
+        _fs.AddFile(P("pack.zip.part"), 100);
+        Created("game.prg.crdownload");
+        Created("pack.zip.part");
+
+        Run(30).Should().BeEmpty("a partial download that holds still is still not a finished file");
+    }
+
+    [Fact]
+    public void SwitchOn_PartialDownloadRenamedToItsFinalName_IsSentOnceUnderThatName()
+    {
+        _rules = new ArrivalRules(AllFileTypes: true, AllFileTypesInArchives: false);
+        _fs.AddFile(P("data.bin.crdownload"), 50);
+        Created("data.bin.crdownload");
+        Run(3);
+
+        _fs.Remove(P("data.bin.crdownload"));
+        _fs.AddFile(P("data.bin"), 80);
+        Renamed("data.bin", "data.bin.crdownload");
+
+        var set = Run(10).Should().ContainSingle().Subject;
+        set.Files.Should().ContainSingle().Which.Should().Match<ArrivedFile>(f => f.RelativePath == "data.bin" && f.SizeBytes == 80);
+    }
+
+    [Fact]
+    public void SwitchOn_PartialArchiveDownloadRenamedToItsFinalName_IsSentOnceAsAnArchive()
+    {
+        _rules = new ArrivalRules(AllFileTypes: true, AllFileTypesInArchives: false);
+        _fs.AddFile(P("pack.zip.crdownload"), 50);
+        Created("pack.zip.crdownload");
+        Run(3);
+
+        _fs.Remove(P("pack.zip.crdownload"));
+        _fs.AddFile(P("pack.zip"), 80);
+        _archives.ReadIndex(P("pack.zip")).Returns(Index(("tune.sid", false)));
+        Renamed("pack.zip", "pack.zip.crdownload");
+
+        var set = Run(10).Should().ContainSingle().Subject;
+        set.Files.Should().ContainSingle().Which.Should().Match<ArrivedFile>(f => f.RelativePath == "pack.zip" && f.IsArchive);
+    }
+
+    [Fact]
+    public void SwitchOn_RenamingAnAdmittedFile_IsNotAnArrival()
+    {
+        _rules = new ArrivalRules(AllFileTypes: true, AllFileTypesInArchives: false);
+        _fs.AddFile(P("b.doc"), 100);
+
+        Renamed("b.doc", "a.doc");
+
+        Run(15).Should().BeEmpty();
+    }
+
+    [Fact]
+    public void SwitchOn_PendingTempFileRenamedBeforeItSettles_IsSentUnderItsNewName()
+    {
+        _rules = new ArrivalRules(AllFileTypes: true, AllFileTypesInArchives: false);
+        _fs.AddFile(P("x.tmp"), 50);
+        Created("x.tmp");
+        Run(1);
+
+        _fs.Remove(P("x.tmp"));
+        _fs.AddFile(P("x.bin"), 50);
+        Renamed("x.bin", "x.tmp");
+
+        var set = Run(10).Should().ContainSingle().Subject;
+        Paths(set).Should().Equal("x.bin");
+    }
+
+    [Fact]
+    public void SwitchOn_FileRenamedOutOfAnExcludedName_IsAnArrival()
+    {
+        _rules = new ArrivalRules(AllFileTypes: true, AllFileTypesInArchives: false);
+        _fs.AddFile(P("game.bin"), 100);
+
+        Renamed("game.bin", ".game.bin");
+
+        Run(10).Should().ContainSingle().Which.Files.Should().ContainSingle().Which.RelativePath.Should().Be("game.bin");
+    }
+
+    [Fact]
+    public void SwitchOff_RenamingAnUnsupportedFileToAnotherUnsupportedName_StillSendsNothing()
+    {
+        _fs.AddFile(P("b.doc"), 100);
+
+        Renamed("b.doc", "a.doc");
+
+        Run(15).Should().BeEmpty();
+    }
+
+    [Fact]
+    public void ArchiveSwitchOn_ArchiveWithNoKnownTypes_IsKept_ButNotWhenOff()
+    {
+        _fs.AddFile(P("off.zip"), 100);
+        _archives.ReadIndex(P("off.zip")).Returns(Index(("data.bin", false), ("report.doc", false)));
+        Created("off.zip");
+        Run(15).Should().BeEmpty();
+
+        _rules = new ArrivalRules(AllFileTypes: false, AllFileTypesInArchives: true);
+        _fs.AddFile(P("on.zip"), 100);
+        _archives.ReadIndex(P("on.zip")).Returns(Index(("data.bin", false), ("report.doc", false)));
+        Created("on.zip");
+
+        var set = Run(10).Should().ContainSingle().Subject;
+        set.Files.Should().ContainSingle().Which.Should().Match<ArrivedFile>(f => f.RelativePath == "on.zip" && f.IsArchive);
+    }
+
+    [Theory]
+    [InlineData(false)]
+    [InlineData(true)]
+    public void Archive_WithOnlyExcludedEntries_IsDropped_WhateverTheSwitch(bool allFileTypesInArchives)
+    {
+        _rules = new ArrivalRules(AllFileTypes: false, allFileTypesInArchives);
+        _fs.AddFile(P("mac.zip"), 100);
+        _archives.ReadIndex(P("mac.zip")).Returns(Index(("__MACOSX/", true), ("__MACOSX/._game.prg", false), ("._game.prg", false), (".DS_Store", false)));
+        Created("mac.zip");
+
+        Run(15).Should().BeEmpty();
+    }
+
+    [Fact]
+    public void ArchiveSwitchFlippedWhileWatching_AppliesToTheNextArchive()
+    {
+        _fs.AddFile(P("first.zip"), 100);
+        _archives.ReadIndex(P("first.zip")).Returns(Index(("data.bin", false)));
+        Created("first.zip");
+        Run(10).Should().BeEmpty();
+
+        _rules = new ArrivalRules(AllFileTypes: false, AllFileTypesInArchives: true);
+        _fs.AddFile(P("second.zip"), 100);
+        _archives.ReadIndex(P("second.zip")).Returns(Index(("data.bin", false)));
+        Created("second.zip");
+
+        Paths(Run(10).Should().ContainSingle().Subject).Should().Equal("second.zip");
     }
 
     private static ArchiveIndex Index(params (string Path, bool IsDirectory)[] entries) =>

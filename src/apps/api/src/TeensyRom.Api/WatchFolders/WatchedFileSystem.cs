@@ -21,14 +21,15 @@ namespace TeensyRom.Api.WatchFolders
             {
                 var attributes = File.GetAttributes(path);
                 var isLink = attributes.HasFlag(FileAttributes.ReparsePoint);
+                var isHidden = (attributes & (FileAttributes.Hidden | FileAttributes.System)) != 0;
 
                 if (attributes.HasFlag(FileAttributes.Directory))
                 {
-                    return new FileProbe(Exists: true, IsDirectory: true, Size: 0, Readable: false, isLink);
+                    return new FileProbe(Exists: true, IsDirectory: true, Size: 0, Readable: false, isLink, isHidden);
                 }
 
                 var size = new FileInfo(path).Length;
-                return new FileProbe(Exists: true, IsDirectory: false, size, !isLink && CanRead(path), isLink);
+                return new FileProbe(Exists: true, IsDirectory: false, size, !isLink && CanRead(path), isLink, isHidden);
             }
             catch (Exception ex) when (ex is FileNotFoundException or DirectoryNotFoundException)
             {
