@@ -48,9 +48,10 @@ namespace TeensyRom.Api.Tests.Integration.Transfers.WatchFolders
         }
 
         /// <summary>Adds a destination to the folder, creating it when needed, and returns once the watcher is watching it.</summary>
-        private async Task<WatchFolder> WatchAsync(string dir, string deviceId, string devicePath, TeensyStorageType storage = TeensyStorageType.SD)
+        private async Task<WatchFolder> WatchAsync(
+            string dir, string deviceId, string devicePath, TeensyStorageType storage = TeensyStorageType.SD, bool allFileTypes = false)
         {
-            var added = Store.Add(new WatchFolderAdd(dir, deviceId, storage, devicePath, Launch: false));
+            var added = Store.Add(new WatchFolderAdd(dir, deviceId, storage, devicePath, Launch: false, AllFileTypes: allFileTypes));
             added.Error.Should().BeNull(added.Message);
 
             var folder = added.Folder!;
@@ -145,6 +146,27 @@ namespace TeensyRom.Api.Tests.Integration.Transfers.WatchFolders
 
             await WaitForCompletedJobsAsync(folder, 1);
             ReceivedBy(DeviceA, "/watch-it/partial/").Should().Equal("/watch-it/partial/notes.txt");
+        }
+
+        [Fact]
+        public async Task FolderWithAllFileTypesOn_SendsABin_AndAPartialDownloadRenamedToItsFinalNameArrivesOnce()
+        {
+            var dir = NewDir();
+            var folder = await WatchAsync(dir, DeviceA, "/watch-it/all-types", allFileTypes: true);
+            const string prefix = "/watch-it/all-types/";
+
+            Write(Path.Combine(folder.Path, "data.bin"));
+            Write(Path.Combine(folder.Path, "Thumbs.db"));
+            Write(Path.Combine(folder.Path, "blob.dat.crdownload"));
+            File.Move(Path.Combine(folder.Path, "blob.dat.crdownload"), Path.Combine(folder.Path, "blob.dat"));
+
+            await WaitUntilAsync(() => ReceivedBy(DeviceA, prefix).Count >= 2, "the .bin and the finished download to arrive");
+
+            // A later file is the marker: anything the folder wrongly sent or sent twice before it would already be listed.
+            Write(Path.Combine(folder.Path, "marker.bin"));
+            await WaitUntilAsync(() => ReceivedBy(DeviceA, prefix).Contains(prefix + "marker.bin"), "the marker to arrive");
+
+            ReceivedBy(DeviceA, prefix).Should().Equal(prefix + "blob.dat", prefix + "data.bin", prefix + "marker.bin");
         }
 
         [Fact]

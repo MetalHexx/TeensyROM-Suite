@@ -10,12 +10,12 @@ internal sealed class FakeWatchedFileSystem : IWatchedFileSystem
     private readonly object _gate = new();
     private readonly Dictionary<string, FakeEntry> _entries = new(Comparer);
 
-    public void AddFile(string path, long size, bool readable = true, bool isLink = false)
+    public void AddFile(string path, long size, bool readable = true, bool isLink = false, bool hidden = false)
     {
         lock (_gate)
         {
             AddParents(path);
-            _entries[path] = new FakeEntry(IsDirectory: false, size, readable, isLink);
+            _entries[path] = new FakeEntry(IsDirectory: false, size, readable, isLink, hidden);
         }
     }
 
@@ -24,7 +24,7 @@ internal sealed class FakeWatchedFileSystem : IWatchedFileSystem
         lock (_gate)
         {
             AddParents(path);
-            _entries[path] = new FakeEntry(IsDirectory: true, 0, false, false);
+            _entries[path] = new FakeEntry(IsDirectory: true, 0, false, false, false);
         }
     }
 
@@ -60,7 +60,7 @@ internal sealed class FakeWatchedFileSystem : IWatchedFileSystem
         lock (_gate)
         {
             return _entries.TryGetValue(path, out var entry)
-                ? new FileProbe(Exists: true, entry.IsDirectory, entry.Size, entry.Readable, entry.IsLink)
+                ? new FileProbe(Exists: true, entry.IsDirectory, entry.Size, entry.Readable, entry.IsLink, entry.IsHidden)
                 : new FileProbe(Exists: false, IsDirectory: false, Size: 0, Readable: false, IsLink: false);
         }
     }
@@ -91,9 +91,9 @@ internal sealed class FakeWatchedFileSystem : IWatchedFileSystem
     {
         for (var parent = Path.GetDirectoryName(path); !string.IsNullOrEmpty(parent); parent = Path.GetDirectoryName(parent))
         {
-            if (!_entries.TryAdd(parent, new FakeEntry(IsDirectory: true, 0, false, false))) break;
+            if (!_entries.TryAdd(parent, new FakeEntry(IsDirectory: true, 0, false, false, false))) break;
         }
     }
 
-    private sealed record FakeEntry(bool IsDirectory, long Size, bool Readable, bool IsLink);
+    private sealed record FakeEntry(bool IsDirectory, long Size, bool Readable, bool IsLink, bool IsHidden);
 }
