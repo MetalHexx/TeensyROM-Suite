@@ -21,7 +21,7 @@ Copy between this computer and the TeensyROM with `trom file upload` and `trom f
   - Files the person names are always sent, whatever their type.
   - A folder sends the known types (`.sid`, `.crt`, `.prg`, `.p00`, `.hex`, `.kla`, `.koa`, `.art`, `.aas`, `.hpi`, `.seq`, `.txt`, `.d64`, `.nfo`, `.md`, `.ocp`, `.pic`, `.d71`, `.d81`, `.reu`, `.trh`, `.zip`, `.7z`, `.rar`), unless the upload setting `all-types` or `--all-types` is on.
   - An archive's contents send the known types, unless `all-in-archives` or `--all-in-archives` is on.
-  - Hidden and system files, `__MACOSX` and `._` files found in a folder or an archive are never sent; a file the person names is sent even if its name starts with a dot.
+  - Hidden and system files, `__MACOSX` and `._` files found in a folder or an archive are never sent, and neither are unfinished browser downloads (`.crdownload`, `.part`) found in a folder; a file or folder the person names is sent even if its name starts with a dot.
   - Use `--all-types` and `--all-in-archives` only when the person asks for files outside the known types, and confirm such an upload first.
   - Offer these flags, and the promise that a named file of any type is sent, only when `init`'s `capabilities` list `transfer set`, which ships in the same release. An older `trom` rejects an unknown flag with exit 2, and refuses a named unknown-type file.
 - A folder walk that leaves files out prints a notice on stderr with the count, in `--json` too. Read the count from it and say it in plain words, for example "Two files weren't sent: the TeensyROM doesn't take their file types."
