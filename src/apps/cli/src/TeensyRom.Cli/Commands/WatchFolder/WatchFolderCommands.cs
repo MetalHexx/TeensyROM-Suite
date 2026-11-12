@@ -137,6 +137,23 @@ internal static class WatchFolderDevices
 internal static class WatchFolderPaths
 {
     public static string Resolve(string folder) => Path.GetFullPath(folder, Environment.CurrentDirectory);
+
+    /// <summary>
+    /// Whether two paths name the same folder: full path, a trailing separator ignored (except for a root), and
+    /// case-insensitive on Windows only. Shared by <c>FindAsync</c> and the Watch Folders screen.
+    /// </summary>
+    internal static bool IsSameFolder(string a, string b) => string.Equals(Normalize(a), Normalize(b), PathComparison);
+
+    private static StringComparison PathComparison =>
+        OperatingSystem.IsWindows() ? StringComparison.OrdinalIgnoreCase : StringComparison.Ordinal;
+
+    private static string Normalize(string path)
+    {
+        var full = Path.GetFullPath(path);
+        var root = Path.GetPathRoot(full);
+
+        return full == root ? full : full.TrimEnd(Path.DirectorySeparatorChar, Path.AltDirectorySeparatorChar);
+    }
 }
 
 /// <summary>
@@ -171,6 +188,13 @@ internal sealed class WatchFolderAddCommand(
 
         if (Output.Mode == OutputMode.Json) Output.Json(new WatchFolderAddJson(added.Created, folder));
         else WatchFolderOutput.Show(Output, folder);
+
+        if (!added.Created && (settings.AllTypes || settings.AllInArchives))
+        {
+            var passed = string.Join(" and ", new[] { settings.AllTypes ? "--all-types" : null, settings.AllInArchives ? "--all-in-archives" : null }.OfType<string>());
+
+            Output.Notice($"{_folder} was already watched, so {passed} {(settings.AllTypes && settings.AllInArchives ? "were" : "was")} not applied. Change them with 'trom watch-folder set'.");
+        }
 
         return 0;
     }

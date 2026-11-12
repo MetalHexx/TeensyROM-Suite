@@ -16,7 +16,7 @@ Confirm each of these with the user before you run anything:
 
 Then run `trom watch-folder add "<folder>" --device <name> --storage <sd|usb> --path "<device folder>" [--launch] [--all-types] [--all-in-archives] --json`. The result is `{created, folder}`. `created` is false when the folder was already watched, and then this TeensyROM was added to it as another destination.
 
-`--all-types` and `--all-in-archives` apply only when this add creates the folder. If `created` is false they were ignored: change them with `trom watch-folder set "<folder>" --all-types` (or `--all-in-archives`), and read `allTypes` and `allInArchives` back from the result.
+`--all-types` and `--all-in-archives` apply only when this add creates the folder. If `created` is false they were not applied, and the command says so on stderr: change them with `trom watch-folder set "<folder>" --all-types` (or `--all-in-archives`), and read `allTypes` and `allInArchives` back from the result.
 
 A folder can't sit inside another watched folder, or contain one.
 

@@ -110,8 +110,20 @@ internal class WatchFoldersCommand(IWatchFolderService watchFolders, ITransferSe
             RadHelper.WriteError($"{folder} isn't a folder on this computer.");
             return;
         }
-        await AddDestinationToAsync(folder, new HashSet<string>(), askFileTypes: true);
+
+        var watched = (await watchFolders.ListAsync(CancellationToken.None)).FirstOrDefault(existing => WatchFolderPaths.IsSameFolder(existing.Path, folder));
+
+        if (watched is null)
+        {
+            await AddDestinationToAsync(folder, new HashSet<string>(), askFileTypes: true);
+            return;
+        }
+        WriteAlreadyWatched(folder);
+        await AddDestinationToAsync(folder, watched.Destinations.Select(destination => destination.DeviceId).ToHashSet(), askFileTypes: false);
     }
+
+    private static void WriteAlreadyWatched(string folder) =>
+        RadHelper.WriteLine($"{Markup.Escape(folder)} is already watched, so its file types stay as they are. Change them with {FolderFileTypes}.");
 
     private async Task AddDestinationAsync()
     {
@@ -143,7 +155,9 @@ internal class WatchFoldersCommand(IWatchFolderService watchFolders, ITransferSe
         var allTypes = askFileTypes && PromptHelper.Confirm("Send all file types?", false);
         var allInArchives = askFileTypes && PromptHelper.Confirm("Send all file types in archives?", false);
 
-        await watchFolders.AddAsync(folder, device.Id, storage.Value, devicePath, launch, allTypes, allInArchives, CancellationToken.None);
+        var added = await watchFolders.AddAsync(folder, device.Id, storage.Value, devicePath, launch, allTypes, allInArchives, CancellationToken.None);
+
+        if (!added.Created && (allTypes || allInArchives)) WriteAlreadyWatched(folder);
     }
 
     private async Task FolderFileTypesAsync()
