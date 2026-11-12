@@ -77,7 +77,7 @@ namespace TeensyRom.Cli.Commands.Main.Launcher
             {
                 var listing = await storage.GetDirectory(_lastDirectory);
 
-                if (!listing.Files.Any() && !listing.Directories.Any())
+                if (!listing.Files.OfType<ILaunchableItem>().Any() && !listing.Directories.Any())
                 {
                     RadHelper.WriteError($"No directories or files found in {storageType.ToString()} at path {_lastDirectory}");
                     AnsiConsole.WriteLine();
@@ -86,7 +86,7 @@ namespace TeensyRom.Cli.Commands.Main.Launcher
 
                 var directories = PrepareDirectories(listing.Directories);
 
-                List<StorageItem> storageItems = directories.Concat(listing.Files.Cast<StorageItem>()).ToList();
+                List<StorageItem> storageItems = directories.Concat(listing.Files.OfType<ILaunchableItem>().Cast<StorageItem>()).ToList();
 
                 selectedFile = await TraverseStorage(storageItems, _lastDirectory);
             }
@@ -136,7 +136,7 @@ namespace TeensyRom.Cli.Commands.Main.Launcher
 
             List<DirectoryItem> directories = PrepareDirectories(listing.Directories);
 
-            List<StorageItem> storageItems = directories.Concat(listing.Files.Cast<StorageItem>()).ToList();
+            List<StorageItem> storageItems = directories.Concat(listing.Files.OfType<ILaunchableItem>().Cast<StorageItem>()).ToList();
 
             return await TraverseStorage(storageItems, nextDirectory);
         }

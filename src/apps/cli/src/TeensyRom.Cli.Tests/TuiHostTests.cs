@@ -68,7 +68,7 @@ public sealed class TuiHostTests : IDisposable
 
         exitCode.Should().Be(0);
         var screen = Screen;
-        new[] { "Launch", "Open Trom UI", "Watch Folders", "Index Files", "Devices", "Theme", "Generate ASID Patches", "Credits", "Settings", "Leave" }
+        new[] { "Launch", "Open Trom UI", "File Transfer", "Index Files", "Devices", "Theme", "Generate ASID Patches", "Credits", "Settings", "Leave" }
             .Aggregate(-1, (previous, label) =>
             {
                 var at = screen.IndexOf(label, previous + 1, StringComparison.Ordinal);

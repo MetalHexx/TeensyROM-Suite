@@ -12,18 +12,19 @@ namespace TeensyRom.Cli.Tests;
 
 /// <summary>
 /// The Watch Folders screen over substituted services, driven by keys and answers queued on an interactive console.
-/// Back is the seventh choice, so every script ends by picking it.
+/// Back is the eighth choice, so every script ends by picking it.
 /// </summary>
 [Collection(ConsoleCollection.Name)]
 public sealed class WatchFoldersCommandTests : IDisposable
 {
     private const int AddFolder = 0;
-    private const int AddDestination = 1;
-    private const int EditDestination = 2;
-    private const int RemoveDestination = 3;
-    private const int ToggleFolder = 4;
-    private const int RemoveFolder = 5;
-    private const int Back = 6;
+    private const int FolderFileTypes = 1;
+    private const int AddDestination = 2;
+    private const int EditDestination = 3;
+    private const int RemoveDestination = 4;
+    private const int ToggleFolder = 5;
+    private const int RemoveFolder = 6;
+    private const int Back = 7;
 
     private static readonly DeviceSummary Alpha = new("a-1", "Alpha", true, "USB COM3", "Connected", SdAvailable: true);
 
@@ -119,7 +120,7 @@ public sealed class WatchFoldersCommandTests : IDisposable
 
         await Run();
 
-        Screen.Should().Contain("Watching").And.Contain("Alpha").And.Contain("SD").And.Contain("/auto-transfer").And.Contain("Yes")
+        Screen.Should().Contain("Watching").And.Contain("All types").And.Contain("In archives").And.Contain("Alpha").And.Contain("SD").And.Contain("/auto-transfer").And.Contain("Yes")
             .And.Contain("3 of 5").And.Contain("Sending")
             .And.Contain("0 of 1").And.Contain("Receiving").And.Contain("upload")
             .And.NotContain("9 of 9").And.NotContain("Nothing is being sent.");
@@ -128,7 +129,7 @@ public sealed class WatchFoldersCommandTests : IDisposable
     [Fact]
     public async Task AddWatchFolder_AsksForTheFolder_TakesTheOnlyDeviceAndStorage_AndUsesTheDefaultDeviceFolder()
     {
-        _keys.Pick(AddFolder).Text(_folder).Enter().Enter().Pick(Back);
+        _keys.Pick(AddFolder).Text(_folder).Enter().Enter().Enter().Enter().Pick(Back);
 
         await Run();
 
@@ -136,10 +137,31 @@ public sealed class WatchFoldersCommandTests : IDisposable
     }
 
     [Fact]
+    public async Task AddWatchFolder_AsksForTheTwoFileTypeAnswers_AndSendsThem()
+    {
+        _keys.Pick(AddFolder).Text(_folder).Enter().Enter().Enter().Pick(1).Pick(1).Pick(Back);
+
+        await Run();
+
+        await _watchFolders.Received(1).AddAsync(_folder, "a-1", TeensyStorageType.SD, "/auto-transfer", false, false, true, Arg.Any<CancellationToken>());
+    }
+
+    [Fact]
+    public async Task AddWatchFolder_WhenNoDeviceIsOnline_NeverAsksTheFileTypeQuestions()
+    {
+        _host.Devices.GetDevicesAsync(Arg.Any<CancellationToken>()).Returns(Array.Empty<DeviceSummary>());
+        _keys.Pick(AddFolder).Text(_folder).Pick(Back);
+
+        await Run();
+
+        Screen.Should().Contain("No TeensyROM is online").And.NotContain("Send all file types?");
+    }
+
+    [Fact]
     public async Task AddWatchFolder_AsksWhichStorage_WhenTheDeviceHasBoth_AndLaunchWhenAnswered()
     {
         _host.Devices.GetDevicesAsync(Arg.Any<CancellationToken>()).Returns(new[] { Alpha with { UsbAvailable = true } });
-        _keys.Pick(AddFolder).Text(_folder).Pick(1).Text("/roms").Pick(1).Pick(Back);
+        _keys.Pick(AddFolder).Text(_folder).Pick(1).Text("/roms").Pick(1).Enter().Enter().Pick(Back);
 
         await Run();
 
@@ -173,6 +195,19 @@ public sealed class WatchFoldersCommandTests : IDisposable
     }
 
     [Fact]
+    public async Task AddDestination_NeverAsksTheFileTypeQuestions()
+    {
+        var beta = new DeviceSummary("b-1", "Beta", true, "USB COM4", "Connected", SdAvailable: true);
+        _host.Devices.GetDevicesAsync(Arg.Any<CancellationToken>()).Returns(new[] { Alpha, beta });
+        HasFolders(Watched());
+        _keys.Pick(AddDestination).Enter().Enter().Enter().Pick(Back);
+
+        await Run();
+
+        Screen.Should().NotContain("Send all file types?");
+    }
+
+    [Fact]
     public async Task AddDestination_WhenEveryOnlineDeviceAlreadyReceivesTheFolder_SaysSo()
     {
         HasFolders(Watched());
@@ -182,6 +217,45 @@ public sealed class WatchFoldersCommandTests : IDisposable
 
         Screen.Should().Contain("Every online TeensyROM already receives this folder.");
         await _watchFolders.DidNotReceiveWithAnyArgs().AddAsync(default!, default!, default, default, default, default, default, default);
+    }
+
+    [Fact]
+    public async Task FolderFileTypes_UsesTheOnlyFolderWithoutAsking_AndKeepsAnswersAtTheirCurrentValue()
+    {
+        var folder = Watched();
+        folder.AllFileTypesInArchives = true;
+        HasFolders(folder);
+        _keys.Pick(FolderFileTypes).Pick(1).Enter().Pick(Back);
+
+        await Run();
+
+        Screen.Should().NotContain("Watch folder");
+        await _watchFolders.Received(1).SetFileTypesAsync("wf-1", true, true, Arg.Any<CancellationToken>());
+    }
+
+    [Fact]
+    public async Task FolderFileTypes_WithSeveralFolders_AsksWhichOne()
+    {
+        var second = Watched();
+        second.Id = "wf-2";
+        second.Path = Path.Combine(_folder, "other");
+        HasFolders(Watched(), second);
+        _keys.Pick(FolderFileTypes).Pick(1).Pick(1).Pick(1).Pick(Back);
+
+        await Run();
+
+        await _watchFolders.Received(1).SetFileTypesAsync("wf-2", true, true, Arg.Any<CancellationToken>());
+    }
+
+    [Fact]
+    public async Task FolderFileTypes_WithNoWatchFolders_SaysSo()
+    {
+        _keys.Pick(FolderFileTypes).Pick(Back);
+
+        await Run();
+
+        Screen.Should().Contain("No watch folders yet.");
+        await _watchFolders.DidNotReceiveWithAnyArgs().SetFileTypesAsync(default!, default, default, default);
     }
 
     [Fact]
