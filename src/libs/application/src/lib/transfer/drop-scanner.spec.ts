@@ -392,12 +392,20 @@ describe('DropScanner', () => {
           dropItem(fileEntry('notes.doc')),
           dropItem(fileEntry('.DS_Store')),
           dropItem(fileEntry('Thumbs.db')),
+          dropItem(fileEntry('movie.crdownload')),
+          dropItem(fileEntry('GAME.PART')),
         ]),
         noopProgress,
         signal()
       );
 
-      expect(paths(result)).toEqual(['notes.doc', '.DS_Store', 'Thumbs.db']);
+      expect(paths(result)).toEqual([
+        'notes.doc',
+        '.DS_Store',
+        'Thumbs.db',
+        'movie.crdownload',
+        'GAME.PART',
+      ]);
     });
 
     it('sends only a.prg from a folder with the switch off, and a.prg with b.bin with it on', async () => {
@@ -413,13 +421,20 @@ describe('DropScanner', () => {
       expect(paths(await scanTree(tree(), true)).sort()).toEqual(['Pack/a.prg', 'Pack/b.bin']);
     });
 
-    it('drops excluded names even with the switch on, ignoring case', async () => {
+    it('drops excluded names and partial downloads even with the switch on, ignoring case', async () => {
       const tree = directoryEntry('Pack', [
         fileEntry('Thumbs.db'),
         fileEntry('DESKTOP.INI'),
+        fileEntry('movie.crdownload'),
+        fileEntry('GAME.PART'),
+        fileEntry('Clip.CrDownload'),
         directoryEntry('__MACOSX', [fileEntry('a.prg')]),
         directoryEntry('__macosx', [fileEntry('b.prg')]),
-        directoryEntry('sub', [directoryEntry('.hidden', [fileEntry('c.prg')]), fileEntry('d.prg')]),
+        directoryEntry('sub', [
+          directoryEntry('.hidden', [fileEntry('c.prg')]),
+          fileEntry('d.prg'),
+          fileEntry('Deep.PART'),
+        ]),
         fileEntry('keep.dat'),
       ]);
 

@@ -4,6 +4,7 @@ import {
   TRANSFER_SUPPORTED_EXTENSIONS,
   TRANSFER_ARCHIVE_EXTENSIONS,
   TRANSFER_EXCLUDED_FILE_NAMES,
+  TRANSFER_PARTIAL_DOWNLOAD_EXTENSIONS,
 } from './transfer.constants';
 
 /** How many matches accumulate between `onProgress` ticks, so a large walk stays visibly live. */
@@ -17,7 +18,10 @@ export interface DropScanResult {
 }
 
 export interface DropScanOptions {
-  /** Send every non-excluded file found in a folder, not only the supported types. */
+  /**
+   * Send every non-excluded file found in a folder, not only the supported types. Excluded files
+   * (including partial downloads) are never sent from a folder regardless of this flag.
+   */
   allFileTypesInFolders: boolean;
 }
 
@@ -26,8 +30,8 @@ export interface DropScanOptions {
  * without reading a byte beyond what `File` handles already carry.
  *
  * Loose files are always admitted. Files found in a folder are dropped when their path below the
- * folder is excluded, and otherwise admitted when `allFileTypesInFolders` is on or their
- * extension is supported.
+ * folder is excluded (hidden, system, or partial-download files), and otherwise admitted when
+ * `allFileTypesInFolders` is on or their extension is supported.
  *
  * No DI beyond the decorator, no HTTP - trivially constructible against fake entry trees.
  */
@@ -194,13 +198,16 @@ function isArchiveExtension(relativePath: string): boolean {
 
 /**
  * Whether a path below a folder is one the engine never sends: any `/`-separated segment that
- * starts with `.` or is `__MACOSX`, or a file name in `TRANSFER_EXCLUDED_FILE_NAMES`.
+ * starts with `.` or is `__MACOSX`, a file name in `TRANSFER_EXCLUDED_FILE_NAMES`, or a file
+ * whose extension is in `TRANSFER_PARTIAL_DOWNLOAD_EXTENSIONS`.
  */
 function isExcludedTransferPath(pathBelowRoot: string): boolean {
   const segments = pathBelowRoot.split('/');
+  const extension = extensionOf(pathBelowRoot);
   return (
     segments.some((segment) => segment.startsWith('.') || segment.toLowerCase() === '__macosx') ||
-    TRANSFER_EXCLUDED_FILE_NAMES.has(segments[segments.length - 1].toLowerCase())
+    TRANSFER_EXCLUDED_FILE_NAMES.has(segments[segments.length - 1].toLowerCase()) ||
+    (extension !== null && TRANSFER_PARTIAL_DOWNLOAD_EXTENSIONS.has(extension))
   );
 }
 

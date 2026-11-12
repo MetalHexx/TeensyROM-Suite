@@ -66,5 +66,11 @@ export const TRANSFER_SUPPORTED_EXTENSIONS = new Set<string>([
  */
 export const TRANSFER_EXCLUDED_FILE_NAMES = new Set<string>(['thumbs.db', 'desktop.ini']);
 
+/**
+ * Extensions of unfinished browser downloads, never sent from inside a folder, compared lowercased.
+ * Mirrors the engine's `TransferExclusions.PartialDownloadExtensions`.
+ */
+export const TRANSFER_PARTIAL_DOWNLOAD_EXTENSIONS = new Set<string>(['.crdownload', '.part']);
+
 /** Extensions the server expands into their contents rather than transferring. Subset of the above. */
 export const TRANSFER_ARCHIVE_EXTENSIONS = new Set<string>(['.zip', '.7z', '.rar']);
