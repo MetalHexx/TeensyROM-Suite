@@ -134,6 +134,61 @@ public sealed class WatchFolderCommandTests : IDisposable
         folder.GetProperty("allInArchives").GetBoolean().Should().BeFalse();
     }
 
+    private void AddReports(bool created) =>
+        _watchFolders.AddAsync(default!, default!, default, default, default, default, default, default)
+            .ReturnsForAnyArgs(new AddWatchFolderResponse { Created = created, WatchFolder = Folder() });
+
+    [Theory]
+    [InlineData("--all-types")]
+    [InlineData("--all-in-archives")]
+    [InlineData("--all-types", "--all-in-archives")]
+    public async Task Add_OfAFolderAlreadyWatched_WithFileTypeFlags_SaysOnStderrThatTheyWereNotApplied(params string[] flags)
+    {
+        AddReports(created: false);
+        var host = NewHost();
+
+        var exitCode = await host.RunAsync(["watch-folder", "add", "roms", .. flags]);
+
+        exitCode.Should().Be(0, host.Consoles.StdErr);
+        var notice = host.Consoles.StdErr;
+        notice.Should().Contain("already watched").And.Contain("not applied").And.Contain("trom watch-folder set");
+        foreach (var flag in new[] { "--all-types", "--all-in-archives" })
+        {
+            if (flags.Contains(flag)) notice.Should().Contain(flag);
+            else notice.Should().NotContain(flag);
+        }
+        host.Consoles.StdOut.Should().NotContain("not applied");
+    }
+
+    [Theory]
+    [InlineData(true, "--all-types")]
+    [InlineData(true, "--all-in-archives")]
+    [InlineData(false)]
+    public async Task Add_WithoutTheNoticeConditions_WritesNoNotice(bool created, params string[] flags)
+    {
+        AddReports(created);
+        var host = NewHost();
+
+        var exitCode = await host.RunAsync(["watch-folder", "add", "roms", .. flags]);
+
+        exitCode.Should().Be(0, host.Consoles.StdErr);
+        host.Consoles.StdErr.Should().NotContain("not applied");
+    }
+
+    [Fact]
+    public async Task Add_OfAFolderAlreadyWatched_LeavesTheJsonDocumentTheSame_WithOrWithoutTheNotice()
+    {
+        AddReports(created: false);
+        var plain = NewHost();
+        var flagged = NewHost();
+
+        await plain.RunAsync("watch-folder", "add", "roms", "--json");
+        await flagged.RunAsync("watch-folder", "add", "roms", "--all-types", "--json");
+
+        flagged.Consoles.StdErr.Should().Contain("not applied");
+        flagged.Consoles.StdOut.Should().Be(plain.Consoles.StdOut);
+    }
+
     [Fact]
     public async Task Add_OfAFolderThatIsNotThere_IsAUsageError_BeforeTheEngineOrTheService()
     {

@@ -1,5 +1,6 @@
 using TeensyRom.Cli.Api;
 using TeensyRom.Cli.Api.Generated;
+using TeensyRom.Cli.Commands.WatchFolder;
 using TeensyRom.Cli.Errors;
 using TeensyStorageType = TeensyRom.Cli.Storage.Entities.TeensyStorageType;
 
@@ -34,20 +35,7 @@ internal sealed class WatchFolderService(ITeensyRomApiClient api) : IWatchFolder
 
     public async Task<WatchFolderDto> FindAsync(string folder, CancellationToken ct)
     {
-        var wanted = Normalize(folder);
-
-        return (await ListAsync(ct)).FirstOrDefault(watched => string.Equals(Normalize(watched.Path), wanted, PathComparison))
+        return (await ListAsync(ct)).FirstOrDefault(watched => WatchFolderPaths.IsSameFolder(watched.Path, folder))
             ?? throw new CliException(CliExitCode.NotFound, $"{folder} isn't a watch folder.");
-    }
-
-    private static StringComparison PathComparison =>
-        OperatingSystem.IsWindows() ? StringComparison.OrdinalIgnoreCase : StringComparison.Ordinal;
-
-    private static string Normalize(string path)
-    {
-        var full = Path.GetFullPath(path);
-        var root = Path.GetPathRoot(full);
-
-        return full == root ? full : full.TrimEnd(Path.DirectorySeparatorChar, Path.AltDirectorySeparatorChar);
     }
 }

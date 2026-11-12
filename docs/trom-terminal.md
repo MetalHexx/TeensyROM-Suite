@@ -98,7 +98,7 @@ trom watch-folder resume ./roms
 trom watch-folder remove ./roms
 ```
 
-Add `--launch` to start each file as it lands, and use `trom watch-folder set` to change a destination. A watch folder sends only the types a TeensyROM recognizes. Add `--all-types` to send every file, and `--all-in-archives` to send everything inside archives; these take effect when the add creates the folder. For a folder you already watch, use `trom watch-folder set`, which takes both and their `--no-` forms. The rules are the same as in [Trom UI](trom-ui.md#watch-folders). You can also manage watch folders from the guided menu.
+Add `--launch` to start each file as it lands, and use `trom watch-folder set` to change a destination. A watch folder sends only the types a TeensyROM recognizes. Add `--all-types` to send every file, and `--all-in-archives` to send everything inside archives; these take effect when the add creates the folder. If the folder is already watched, `trom watch-folder add` says on stderr that they were not applied. For a folder you already watch, use `trom watch-folder set`, which takes both and their `--no-` forms. The rules are the same as in [Trom UI](trom-ui.md#watch-folders). You can also manage watch folders from the guided menu.
 
 ## Themes
 
