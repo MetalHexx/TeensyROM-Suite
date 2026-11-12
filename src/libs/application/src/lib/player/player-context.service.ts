@@ -7,6 +7,7 @@ import {
   PlayerScope,
   FileItemType,
   FileItem,
+  isLaunchable,
   PlayerStatus,
   StorageType,
   StorageTypeUtil,
@@ -131,6 +132,10 @@ export class PlayerContextService implements IPlayerContext {
   async launchFileWithContext(request: LaunchFileContextRequest): Promise<void> {
     // Guard: Prevent duplicate launches
     if (!this.canLaunch(request.deviceId, 'launchFileWithContext')) {
+      return;
+    }
+
+    if (!isLaunchable(request.file)) {
       return;
     }
 
@@ -290,7 +295,7 @@ export class PlayerContextService implements IPlayerContext {
       const directoryState = this.storageStore.getSelectedDirectoryState(deviceId)();
 
       if (directoryState?.directory?.files) {
-        let directoryFiles = directoryState.directory.files;
+        let directoryFiles = directoryState.directory.files.filter(isLaunchable);
 
         // Mark the current file as incompatible if backend indicates so
         const launchedFile = this.store.getCurrentFile(deviceId)();
@@ -1191,7 +1196,7 @@ export class PlayerContextService implements IPlayerContext {
       const candidateFile = files[nextIndex];
 
       // Check if file is compatible (undefined treated as compatible)
-      if (candidateFile.isCompatible !== false) {
+      if (candidateFile.isCompatible !== false && isLaunchable(candidateFile)) {
         logInfo(
           LogType.Info,
           `advanceToNextCompatibleFileInDirectory: Found compatible file at index ${nextIndex} for device ${deviceId}`,
@@ -1208,7 +1213,7 @@ export class PlayerContextService implements IPlayerContext {
         });
 
         return;
-      } else {
+      } else if (candidateFile.isCompatible === false) {
         // Sync incompatible file to storage store
         this.markFileInStorageAsIncompatible(deviceId, storageType, candidateFile.path);
       }

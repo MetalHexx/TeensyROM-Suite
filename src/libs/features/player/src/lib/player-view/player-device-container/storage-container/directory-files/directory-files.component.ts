@@ -23,6 +23,7 @@ import {
   LaunchMode,
   StorageDeviceItem,
   StorageType,
+  isLaunchable,
 } from '@teensyrom-nx/domain';
 import { FileItemComponent } from './file-item/file-item.component';
 import { DirectoryTrailContainerComponent } from '../directory-trail-container/directory-trail-container.component';
@@ -287,7 +288,7 @@ export class DirectoryFilesComponent {
 
   onFileDoubleClick(file: FileItem): void {
     const contents = this.directoryContents();
-    if (!contents.deviceId) {
+    if (!contents.deviceId || !isLaunchable(file)) {
       return;
     }
 
