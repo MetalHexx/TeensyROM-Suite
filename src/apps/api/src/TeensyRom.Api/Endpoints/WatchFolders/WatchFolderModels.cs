@@ -20,6 +20,12 @@ namespace TeensyRom.Api.Endpoints.WatchFolders
         /// <summary>Whether the folder is turned on.</summary>
         [Required] public bool Enabled { get; set; }
 
+        /// <summary>Whether every file that lands in the folder is sent, not only known types.</summary>
+        [Required] public bool AllFileTypes { get; set; }
+
+        /// <summary>Whether everything inside archives that land in the folder is sent, not only known types.</summary>
+        [Required] public bool AllFileTypesInArchives { get; set; }
+
         /// <summary>What the folder is doing right now.</summary>
         [Required] public WatchFolderState State { get; set; }
 
@@ -31,6 +37,8 @@ namespace TeensyRom.Api.Endpoints.WatchFolders
             Id = folder.Id,
             Path = folder.Path,
             Enabled = folder.Enabled,
+            AllFileTypes = folder.AllFileTypes,
+            AllFileTypesInArchives = folder.AllFileTypesInArchives,
             State = status.GetState(folder),
             Destinations = folder.Destinations.Select(d => WatchFolderDestinationDto.From(d, devices)).ToList()
         };

@@ -9,9 +9,9 @@ namespace TeensyRom.Api.Transfers
     {
         private readonly ConcurrentDictionary<string, TransferJob> _jobs = new();
 
-        public TransferJob Create(string deviceId, TeensyStorageType storageType, DirectoryPath destination, int expectedArchiveCount = 0, TransferOrigin? origin = null, bool launchRequested = false)
+        public TransferJob Create(string deviceId, TeensyStorageType storageType, DirectoryPath destination, int expectedArchiveCount = 0, TransferOrigin? origin = null, bool launchRequested = false, bool allFileTypesInArchives = false)
         {
-            var job = new TransferJob(deviceId, storageType, destination, options, expectedArchiveCount: expectedArchiveCount, origin: origin, launchRequested: launchRequested);
+            var job = new TransferJob(deviceId, storageType, destination, options, expectedArchiveCount: expectedArchiveCount, origin: origin, launchRequested: launchRequested, allFileTypesInArchives: allFileTypesInArchives);
             _jobs[job.JobId] = job;
             return job;
         }

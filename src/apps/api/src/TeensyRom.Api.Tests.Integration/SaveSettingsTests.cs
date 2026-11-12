@@ -4,6 +4,7 @@ using Microsoft.AspNetCore.Mvc;
 using TeensyRom.Api.Endpoints.Settings;
 using TeensyRom.Api.Endpoints.Settings.GetSettings;
 using TeensyRom.Api.Endpoints.Settings.SaveSettings;
+using Microsoft.Extensions.DependencyInjection;
 using TeensyRom.Core.Settings;
 
 namespace TeensyRom.Api.Tests.Integration
@@ -203,6 +204,39 @@ namespace TeensyRom.Api.Tests.Integration
 
             // Assert
             r.Should().BeSuccessful<SaveSettingsResponse>();
+        }
+
+        [Fact]
+        public async Task SaveSettings_KeepsTheStoredVersionAndTransferSettings_WhateverTheRequestCarries()
+        {
+            // Arrange
+            var settingsService = f.Services.GetRequiredService<ISettingsService>();
+            var stored = settingsService.GetSettings();
+            var storedTransfer = stored.FileTransferSettings with { };
+            settingsService.UpdateSettings(s => s with
+            {
+                SettingsVersion = SettingsUpgrades.CurrentVersion,
+                FileTransferSettings = new FileTransferSettings { AutoLaunchOnCopyEnabled = false, AllFileTypesInFolders = true, AllFileTypesInArchives = false }
+            });
+
+            try
+            {
+                var request = CreateValidRequest();
+                request.FileTransferSettings = new FileTransferSettingsDto { AutoLaunchOnCopyEnabled = true, AllFileTypesInFolders = false, AllFileTypesInArchives = true };
+
+                // Act
+                var r = await f.Client.PostAsync<SaveSettingsEndpoint, SaveSettingsRequest, SaveSettingsResponse>(request);
+
+                // Assert
+                r.Should().BeSuccessful<SaveSettingsResponse>();
+                var after = settingsService.GetSettings();
+                after.SettingsVersion.Should().Be(SettingsUpgrades.CurrentVersion);
+                after.FileTransferSettings.Should().BeEquivalentTo(new { AutoLaunchOnCopyEnabled = false, AllFileTypesInFolders = true, AllFileTypesInArchives = false });
+            }
+            finally
+            {
+                settingsService.UpdateSettings(s => s with { SettingsVersion = stored.SettingsVersion, FileTransferSettings = storedTransfer });
+            }
         }
 
         public void Dispose()

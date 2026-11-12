@@ -22,8 +22,8 @@ namespace TeensyRom.Api.Endpoints.Settings.SaveSettings
                     "  - TCP: Host address, port (1-65535), and timeout values (milliseconds)\n" +
                     "- **Player Settings**: Playback behavior and startup preferences\n" +
                     "  - Repeat mode, play timer, mute settings, startup filter and launch options\n" +
-                    "- **File Transfer Settings**: Auto-launch configuration\n" +
-                    "  - Auto-launch flag\n" +
+                    "- **File Transfer Settings**: Accepted but not saved here\n" +
+                    "  - The stored transfer settings are kept; change them with `PUT /api/settings/file-transfer`\n" +
                     "- **Search Settings**: Search weights, stop words, and content exclusions\n" +
                     "  - Search weights must be >= 0 with at least one > 0\n" +
                     "  - Stop words, banned directories, and banned files lists\n" +
@@ -35,6 +35,8 @@ namespace TeensyRom.Api.Endpoints.Settings.SaveSettings
                     "- TCP port must be between 1 and 65535\n" +
                     "- Timeout values must be positive integers (milliseconds)\n" +
                     "- Search weights must be non-negative with at least one > 0\n\n" +
+                    "The stored watch folders and transfer settings are kept as they are. " +
+                    "Transfer settings change only through `PUT /api/settings/file-transfer`.\n\n" +
                     "Settings are persisted to Settings.json and immediately available in memory."
                 );
         }
@@ -42,9 +44,15 @@ namespace TeensyRom.Api.Endpoints.Settings.SaveSettings
         public override Task Handle(SaveSettingsRequest request, CancellationToken ct)
         {
             var settings = Map.ToEntity(request);
-            // Watch folders are not part of this request; take the newest list under the settings lock so a
-            // watch-folder change that landed since the mapper read the settings is not overwritten.
-            var saveSuccess = settingsService.UpdateSettings(latest => settings with { WatchFolders = latest.WatchFolders });
+            // Watch folders, the settings version and the transfer settings are not changed by this request; take the
+            // newest of each under the settings lock so a change that landed since the mapper read the settings is not
+            // overwritten (a stale transfer-settings copy would silently revert `trom transfer set`).
+            var saveSuccess = settingsService.UpdateSettings(latest => settings with
+            {
+                WatchFolders = latest.WatchFolders,
+                SettingsVersion = latest.SettingsVersion,
+                FileTransferSettings = latest.FileTransferSettings
+            });
 
             if (!saveSuccess)
             {

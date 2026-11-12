@@ -6,10 +6,11 @@ using TeensyRom.Api.Transfers;
 using TeensyRom.Core.Abstractions;
 using TeensyRom.Core.Entities.Storage;
 using TeensyRom.Core.Entities.Transfers;
+using TeensyRom.Core.Settings;
 
 namespace TeensyRom.Api.Endpoints.Transfers.CreateJob
 {
-    public class CreateJobEndpoint(ITransferJobService jobs, IDeviceConnectionManager deviceManager) : RadEndpoint<CreateJobRequest, CreateJobResponse>
+    public class CreateJobEndpoint(ITransferJobService jobs, IDeviceConnectionManager deviceManager, ISettingsService settings) : RadEndpoint<CreateJobRequest, CreateJobResponse>
     {
         public override void Configure()
         {
@@ -32,8 +33,11 @@ namespace TeensyRom.Api.Endpoints.Transfers.CreateJob
 
         public override Task Handle(CreateJobRequest r, CancellationToken ct)
         {
+            var allFileTypesInArchives = r.Body.AllFileTypesInArchives
+                ?? settings.GetSettings().FileTransferSettings.AllFileTypesInArchives;
+
             var result = jobs.Start(new TransferJobStart(
-                r.DeviceId, r.StorageType, r.Body.DestinationDirectory, r.Body.ExpectedArchiveCount, TransferOrigin.Upload, r.Body.Launch));
+                r.DeviceId, r.StorageType, r.Body.DestinationDirectory, r.Body.ExpectedArchiveCount, TransferOrigin.Upload, r.Body.Launch, allFileTypesInArchives));
 
             if (!result.Started)
             {

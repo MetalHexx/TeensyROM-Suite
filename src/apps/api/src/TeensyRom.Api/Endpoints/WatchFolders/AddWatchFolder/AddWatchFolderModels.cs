@@ -46,6 +46,16 @@ namespace TeensyRom.Api.Endpoints.WatchFolders.AddWatchFolder
         /// Launch one file after each completed transfer, even when the auto-launch setting is off.
         /// </summary>
         public bool Launch { get; set; }
+
+        /// <summary>
+        /// Send every file that lands in the folder, not only known types. Applies only when this add creates the folder.
+        /// </summary>
+        public bool AllFileTypes { get; set; }
+
+        /// <summary>
+        /// Send everything inside archives that land in the folder, not only known types. Applies only when this add creates the folder.
+        /// </summary>
+        public bool AllFileTypesInArchives { get; set; }
     }
 
     public class AddWatchFolderRequestValidator : AbstractValidator<AddWatchFolderRequest>

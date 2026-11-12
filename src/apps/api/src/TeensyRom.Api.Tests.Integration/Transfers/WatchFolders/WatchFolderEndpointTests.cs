@@ -5,6 +5,7 @@ using TeensyRom.Api.Endpoints.WatchFolders.RemoveWatchFolder;
 using TeensyRom.Api.Endpoints.WatchFolders.RemoveWatchFolderDevice;
 using TeensyRom.Api.Endpoints.WatchFolders.SetWatchFolderDevice;
 using TeensyRom.Api.Endpoints.WatchFolders.SetWatchFolderEnabled;
+using TeensyRom.Api.Endpoints.WatchFolders.SetWatchFolderFileTypes;
 using TeensyRom.Api.WatchFolders;
 using TeensyRom.Core.Entities.Storage;
 
@@ -190,6 +191,60 @@ namespace TeensyRom.Api.Tests.Integration.Transfers.WatchFolders
                 new() { WatchFolderId = id, DeviceId = DeviceB, Body = new SetWatchFolderDeviceBody { Launch = true } });
             unknownFolder.Http.StatusCode.Should().Be(HttpStatusCode.NotFound);
             unknownDevice.Http.StatusCode.Should().Be(HttpStatusCode.NotFound);
+        }
+
+        [Fact]
+        public async Task SetFileTypes_ChangesTheNamedSwitchesAndReturnsTheFolder()
+        {
+            var added = await AddAsync<AddWatchFolderResponse>(NewFolder(), DeviceA);
+            var id = added.Content.WatchFolder.Id;
+            added.Content.WatchFolder.AllFileTypes.Should().BeFalse();
+            added.Content.WatchFolder.AllFileTypesInArchives.Should().BeFalse();
+
+            var changed = await f.Client.PutAsync<SetWatchFolderFileTypesEndpoint, SetWatchFolderFileTypesRequest, SetWatchFolderFileTypesResponse>(new()
+            {
+                WatchFolderId = id,
+                Body = new SetWatchFolderFileTypesBody { AllFileTypes = true }
+            });
+
+            changed.Should().BeSuccessful<SetWatchFolderFileTypesResponse>().WithStatusCode(HttpStatusCode.OK);
+            changed.Content.WatchFolder.Id.Should().Be(id);
+            changed.Content.WatchFolder.AllFileTypes.Should().BeTrue();
+            changed.Content.WatchFolder.AllFileTypesInArchives.Should().BeFalse();
+            (await f.Client.GetAsync<GetWatchFoldersEndpoint, GetWatchFoldersResponse>()).Content.WatchFolders
+                .Should().ContainSingle().Which.AllFileTypes.Should().BeTrue();
+        }
+
+        [Fact]
+        public async Task SetFileTypes_EmptyBody_Is400_AndUnknownFolder_Is404()
+        {
+            var added = await AddAsync<AddWatchFolderResponse>(NewFolder(), DeviceA);
+
+            var emptyBody = await f.Client.PutAsync<SetWatchFolderFileTypesEndpoint, SetWatchFolderFileTypesRequest, ProblemDetails>(
+                new() { WatchFolderId = added.Content.WatchFolder.Id, Body = new SetWatchFolderFileTypesBody() });
+            var unknown = await f.Client.PutAsync<SetWatchFolderFileTypesEndpoint, SetWatchFolderFileTypesRequest, string>(
+                new() { WatchFolderId = "missing", Body = new SetWatchFolderFileTypesBody { AllFileTypes = true } });
+
+            emptyBody.Should().BeProblem().WithStatusCode(HttpStatusCode.BadRequest);
+            unknown.Http.StatusCode.Should().Be(HttpStatusCode.NotFound);
+        }
+
+        [Fact]
+        public async Task Add_WithFileTypeSwitches_CreatesTheFolderWithThem_AndAnAddByPathLeavesThem()
+        {
+            var path = NewFolder();
+
+            var first = await f.Client.PostAsync<AddWatchFolderEndpoint, AddWatchFolderRequest, AddWatchFolderResponse>(new()
+            {
+                Body = new AddWatchFolderBody { Path = path, DeviceId = DeviceA, AllFileTypes = true, AllFileTypesInArchives = true }
+            });
+            var second = await AddAsync<AddWatchFolderResponse>(path, DeviceB, TeensyStorageType.USB);
+
+            first.Content.WatchFolder.AllFileTypes.Should().BeTrue();
+            first.Content.WatchFolder.AllFileTypesInArchives.Should().BeTrue();
+            second.Content.Created.Should().BeFalse();
+            second.Content.WatchFolder.AllFileTypes.Should().BeTrue();
+            second.Content.WatchFolder.AllFileTypesInArchives.Should().BeTrue();
         }
 
         [Fact]
