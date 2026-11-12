@@ -169,7 +169,7 @@ internal class WatchFoldersCommand(IWatchFolderService watchFolders, ITransferSe
         var devicePath = PromptHelper.DefaultValueTextPrompt("Device folder", 1, DefaultDeviceFolder);
         var launch = PromptHelper.Confirm("Launch files sent here?", false);
 
-        await watchFolders.AddAsync(folder, device.Id, storage.Value, devicePath, launch, CancellationToken.None);
+        await watchFolders.AddAsync(folder, device.Id, storage.Value, devicePath, launch, false, false, CancellationToken.None);
     }
 
     private async Task EditDestinationAsync()

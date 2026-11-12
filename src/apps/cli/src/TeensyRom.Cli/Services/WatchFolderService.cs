@@ -10,9 +10,9 @@ internal sealed class WatchFolderService(ITeensyRomApiClient api) : IWatchFolder
     public async Task<IReadOnlyList<WatchFolderDto>> ListAsync(CancellationToken ct) =>
         (await ApiErrors.Call(() => api.GetWatchFoldersAsync(ct))).WatchFolders.ToList();
 
-    public Task<AddWatchFolderResponse> AddAsync(string folder, string deviceId, TeensyStorageType storage, string? devicePath, bool launch, CancellationToken ct)
+    public Task<AddWatchFolderResponse> AddAsync(string folder, string deviceId, TeensyStorageType storage, string? devicePath, bool launch, bool allTypes, bool allInArchives, CancellationToken ct)
     {
-        var body = new AddWatchFolderBody { Path = folder, DeviceId = deviceId, StorageType = storage.ToApi(), DevicePath = devicePath, Launch = launch };
+        var body = new AddWatchFolderBody { Path = folder, DeviceId = deviceId, StorageType = storage.ToApi(), DevicePath = devicePath, Launch = launch, AllFileTypes = allTypes, AllFileTypesInArchives = allInArchives };
 
         return ApiErrors.Call(() => api.AddWatchFolderAsync(body, ct));
     }
@@ -25,6 +25,9 @@ internal sealed class WatchFolderService(ITeensyRomApiClient api) : IWatchFolder
 
     public async Task<WatchFolderDto> SetDeviceAsync(string watchFolderId, string deviceId, string? devicePath, bool? launch, CancellationToken ct) =>
         (await ApiErrors.Call(() => api.SetWatchFolderDeviceAsync(watchFolderId, deviceId, new SetWatchFolderDeviceBody { DevicePath = devicePath, Launch = launch }, ct))).WatchFolder;
+
+    public async Task<WatchFolderDto> SetFileTypesAsync(string watchFolderId, bool? allTypes, bool? allInArchives, CancellationToken ct) =>
+        (await ApiErrors.Call(() => api.SetWatchFolderFileTypesAsync(watchFolderId, new SetWatchFolderFileTypesBody { AllFileTypes = allTypes, AllFileTypesInArchives = allInArchives }, ct))).WatchFolder;
 
     public async Task<WatchFolderDto> SetEnabledAsync(string watchFolderId, bool enabled, CancellationToken ct) =>
         (await ApiErrors.Call(() => api.SetWatchFolderEnabledAsync(watchFolderId, new SetWatchFolderEnabledBody { Enabled = enabled }, ct))).WatchFolder;

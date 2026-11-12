@@ -56,12 +56,13 @@ public sealed class WatchFolderCommandTests : IDisposable
 
     private string RomsPath => Path.Combine(_root, "roms");
 
-    private WatchFolderDto Folder(string? path = null, bool enabled = true, WatchFolderState state = WatchFolderState.Watching) => new()
+    private WatchFolderDto Folder(string? path = null, bool enabled = true, WatchFolderState state = WatchFolderState.Watching, bool allTypes = false) => new()
     {
         Id = "wf-1",
         Path = path ?? RomsPath,
         Enabled = enabled,
         State = state,
+        AllFileTypes = allTypes,
         Destinations =
         [
             new WatchFolderDestinationDto { Id = "d-1", DeviceId = Alpha.Id, DeviceName = "Alpha", StorageType = Api.Generated.TeensyStorageType.SD, Path = "/auto-transfer", Launch = true }
@@ -78,14 +79,14 @@ public sealed class WatchFolderCommandTests : IDisposable
     [Fact]
     public async Task Add_SendsTheFullLocalPath_TheDevice_TheStorageAndTheDefaultDeviceFolder()
     {
-        _watchFolders.AddAsync(default!, default!, default, default, default, default)
+        _watchFolders.AddAsync(default!, default!, default, default, default, default, default, default)
             .ReturnsForAnyArgs(new AddWatchFolderResponse { Created = true, WatchFolder = Folder() });
         var host = NewHost();
 
         var exitCode = await host.RunAsync("watch-folder", "add", "roms", "--device", "Alpha", "--storage", "usb", "--json");
 
         exitCode.Should().Be(0, host.Consoles.StdErr);
-        await _watchFolders.Received(1).AddAsync(RomsPath, Alpha.Id, TeensyStorageType.USB, "/auto-transfer", false, Arg.Any<CancellationToken>());
+        await _watchFolders.Received(1).AddAsync(RomsPath, Alpha.Id, TeensyStorageType.USB, "/auto-transfer", false, false, false, Arg.Any<CancellationToken>());
         var document = Parse(host.Consoles.StdOut);
         document.GetProperty("created").GetBoolean().Should().BeTrue();
         var folder = document.GetProperty("folder");
@@ -104,15 +105,33 @@ public sealed class WatchFolderCommandTests : IDisposable
     [Fact]
     public async Task Add_WithPathAndLaunch_SendsThem()
     {
-        _watchFolders.AddAsync(default!, default!, default, default, default, default)
+        _watchFolders.AddAsync(default!, default!, default, default, default, default, default, default)
             .ReturnsForAnyArgs(new AddWatchFolderResponse { Created = false, WatchFolder = Folder() });
         var host = NewHost();
 
         var exitCode = await host.RunAsync("watch-folder", "add", RomsPath, "--path", "/games", "--launch", "--json");
 
         exitCode.Should().Be(0, host.Consoles.StdErr);
-        await _watchFolders.Received(1).AddAsync(RomsPath, Alpha.Id, Arg.Any<TeensyStorageType>(), "/games", true, Arg.Any<CancellationToken>());
+        await _watchFolders.Received(1).AddAsync(RomsPath, Alpha.Id, Arg.Any<TeensyStorageType>(), "/games", true, false, false, Arg.Any<CancellationToken>());
         Parse(host.Consoles.StdOut).GetProperty("created").GetBoolean().Should().BeFalse();
+    }
+
+    [Fact]
+    public async Task Add_WithTheSwitches_SendsThem_AndJsonCarriesThem()
+    {
+        var created = Folder();
+        created.AllFileTypes = true;
+        _watchFolders.AddAsync(default!, default!, default, default, default, default, default, default)
+            .ReturnsForAnyArgs(new AddWatchFolderResponse { Created = true, WatchFolder = created });
+        var host = NewHost();
+
+        var exitCode = await host.RunAsync("watch-folder", "add", "roms", "--all-types", "--all-in-archives", "--json");
+
+        exitCode.Should().Be(0, host.Consoles.StdErr);
+        await _watchFolders.Received(1).AddAsync(RomsPath, Alpha.Id, Arg.Any<TeensyStorageType>(), "/auto-transfer", false, true, true, Arg.Any<CancellationToken>());
+        var folder = Parse(host.Consoles.StdOut).GetProperty("folder");
+        folder.GetProperty("allTypes").GetBoolean().Should().BeTrue();
+        folder.GetProperty("allInArchives").GetBoolean().Should().BeFalse();
     }
 
     [Fact]
@@ -125,13 +144,13 @@ public sealed class WatchFolderCommandTests : IDisposable
         exitCode.Should().Be((int)CliExitCode.Usage);
         host.Consoles.StdErr.Should().Contain("nowhere isn't a folder on this computer.");
         await host.Engine.DidNotReceiveWithAnyArgs().EnsureRunningAsync(default);
-        await _watchFolders.DidNotReceiveWithAnyArgs().AddAsync(default!, default!, default, default, default, default);
+        await _watchFolders.DidNotReceiveWithAnyArgs().AddAsync(default!, default!, default, default, default, default, default, default);
     }
 
     [Fact]
     public async Task Add_RefusedWith409_IsExitOne_WithTheEnginesSentence()
     {
-        _watchFolders.AddAsync(default!, default!, default, default, default, default)
+        _watchFolders.AddAsync(default!, default!, default, default, default, default, default, default)
             .ThrowsAsyncForAnyArgs(new TeensyApiException("The folder is inside another watch folder.", 409));
         var host = NewHost();
 
@@ -144,7 +163,7 @@ public sealed class WatchFolderCommandTests : IDisposable
     [Fact]
     public async Task Add_Human_ShowsTheFolderAndItsDestination()
     {
-        _watchFolders.AddAsync(default!, default!, default, default, default, default)
+        _watchFolders.AddAsync(default!, default!, default, default, default, default, default, default)
             .ReturnsForAnyArgs(new AddWatchFolderResponse { Created = true, WatchFolder = Folder() });
         var host = NewHost(terminal: true);
 
@@ -158,7 +177,7 @@ public sealed class WatchFolderCommandTests : IDisposable
     [Fact]
     public async Task Add_Plain_KeepsTheSingleDestinationsLine()
     {
-        _watchFolders.AddAsync(default!, default!, default, default, default, default)
+        _watchFolders.AddAsync(default!, default!, default, default, default, default, default, default)
             .ReturnsForAnyArgs(new AddWatchFolderResponse { Created = true, WatchFolder = Folder() });
         var host = NewHost();
 
@@ -166,7 +185,7 @@ public sealed class WatchFolderCommandTests : IDisposable
 
         exitCode.Should().Be(0, host.Consoles.StdErr);
         host.Consoles.StdOut.Trim().ReplaceLineEndings("\n").Should()
-            .Be($"Folder: {RomsPath}\nState: watching\nDestinations: Alpha: sd /auto-transfer (launches)");
+            .Be($"Folder: {RomsPath}\nState: watching\nAll types: No\nIn archives: No\nDestinations: Alpha: sd /auto-transfer (launches)");
     }
 
     // ---- list --------------------------------------------------------------------------------------------------------
@@ -174,7 +193,7 @@ public sealed class WatchFolderCommandTests : IDisposable
     [Fact]
     public async Task List_Json_IsTheFoldersInCamelCase_AndChoosesNoDevice()
     {
-        _watchFolders.ListAsync(Arg.Any<CancellationToken>()).Returns([Folder(), Folder("/other", enabled: false, state: WatchFolderState.Off)]);
+        _watchFolders.ListAsync(Arg.Any<CancellationToken>()).Returns([Folder(), Folder("/other", enabled: false, state: WatchFolderState.Off, allTypes: true)]);
         var host = NewHost();
 
         var exitCode = await host.RunAsync("watch-folder", "list", "--json");
@@ -182,6 +201,8 @@ public sealed class WatchFolderCommandTests : IDisposable
         exitCode.Should().Be(0, host.Consoles.StdErr);
         var folders = Parse(host.Consoles.StdOut).EnumerateArray().ToArray();
         folders.Select(f => f.GetProperty("state").GetString()).Should().Equal("watching", "off");
+        folders.Select(f => f.GetProperty("allTypes").GetBoolean()).Should().Equal(false, true);
+        folders.Select(f => f.GetProperty("allInArchives").GetBoolean()).Should().Equal(false, false);
         _chooser.ReceivedCalls().Should().BeEmpty();
     }
 
@@ -344,12 +365,16 @@ public sealed class WatchFolderCommandTests : IDisposable
     [InlineData("nothing to change")]
     [InlineData("both launch flags")]
     [InlineData("invalid path")]
+    [InlineData("both all-types flags")]
+    [InlineData("both archive flags")]
     public async Task Set_WithUnusableOptions_IsAUsageError_BeforeTheEngineOrTheService(string case_)
     {
         string[] options = case_ switch
         {
             "nothing to change" => [],
             "both launch flags" => ["--launch", "--no-launch"],
+            "both all-types flags" => ["--all-types", "--no-all-types"],
+            "both archive flags" => ["--all-in-archives", "--no-all-in-archives"],
             _ => ["--path", "games"]
         };
         var host = NewHost();
@@ -358,6 +383,78 @@ public sealed class WatchFolderCommandTests : IDisposable
 
         exitCode.Should().Be((int)CliExitCode.Usage);
         await host.Engine.DidNotReceiveWithAnyArgs().EnsureRunningAsync(default);
+        await _watchFolders.DidNotReceiveWithAnyArgs().SetDeviceAsync(default!, default!, default, default, default);
+        await _watchFolders.DidNotReceiveWithAnyArgs().SetFileTypesAsync(default!, default, default, default);
+    }
+
+    private WatchFolderDto WithTwoDestinations()
+    {
+        var folder = Folder();
+        folder.Destinations.Add(new WatchFolderDestinationDto { Id = "d-2", DeviceId = "b-2", DeviceName = "Bravo", StorageType = Api.Generated.TeensyStorageType.USB, Path = "/x", Launch = false });
+        return folder;
+    }
+
+    [Fact]
+    public async Task Set_SwitchesAlone_OnAFolderWithSeveralDestinations_NeedsNoDevice()
+    {
+        Watched(WithTwoDestinations());
+        var changed = WithTwoDestinations();
+        changed.AllFileTypes = true;
+        _watchFolders.SetFileTypesAsync("wf-1", true, null, Arg.Any<CancellationToken>()).Returns(changed);
+        var host = NewHost();
+
+        var exitCode = await host.RunAsync("watch-folder", "set", "roms", "--all-types", "--json");
+
+        exitCode.Should().Be(0, host.Consoles.StdErr);
+        await _watchFolders.DidNotReceiveWithAnyArgs().SetDeviceAsync(default!, default!, default, default, default);
+        _chooser.ReceivedCalls().Should().BeEmpty();
+        Parse(host.Consoles.StdOut).GetProperty("allTypes").GetBoolean().Should().BeTrue();
+    }
+
+    [Fact]
+    public async Task Set_NoSwitches_SendFalse_AndNull_ForTheOneNotGiven()
+    {
+        Watched(Folder());
+        _watchFolders.SetFileTypesAsync(default!, default, default, default).ReturnsForAnyArgs(Folder());
+        var host = NewHost();
+
+        var exitCode = await host.RunAsync("watch-folder", "set", "roms", "--no-all-types", "--all-in-archives", "--json");
+
+        exitCode.Should().Be(0, host.Consoles.StdErr);
+        await _watchFolders.Received(1).SetFileTypesAsync("wf-1", false, true, Arg.Any<CancellationToken>());
+    }
+
+    [Fact]
+    public async Task Set_SwitchesWithPath_ChangesTheSwitchesThenTheDestination_ShowingTheLastResult()
+    {
+        Watched(Folder());
+        _watchFolders.SetFileTypesAsync(default!, default, default, default).ReturnsForAnyArgs(Folder());
+        var last = Changed("/games", launch: true);
+        last.AllFileTypes = true;
+        _watchFolders.SetDeviceAsync("wf-1", Alpha.Id, "/games", null, Arg.Any<CancellationToken>()).Returns(last);
+        var host = NewHost();
+
+        var exitCode = await host.RunAsync("watch-folder", "set", "roms", "--all-types", "--path", "/games", "--json");
+
+        exitCode.Should().Be(0, host.Consoles.StdErr);
+        Received.InOrder(() =>
+        {
+            _watchFolders.SetFileTypesAsync("wf-1", true, null, Arg.Any<CancellationToken>());
+            _watchFolders.SetDeviceAsync("wf-1", Alpha.Id, "/games", null, Arg.Any<CancellationToken>());
+        });
+        Parse(host.Consoles.StdOut).GetProperty("destinations")[0].GetProperty("path").GetString().Should().Be("/games");
+    }
+
+    [Fact]
+    public async Task Set_SwitchesWithPath_OnAFolderWithSeveralDestinationsAndNoDevice_ChangesNothing()
+    {
+        Watched(WithTwoDestinations());
+        var host = NewHost();
+
+        var exitCode = await host.RunAsync("watch-folder", "set", "roms", "--all-types", "--path", "/x");
+
+        exitCode.Should().Be((int)CliExitCode.Usage);
+        await _watchFolders.DidNotReceiveWithAnyArgs().SetFileTypesAsync(default!, default, default, default);
         await _watchFolders.DidNotReceiveWithAnyArgs().SetDeviceAsync(default!, default!, default, default, default);
     }
 

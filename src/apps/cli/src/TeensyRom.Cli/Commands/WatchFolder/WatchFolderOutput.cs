@@ -5,7 +5,7 @@ using TeensyRom.Cli.Output;
 namespace TeensyRom.Cli.Commands.WatchFolder;
 
 /// <summary>One watch folder as <c>trom watch-folder --json</c> writes it; <paramref name="State"/> is <c>watching</c>, <c>off</c> or <c>unavailable</c>.</summary>
-internal sealed record WatchFolderJson(string Id, string Path, bool Enabled, string State, IReadOnlyList<WatchFolderDestinationJson> Destinations);
+internal sealed record WatchFolderJson(string Id, string Path, bool Enabled, string State, bool AllTypes, bool AllInArchives, IReadOnlyList<WatchFolderDestinationJson> Destinations);
 
 /// <summary>Where a watch folder's files go: <paramref name="Storage"/> is <c>sd</c> or <c>usb</c>.</summary>
 internal sealed record WatchFolderDestinationJson(string Id, string DeviceId, string? DeviceName, string Storage, string Path, bool Launch);
@@ -24,9 +24,9 @@ internal static class WatchFolderOutput
 
     public static string StorageName(TeensyStorageType storage) => storage.ToString().ToLowerInvariant();
 
-    public static WatchFolderJson ToJson(WatchFolderDto folder) => ToJson(folder.Id, folder.Path, folder.Enabled, folder.State, folder.Destinations);
+    public static WatchFolderJson ToJson(WatchFolderDto folder) => ToJson(folder.Id, folder.Path, folder.Enabled, folder.State, folder.AllFileTypes, folder.AllFileTypesInArchives, folder.Destinations);
 
-    public static WatchFolderJson ToJson(WatchFolderDto2 folder) => ToJson(folder.Id, folder.Path, folder.Enabled, folder.State, folder.Destinations);
+    public static WatchFolderJson ToJson(WatchFolderDto2 folder) => ToJson(folder.Id, folder.Path, folder.Enabled, folder.State, folder.AllFileTypes, folder.AllFileTypesInArchives, folder.Destinations);
 
     /// <summary>One watch folder: JSON, or its fields for a person or a pipe.</summary>
     public static void Show(ICliOutput output, WatchFolderJson folder)
@@ -36,7 +36,8 @@ internal static class WatchFolderOutput
             output.Json(folder);
             return;
         }
-        var fields = new List<(string Label, string Value)> { ("Folder", folder.Path), ("State", folder.State) };
+        var fields = new List<(string Label, string Value)> { ("Folder", folder.Path), ("State", folder.State),
+            ("All types", folder.AllTypes ? "Yes" : "No"), ("In archives", folder.AllInArchives ? "Yes" : "No") };
 
         if (output.Mode == OutputMode.Plain)
         {
@@ -80,7 +81,7 @@ internal static class WatchFolderOutput
         string.Join(", ", folder.Destinations.Select(destination =>
             $"{destination.DeviceName ?? destination.DeviceId}: {destination.Storage} {destination.Path}{(destination.Launch ? " (launches)" : string.Empty)}"));
 
-    private static WatchFolderJson ToJson(string id, string path, bool enabled, WatchFolderState state, IEnumerable<WatchFolderDestinationDto> destinations) =>
-        new(id, path, enabled, Name(state),
+    private static WatchFolderJson ToJson(string id, string path, bool enabled, WatchFolderState state, bool allTypes, bool allInArchives, IEnumerable<WatchFolderDestinationDto> destinations) =>
+        new(id, path, enabled, Name(state), allTypes, allInArchives,
             destinations.Select(d => new WatchFolderDestinationJson(d.Id, d.DeviceId, d.DeviceName, StorageName(d.StorageType), d.Path, d.Launch)).ToList());
 }

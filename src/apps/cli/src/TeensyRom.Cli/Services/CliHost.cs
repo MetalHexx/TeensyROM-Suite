@@ -145,16 +145,18 @@ internal static class CliHost
         ]),
         new("watch-folder", "Watch folders on this computer and send what lands in them to a TeensyROM.",
         [
-            PublicVerb.Of<WatchFolderAddCommand, WatchFolderAddSettings>("add", "Watch a folder on this computer and send each file that lands in it to a TeensyROM, into --path (default /auto-transfer) on the chosen storage. --launch has the TeensyROM launch each file. Adding a folder that is already watched adds this TeensyROM as another destination.", ["watch-folder", "add", "./roms", "--device", "Bench", "--path", "/games"]),
-            PublicVerb.Of<WatchFolderSetCommand, WatchFolderSetSettings>("set", "Change where a watch folder's files land on a TeensyROM (--path) and whether it launches them (--launch or --no-launch), without removing the destination. Name the TeensyROM with --device when the folder sends to several. Exits 5 when the folder or that destination isn't there.", ["watch-folder", "set", "./roms", "--device", "Bench", "--launch"]),
+            PublicVerb.Of<WatchFolderAddCommand, WatchFolderAddSettings>("add", "Watch a folder on this computer and send each file that lands in it to a TeensyROM, into --path (default /auto-transfer) on the chosen storage. --launch has the TeensyROM launch each file; --all-types sends every file that lands, not only the types the TeensyROM recognizes, and --all-in-archives sends everything inside archives (both apply when the folder is created). Adding a folder that is already watched adds this TeensyROM as another destination.", ["watch-folder", "add", "./roms", "--device", "Bench", "--path", "/games", "--all-types"]),
+            PublicVerb.Of<WatchFolderSetCommand, WatchFolderSetSettings>("set", "Change where a watch folder's files land on a TeensyROM (--path) and whether it launches them (--launch or --no-launch), without removing the destination. --all-types/--no-all-types and --all-in-archives/--no-all-in-archives change which files the folder sends, and a change to them alone needs no --device. Name the TeensyROM with --device when the folder sends to several and you change --path or --launch. Exits 5 when the folder or that destination isn't there.", ["watch-folder", "set", "./roms", "--device", "Bench", "--launch"]),
             PublicVerb.Of<WatchFolderRemoveCommand, WatchFolderRemoveSettings>("remove", "Stop watching a folder; with --device, only stop sending its files to that TeensyROM. Exits 5 when the folder isn't watched.", ["watch-folder", "remove", "./roms"]),
-            PublicVerb.Of<WatchFolderListCommand, WatchFolderListSettings>("list", "List the watch folders, their state and where each one's files go. Needs no device.", ["watch-folder", "list"]),
+            PublicVerb.Of<WatchFolderListCommand, WatchFolderListSettings>("list", "List the watch folders, their state, whether each sends all types and everything in archives, and where its files go. Needs no device.", ["watch-folder", "list"]),
             PublicVerb.Of<WatchFolderEnabledCommand, WatchFolderSettings>("pause", "Stop sending a watch folder's files until it is resumed. Files that land while it is paused are not sent later, not even after resume. Exits 5 when the folder isn't watched.", ["watch-folder", "pause", "./roms"]),
             PublicVerb.Of<WatchFolderEnabledCommand, WatchFolderSettings>(WatchFolderEnabledCommand.ResumeVerb, "Start sending a paused watch folder's files again. Exits 5 when the folder isn't watched.", ["watch-folder", "resume", "./roms"])
         ]),
-        new("transfer", "See the transfers Trom API is running.",
+        new("transfer", "See the transfers Trom API is running and change its upload settings.",
         [
-            PublicVerb.Of<TransferListCommand, TransferListSettings>("list", "List the transfers Trom API is running or has just finished, from uploads and watch folders alike. Needs no device.", ["transfer", "list"])
+            PublicVerb.Of<TransferListCommand, TransferListSettings>("list", "List the transfers Trom API is running or has just finished, from uploads and watch folders alike. Needs no device.", ["transfer", "list"]),
+            PublicVerb.Of<TransferSettingsShowCommand, TransferSettingsShowSettings>("settings", "Show Trom API's upload settings: auto-launch, all-types and all-in-archives. Needs no device.", ["transfer", "settings"]),
+            PublicVerb.Of<TransferSetCommand, TransferSetSettings>("set", "Change one upload setting. KEY is auto-launch, all-types or all-in-archives, and VALUE is true or false. Needs no device.", ["transfer", "set", "all-types", "true"])
         ]),
         new("index", "Index a TeensyROM's storage for search and random launches.",
         [

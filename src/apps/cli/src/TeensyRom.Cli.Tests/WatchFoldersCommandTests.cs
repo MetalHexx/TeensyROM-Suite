@@ -101,7 +101,7 @@ public sealed class WatchFoldersCommandTests : IDisposable
 
         exitCode.Should().Be(0);
         Screen.Should().Contain("Watch Folders").And.Contain("No watch folders yet.").And.Contain("Nothing is being sent.");
-        await _watchFolders.DidNotReceiveWithAnyArgs().AddAsync(default!, default!, default, default, default, default);
+        await _watchFolders.DidNotReceiveWithAnyArgs().AddAsync(default!, default!, default, default, default, default, default, default);
         await _watchFolders.DidNotReceiveWithAnyArgs().RemoveAsync(default!, default);
     }
 
@@ -132,7 +132,7 @@ public sealed class WatchFoldersCommandTests : IDisposable
 
         await Run();
 
-        await _watchFolders.Received(1).AddAsync(_folder, "a-1", TeensyStorageType.SD, "/auto-transfer", false, Arg.Any<CancellationToken>());
+        await _watchFolders.Received(1).AddAsync(_folder, "a-1", TeensyStorageType.SD, "/auto-transfer", false, false, false, Arg.Any<CancellationToken>());
     }
 
     [Fact]
@@ -143,7 +143,7 @@ public sealed class WatchFoldersCommandTests : IDisposable
 
         await Run();
 
-        await _watchFolders.Received(1).AddAsync(_folder, "a-1", TeensyStorageType.USB, "/roms", true, Arg.Any<CancellationToken>());
+        await _watchFolders.Received(1).AddAsync(_folder, "a-1", TeensyStorageType.USB, "/roms", true, false, false, Arg.Any<CancellationToken>());
     }
 
     [Fact]
@@ -155,7 +155,7 @@ public sealed class WatchFoldersCommandTests : IDisposable
 
         exitCode.Should().Be(0);
         Screen.Should().Contain("isn't a folder on this computer");
-        await _watchFolders.DidNotReceiveWithAnyArgs().AddAsync(default!, default!, default, default, default, default);
+        await _watchFolders.DidNotReceiveWithAnyArgs().AddAsync(default!, default!, default, default, default, default, default, default);
     }
 
     [Fact]
@@ -169,7 +169,7 @@ public sealed class WatchFoldersCommandTests : IDisposable
 
         await Run();
 
-        await _watchFolders.Received(1).AddAsync(_folder, "b-1", TeensyStorageType.SD, "/auto-transfer", false, Arg.Any<CancellationToken>());
+        await _watchFolders.Received(1).AddAsync(_folder, "b-1", TeensyStorageType.SD, "/auto-transfer", false, false, false, Arg.Any<CancellationToken>());
     }
 
     [Fact]
@@ -181,7 +181,7 @@ public sealed class WatchFoldersCommandTests : IDisposable
         await Run();
 
         Screen.Should().Contain("Every online TeensyROM already receives this folder.");
-        await _watchFolders.DidNotReceiveWithAnyArgs().AddAsync(default!, default!, default, default, default, default);
+        await _watchFolders.DidNotReceiveWithAnyArgs().AddAsync(default!, default!, default, default, default, default, default, default);
     }
 
     [Fact]
