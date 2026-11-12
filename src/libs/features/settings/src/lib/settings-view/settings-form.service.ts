@@ -397,6 +397,8 @@ export class SettingsFormService {
       // Auto-launch is edited in the transfer settings panel, so a save here carries the stored value.
       fileTransferSettings: this.settingsStore.getSettings()()?.fileTransferSettings ?? {
         autoLaunchOnCopyEnabled: false,
+        allFileTypesInFolders: false,
+        allFileTypesInArchives: false,
       },
       searchSettings: {
         weights: {

@@ -85,6 +85,8 @@ describe('playerRouteResolver', () => {
     },
     fileTransferSettings: {
       autoLaunchOnCopyEnabled: false,
+      allFileTypesInFolders: false,
+      allFileTypesInArchives: false,
     },
     searchSettings: {
       weights: {

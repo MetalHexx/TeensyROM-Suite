@@ -331,14 +331,136 @@ describe('DropScanner', () => {
       );
     });
 
-    it('falls back to the file name and a null root when there is no webkitRelativePath', async () => {
-      const files = [createFile('loose.sid'), createFile('loose.doc')];
+    it('sends every picked file by its file name, with a null root, when there is no webkitRelativePath', async () => {
+      const files = [createFile('loose.sid'), createFile('loose.doc'), createFile('.hidden')];
 
       const scanner = new DropScanner();
       const result = await scanner.scan(asFileList(files), noopProgress, signal());
 
       expect(result.rootName).toBeNull();
-      expect(result.entries.map((e) => e.relativePath)).toEqual(['loose.sid']);
+      expect(result.entries.map((e) => e.relativePath)).toEqual([
+        'loose.sid',
+        'loose.doc',
+        '.hidden',
+      ]);
+    });
+
+    it('filters folder files by type with the switch off and sends them all with it on', async () => {
+      const files = () => [
+        withRelativePath(createFile('a.prg'), 'Pack/a.prg'),
+        withRelativePath(createFile('b.bin'), 'Pack/b.bin'),
+        withRelativePath(createFile('.DS_Store'), 'Pack/.DS_Store'),
+        withRelativePath(createFile('x'), 'Pack/.git/x'),
+      ];
+      const scanner = new DropScanner();
+
+      const off = await scanner.scan(asFileList(files()), noopProgress, signal());
+      const on = await scanner.scan(asFileList(files()), noopProgress, signal(), {
+        allFileTypesInFolders: true,
+      });
+
+      expect(off.entries.map((e) => e.relativePath)).toEqual(['Pack/a.prg']);
+      expect(on.entries.map((e) => e.relativePath)).toEqual(['Pack/a.prg', 'Pack/b.bin']);
+    });
+
+    it('sends the contents of a picked root folder whose own name starts with a dot', async () => {
+      const files = [
+        withRelativePath(createFile('a.prg'), '.roms/a.prg'),
+        withRelativePath(createFile('b.prg'), '.roms/.cache/b.prg'),
+      ];
+
+      const scanner = new DropScanner();
+      const result = await scanner.scan(asFileList(files), noopProgress, signal());
+
+      expect(result.rootName).toBe('.roms');
+      expect(result.entries.map((e) => e.relativePath)).toEqual(['.roms/a.prg']);
+    });
+  });
+
+  describe('loose files and folder-file rules', () => {
+    const scanTree = (tree: FileSystemEntry, allFileTypesInFolders = false) =>
+      new DropScanner().scan(asItemList([dropItem(tree)]), noopProgress, signal(), {
+        allFileTypesInFolders,
+      });
+    const paths = (result: { entries: { relativePath: string }[] }) =>
+      result.entries.map((e) => e.relativePath);
+
+    it('sends a loose file whatever its type or name', async () => {
+      const scanner = new DropScanner();
+      const result = await scanner.scan(
+        asItemList([
+          dropItem(fileEntry('notes.doc')),
+          dropItem(fileEntry('.DS_Store')),
+          dropItem(fileEntry('Thumbs.db')),
+        ]),
+        noopProgress,
+        signal()
+      );
+
+      expect(paths(result)).toEqual(['notes.doc', '.DS_Store', 'Thumbs.db']);
+    });
+
+    it('sends only a.prg from a folder with the switch off, and a.prg with b.bin with it on', async () => {
+      const tree = () =>
+        directoryEntry('Pack', [
+          fileEntry('a.prg'),
+          fileEntry('b.bin'),
+          fileEntry('.DS_Store'),
+          directoryEntry('.git', [fileEntry('x')]),
+        ]);
+
+      expect(paths(await scanTree(tree()))).toEqual(['Pack/a.prg']);
+      expect(paths(await scanTree(tree(), true)).sort()).toEqual(['Pack/a.prg', 'Pack/b.bin']);
+    });
+
+    it('drops excluded names even with the switch on, ignoring case', async () => {
+      const tree = directoryEntry('Pack', [
+        fileEntry('Thumbs.db'),
+        fileEntry('DESKTOP.INI'),
+        directoryEntry('__MACOSX', [fileEntry('a.prg')]),
+        directoryEntry('__macosx', [fileEntry('b.prg')]),
+        directoryEntry('sub', [directoryEntry('.hidden', [fileEntry('c.prg')]), fileEntry('d.prg')]),
+        fileEntry('keep.dat'),
+      ]);
+
+      expect(paths(await scanTree(tree, true)).sort()).toEqual(['Pack/keep.dat', 'Pack/sub/d.prg']);
+    });
+
+    it('sends the contents of a dropped dot-named root folder but skips a dot-folder inside it', async () => {
+      const tree = directoryEntry('.roms', [
+        fileEntry('a.prg'),
+        directoryEntry('.cache', [fileEntry('b.prg')]),
+      ]);
+
+      const result = await scanTree(tree);
+
+      expect(result.rootName).toBe('.roms');
+      expect(paths(result)).toEqual(['.roms/a.prg']);
+    });
+
+    it('reads the extension from the file name, not from a dot in a folder name', async () => {
+      const tree = directoryEntry('Pack', [
+        directoryEntry('v1.2', [fileEntry('readme.txt'), fileEntry('noext')]),
+      ]);
+
+      expect(paths(await scanTree(tree))).toEqual(['Pack/v1.2/readme.txt']);
+      expect(paths(await scanTree(tree, true)).sort()).toEqual([
+        'Pack/v1.2/noext',
+        'Pack/v1.2/readme.txt',
+      ]);
+    });
+
+    it('waits for options given as a promise only after reading the drop payload', async () => {
+      const tree = directoryEntry('Pack', [fileEntry('b.bin')]);
+
+      const result = await new DropScanner().scan(
+        emptyingItemList([tree]),
+        noopProgress,
+        signal(),
+        Promise.resolve({ allFileTypesInFolders: true })
+      );
+
+      expect(paths(result)).toEqual(['Pack/b.bin']);
     });
   });
 });

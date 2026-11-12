@@ -7,6 +7,8 @@ const dto: WatchFolderDto = {
   id: 'f1',
   path: 'C:\\Games',
   enabled: true,
+  allFileTypes: false,
+  allFileTypesInArchives: false,
   state: 'Watching',
   destinations: [
     { id: 'd1', deviceId: 'dev-1', deviceName: 'Rack', storageType: 'SD', path: '/auto', launch: false },

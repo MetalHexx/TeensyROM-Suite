@@ -21,6 +21,12 @@
   border-radius: var(--border-radius-md);
 }
 
+.uploads-group {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+}
+
 .group-header {
   display: flex;
   align-items: center;

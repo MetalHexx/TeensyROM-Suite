@@ -21,6 +21,8 @@ const createTestSettings = (overrides: Partial<Settings['playerSettings']> = {})
   },
   fileTransferSettings: {
     autoLaunchOnCopyEnabled: false,
+    allFileTypesInFolders: false,
+    allFileTypesInArchives: false,
   },
   searchSettings: {
     weights: {

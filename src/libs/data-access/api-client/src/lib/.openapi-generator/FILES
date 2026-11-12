@@ -67,6 +67,7 @@ models/GetDeviceThemeResponse.ts
 models/GetDirectoryResponse.ts
 models/GetDjLibraryStateResponse.ts
 models/GetDjSetResponse.ts
+models/GetFileTransferSettingsResponse.ts
 models/GetHttpsStatusResponse.ts
 models/GetJobResponse.ts
 models/GetMidiSettingsResponse.ts
@@ -123,10 +124,14 @@ models/SearchResponse.ts
 models/SearchSettingsDto.ts
 models/SearchWeightsDto.ts
 models/SendSettingsDto.ts
+models/SetFileTransferSettingsBody.ts
+models/SetFileTransferSettingsResponse.ts
 models/SetWatchFolderDeviceBody.ts
 models/SetWatchFolderDeviceResponse.ts
 models/SetWatchFolderEnabledBody.ts
 models/SetWatchFolderEnabledResponse.ts
+models/SetWatchFolderFileTypesBody.ts
+models/SetWatchFolderFileTypesResponse.ts
 models/StopEngineResponse.ts
 models/StorageCacheDto.ts
 models/TeensyFilterType.ts

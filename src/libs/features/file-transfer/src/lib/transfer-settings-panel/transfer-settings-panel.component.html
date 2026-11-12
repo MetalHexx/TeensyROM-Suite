@@ -4,17 +4,37 @@
   (closePanel)="closePanel.emit()"
 >
   <div class="panel-content">
-    <section class="group" data-testid="global-group">
-      <h3 class="group-title">Global</h3>
+    <section class="group uploads-group" data-testid="uploads-group">
+      <h3 class="group-title">Uploads</h3>
       <mat-slide-toggle
-        #globalSwitch
+        #uploadsSwitch
         [checked]="autoLaunch()"
         [disabled]="!settingsReady()"
         [libTooltip]="autoLaunchTooltip"
         data-testid="auto-launch-switch"
-        (change)="onAutoLaunchChange($event.checked)"
+        (change)="onUploadSettingChange(uploadsSwitch, 'autoLaunchOnCopyEnabled', $event.checked)"
       >
         Auto launch
+      </mat-slide-toggle>
+      <mat-slide-toggle
+        #foldersSwitch
+        [checked]="allTypesInFolders()"
+        [disabled]="!settingsReady()"
+        [libTooltip]="allTypesInFoldersTooltip"
+        data-testid="all-types-in-folders-switch"
+        (change)="onUploadSettingChange(foldersSwitch, 'allFileTypesInFolders', $event.checked)"
+      >
+        All file types in folders
+      </mat-slide-toggle>
+      <mat-slide-toggle
+        #archivesSwitch
+        [checked]="allTypesInArchives()"
+        [disabled]="!settingsReady()"
+        [libTooltip]="allTypesInArchivesTooltip"
+        data-testid="all-types-in-archives-switch"
+        (change)="onUploadSettingChange(archivesSwitch, 'allFileTypesInArchives', $event.checked)"
+      >
+        All file types in archives
       </mat-slide-toggle>
       @if (settingsError(); as message) {
       <p class="group-error" role="alert" data-testid="settings-error">{{ message }}</p>
