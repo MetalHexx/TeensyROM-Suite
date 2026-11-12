@@ -25,6 +25,8 @@ const folder = (id: string, overrides: Partial<WatchFolder> = {}): WatchFolder =
   path: `C:\\Watch\\${id}`,
   enabled: true,
   state: WatchFolderState.Watching,
+  allFileTypes: false,
+  allFileTypesInArchives: false,
   destinations: [
     {
       id: `${id}-1`,
@@ -129,6 +131,7 @@ describe('TransferSettingsPanelComponent', () => {
       add: vi.fn(),
       setDestination: vi.fn(),
       setEnabled: vi.fn(),
+      setFileTypes: vi.fn(),
       remove: vi.fn().mockResolvedValue(undefined),
       removeDestination: vi.fn(),
     };
@@ -349,6 +352,54 @@ describe('TransferSettingsPanelComponent', () => {
       ).toBe('true');
     });
 
+    it('names each folder file-type switch for its folder and shows the saved values', async () => {
+      await setup({ folders: [folder('a', { allFileTypesInArchives: true }), folder('b')] });
+
+      const buttons = (testId: string) =>
+        queryAll(testId).map((host) => host.querySelector('button'));
+      expect(buttons('watch-folder-all-types-switch').map((b) => b?.getAttribute('aria-label'))).toEqual([
+        'All file types for C:\\Watch\\a',
+        'All file types for C:\\Watch\\b',
+      ]);
+      expect(
+        buttons('watch-folder-all-in-archives-switch').map((b) => b?.getAttribute('aria-label'))
+      ).toEqual([
+        'All file types in archives for C:\\Watch\\a',
+        'All file types in archives for C:\\Watch\\b',
+      ]);
+      expect(
+        buttons('watch-folder-all-in-archives-switch').map((b) => b?.getAttribute('aria-checked'))
+      ).toEqual(['true', 'false']);
+    });
+
+    it('saves a flipped file-type switch through the store and redraws from the answer', async () => {
+      await setup({ folders: [folder('a')] });
+      watchFolders['setFileTypes'].mockResolvedValue(folder('a', { allFileTypes: true }));
+
+      clickButton(query('watch-folder-all-types-switch'));
+      await settle();
+
+      expect(watchFolders['setFileTypes']).toHaveBeenCalledWith('a', { allFileTypes: true });
+      expect(
+        query('watch-folder-all-types-switch')?.querySelector('button')?.getAttribute('aria-checked')
+      ).toBe('true');
+    });
+
+    it('keeps a file-type switch where it was and shows the error when the save fails', async () => {
+      await setup({ folders: [folder('a')] });
+      watchFolders['setFileTypes'].mockRejectedValue(new Error('Watch folder not found'));
+
+      clickButton(query('watch-folder-all-in-archives-switch'));
+      await settle();
+
+      expect(query('watch-folders-error')?.textContent).toContain('Watch folder not found');
+      expect(
+        query('watch-folder-all-in-archives-switch')
+          ?.querySelector('button')
+          ?.getAttribute('aria-checked')
+      ).toBe('false');
+    });
+
     it('asks before removing a folder, then removes it', async () => {
       await setup({ folders: [folder('a')] });
 
@@ -480,6 +531,25 @@ describe('TransferSettingsPanelComponent', () => {
         expect(query('form-launch')?.querySelector('button')?.getAttribute('aria-checked')).toBe('false');
       });
 
+      it('starts with both file-type switches off and sends them as chosen', async () => {
+        await setup();
+        watchFolders['add'].mockResolvedValue(folder('new', { allFileTypes: true }));
+        await fillAddFolder();
+        const checked = (testId: string) =>
+          query(testId)?.querySelector('button')?.getAttribute('aria-checked');
+        expect(checked('form-all-types')).toBe('false');
+        expect(checked('form-all-in-archives')).toBe('false');
+
+        clickButton(query('form-all-types'));
+        clickButton(query('form-all-in-archives'));
+        await settle();
+        await submit();
+
+        expect(watchFolders['add']).toHaveBeenCalledWith(
+          expect.objectContaining({ allFileTypes: true, allFileTypesInArchives: true })
+        );
+      });
+
       it('gates Add on the folder, since the rest starts filled in', async () => {
         await setup();
         clickButton(query('add-watch-folder'));
@@ -551,6 +621,8 @@ describe('TransferSettingsPanelComponent', () => {
           storageType: StorageType.Sd,
           devicePath: '/auto-transfer',
           launch: false,
+          allFileTypes: false,
+          allFileTypesInArchives: false,
         });
         expect(query('watch-folder-form')).toBeNull();
         expect(query('watch-folder-path')?.textContent).toContain('D:\\Incoming');
@@ -740,6 +812,19 @@ describe('TransferSettingsPanelComponent', () => {
         expect(query('add-device')).toBeNull();
       });
 
+      it('passes the folder current file-type switches along', async () => {
+        await setup({ folders: [folder('a', { allFileTypes: true })] });
+        watchFolders['add'].mockResolvedValue(folder('a', { allFileTypes: true }));
+        query<HTMLButtonElement>('add-device')?.click();
+        await settle();
+
+        await submit();
+
+        expect(watchFolders['add']).toHaveBeenCalledWith(
+          expect.objectContaining({ allFileTypes: true, allFileTypesInArchives: false })
+        );
+      });
+
       it('saves through add with the folder path and closes', async () => {
         await setup({ folders: [folder('a')] });
         watchFolders['add'].mockResolvedValue(
@@ -769,6 +854,8 @@ describe('TransferSettingsPanelComponent', () => {
           storageType: StorageType.Usb,
           devicePath: '/auto-transfer',
           launch: false,
+          allFileTypes: false,
+          allFileTypesInArchives: false,
         });
         expect(query('watch-folder-device-form')).toBeNull();
         expect(queryAll('watch-folder-device-row')).toHaveLength(2);

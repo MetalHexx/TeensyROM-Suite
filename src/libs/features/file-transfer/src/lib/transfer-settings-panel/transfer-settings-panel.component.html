@@ -79,6 +79,7 @@
           [folder]="folder"
           [pending]="isPending(folder.id)"
           (enabledChange)="onEnabledChange(folder.id, $event)"
+          (fileTypesChange)="onFileTypesChange(folder.id, $event)"
           (deleteConfirmed)="onDeleteFolder(folder.id)"
         />
         @for (destination of folder.destinations; track destination.id) {

@@ -5,6 +5,7 @@ import { WatchFolderStoreState } from '../watch-folder-store';
 import { WritableStore } from '../watch-folder-helpers';
 import { loadWatchFolders } from './load-watch-folders';
 import { setFolderEnabled } from './set-folder-enabled';
+import { setFolderFileTypes } from './set-folder-file-types';
 import { removeFolder } from './remove-folder';
 import { removeDestination } from './remove-destination';
 import { addWatchFolder } from './add-watch-folder';
@@ -16,6 +17,7 @@ export function withWatchFolderActions() {
     return {
       ...loadWatchFolders(writableStore, service),
       ...setFolderEnabled(writableStore, service),
+      ...setFolderFileTypes(writableStore, service),
       ...removeFolder(writableStore, service),
       ...removeDestination(writableStore, service),
       ...addWatchFolder(writableStore, service),

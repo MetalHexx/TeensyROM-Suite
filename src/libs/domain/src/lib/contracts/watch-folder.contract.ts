@@ -4,6 +4,7 @@ import {
   WatchFolder,
   WatchFolderDestinationChange,
   WatchFolderField,
+  WatchFolderFileTypesChange,
 } from '../models/watch-folder.model';
 
 /** Manages the folders the engine watches and the devices each one delivers to. */
@@ -17,6 +18,7 @@ export interface IWatchFolderService {
     change: WatchFolderDestinationChange
   ): Promise<WatchFolder>;
   setEnabled(watchFolderId: string, enabled: boolean): Promise<WatchFolder>;
+  setFileTypes(watchFolderId: string, change: WatchFolderFileTypesChange): Promise<WatchFolder>;
   remove(watchFolderId: string): Promise<void>;
   /** Removing a folder's last device removes the folder too. */
   removeDestination(

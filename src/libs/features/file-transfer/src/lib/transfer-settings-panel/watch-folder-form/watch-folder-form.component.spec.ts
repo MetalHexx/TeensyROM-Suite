@@ -29,6 +29,8 @@ describe('WatchFolderFormComponent', () => {
         storage: new FormControl(''),
         devicePath: new FormControl('/auto-transfer'),
         launch: new FormControl(false),
+        allFileTypes: new FormControl(false),
+        allFileTypesInArchives: new FormControl(false),
       })
     );
     fixture.componentRef.setInput('devices', devices);
@@ -52,6 +54,17 @@ describe('WatchFolderFormComponent', () => {
     expect(query('error-storage')?.textContent).toContain('No such storage');
     expect(query('error-device-path')?.textContent).toContain('Bad device folder');
     expect(query('error-form')?.textContent).toContain('Engine unavailable');
+  });
+
+  it('shows both file-type switches right after the folder field, before the device', async () => {
+    await render();
+
+    const order = Array.from(
+      (fixture.nativeElement as HTMLElement).querySelectorAll<HTMLElement>(
+        '[data-testid="form-folder"], [data-testid="form-all-types"], [data-testid="form-all-in-archives"], [data-testid="form-device"]'
+      )
+    ).map((el) => el.dataset['testid']);
+    expect(order).toEqual(['form-folder', 'form-all-types', 'form-all-in-archives', 'form-device']);
   });
 
   it('renders no error when there is no refusal', async () => {

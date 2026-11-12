@@ -26,6 +26,7 @@ import {
   WatchFolderDestination,
   WatchFolderDestinationChange,
   WatchFolderField,
+  WatchFolderFileTypesChange,
   WatchFolderRejection,
   WatchFolderState,
 } from '@teensyrom-nx/domain';
@@ -145,6 +146,8 @@ export class TransferSettingsPanelComponent {
     storage: this.fb.nonNullable.control<StorageType | ''>('', Validators.required),
     devicePath: [DEFAULT_DEVICE_PATH, [Validators.required, notBlank]],
     launch: [false],
+    allFileTypes: [false],
+    allFileTypesInArchives: [false],
   });
   protected readonly addDeviceForm = this.fb.nonNullable.group({
     device: ['', Validators.required],
@@ -231,6 +234,10 @@ export class TransferSettingsPanelComponent {
     void this.watchFolderStore.setFolderEnabled({ watchFolderId, enabled });
   }
 
+  protected onFileTypesChange(watchFolderId: string, change: WatchFolderFileTypesChange): void {
+    void this.watchFolderStore.setFolderFileTypes({ watchFolderId, change });
+  }
+
   protected onDeleteFolder(watchFolderId: string): void {
     void this.watchFolderStore.removeFolder({ watchFolderId });
   }
@@ -307,7 +314,8 @@ export class TransferSettingsPanelComponent {
   }
 
   protected submitAddFolder(): void {
-    const { folder, device, storage, devicePath, launch } = this.addFolderForm.getRawValue();
+    const { folder, device, storage, devicePath, launch, allFileTypes, allFileTypesInArchives } =
+      this.addFolderForm.getRawValue();
     if (this.addFolderForm.invalid || storage === '') return;
     void this.submitForm(
       () =>
@@ -317,6 +325,8 @@ export class TransferSettingsPanelComponent {
           storageType: storage,
           devicePath,
           launch,
+          allFileTypes,
+          allFileTypesInArchives,
         }),
       ['folder', 'device', 'storage', 'devicePath']
     );
@@ -334,6 +344,8 @@ export class TransferSettingsPanelComponent {
           storageType: storage,
           devicePath,
           launch,
+          allFileTypes: folder.allFileTypes,
+          allFileTypesInArchives: folder.allFileTypesInArchives,
         }),
       ['device', 'storage', 'devicePath']
     );

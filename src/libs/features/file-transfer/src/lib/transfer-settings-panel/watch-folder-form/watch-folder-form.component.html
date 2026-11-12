@@ -30,6 +30,19 @@
     }
   </mat-form-field>
 
+  <mat-slide-toggle
+    formControlName="allFileTypes"
+    [libTooltip]="allTypesTooltip"
+    data-testid="form-all-types"
+    >All file types</mat-slide-toggle
+  >
+  <mat-slide-toggle
+    formControlName="allFileTypesInArchives"
+    [libTooltip]="allTypesInArchivesTooltip"
+    data-testid="form-all-in-archives"
+    >All file types in archives</mat-slide-toggle
+  >
+
   <div class="field-row">
     <mat-form-field
       appearance="fill"

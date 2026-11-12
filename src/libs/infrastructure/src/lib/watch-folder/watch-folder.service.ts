@@ -6,6 +6,7 @@ import {
   WatchFolder,
   WatchFolderDestinationChange,
   WatchFolderField,
+  WatchFolderFileTypesChange,
   WatchFolderRejectedError,
 } from '@teensyrom-nx/domain';
 import { logError } from '@teensyrom-nx/utils';
@@ -48,6 +49,8 @@ export class WatchFolderService implements IWatchFolderService {
           storageType: DomainMapper.toApiStorageType(input.storageType),
           devicePath: input.devicePath,
           launch: input.launch,
+          allFileTypes: input.allFileTypes,
+          allFileTypesInArchives: input.allFileTypesInArchives,
         },
       });
       return WatchFolderMapper.toWatchFolder(response.watchFolder);
@@ -78,6 +81,24 @@ export class WatchFolderService implements IWatchFolderService {
       const response = await this.watchFoldersApi.setWatchFolderEnabled({
         watchFolderId,
         setWatchFolderEnabledBody: { enabled },
+      });
+      return WatchFolderMapper.toWatchFolder(response.watchFolder);
+    } catch (error) {
+      throw await this.toRejection(error);
+    }
+  }
+
+  async setFileTypes(
+    watchFolderId: string,
+    change: WatchFolderFileTypesChange
+  ): Promise<WatchFolder> {
+    try {
+      const response = await this.watchFoldersApi.setWatchFolderFileTypes({
+        watchFolderId,
+        setWatchFolderFileTypesBody: {
+          allFileTypes: change.allFileTypes,
+          allFileTypesInArchives: change.allFileTypesInArchives,
+        },
       });
       return WatchFolderMapper.toWatchFolder(response.watchFolder);
     } catch (error) {

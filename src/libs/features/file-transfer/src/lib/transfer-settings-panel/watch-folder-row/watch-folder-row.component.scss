@@ -38,6 +38,12 @@ lib-icon-button {
   flex: 0 0 auto;
 }
 
+.type-switches {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+}
+
 .folder-note {
   margin: 2px 0 0;
   color: var(--color-dimmed-light);

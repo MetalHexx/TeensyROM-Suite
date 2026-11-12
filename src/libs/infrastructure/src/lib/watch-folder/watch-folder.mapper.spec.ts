@@ -7,7 +7,7 @@ const dto: WatchFolderDto = {
   id: 'f1',
   path: 'C:\\Games',
   enabled: true,
-  allFileTypes: false,
+  allFileTypes: true,
   allFileTypesInArchives: false,
   state: 'Unavailable',
   destinations: [
@@ -25,6 +25,8 @@ describe('WatchFolderMapper', () => {
       path: 'C:\\Games',
       enabled: true,
       state: WatchFolderState.Unavailable,
+      allFileTypes: true,
+      allFileTypesInArchives: false,
     });
     expect(folder.destinations).toHaveLength(2);
     expect(folder.destinations[0]).toEqual({
