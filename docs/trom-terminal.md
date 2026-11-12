@@ -72,7 +72,7 @@ trom file upload ./Artillery.sid --to /music --launch
 trom file download /music/Artillery.sid --to ./backup
 ```
 
-Files you name are always sent, whatever their type. Folders and archives send only the types a TeensyROM recognizes, unless the upload settings or `--all-types` and `--all-in-archives` say otherwise. Hidden and system files found in a folder or an archive are never sent; a file you name is sent even if its name starts with a dot. A copy can reset the cart, which stops what is running.
+Files you name are always sent, whatever their type. Folders and archives send only the types a TeensyROM recognizes, unless the upload settings or `--all-types` and `--all-in-archives` say otherwise. Hidden and system files found in a folder or an archive are never sent, and neither are unfinished browser downloads (`.crdownload`, `.part`) found in a folder; a file or folder you name is sent even if its name starts with a dot, and dot-named items inside a folder still stay home. A copy can reset the cart, which stops what is running.
 
 The upload settings are shared with Trom UI. `trom transfer settings` shows them, and `trom transfer set` changes one:
 

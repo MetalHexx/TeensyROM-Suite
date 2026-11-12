@@ -50,6 +50,12 @@ internal static class UploadSources
         ".nfo", ".md", ".ocp", ".pic", ".d71", ".d81", ".reu", ".trh", ".zip", ".7z", ".rar"
     };
 
+    // Mirrors TransferExclusions.PartialDownloadExtensions: Chrome and Edge write .crdownload while a download runs, Firefox .part.
+    private static readonly HashSet<string> PartialDownloadExtensions = new(StringComparer.OrdinalIgnoreCase)
+    {
+        ".crdownload", ".part"
+    };
+
     // Links are never followed, so a walk can't leave the named folder or loop; hidden and system files stay home.
     private static readonly EnumerationOptions WalkOptions = new()
     {
@@ -64,7 +70,8 @@ internal static class UploadSources
 
     /// <summary>
     /// Whether the engine leaves a file at this '/'-separated path out of every upload: a segment that starts with a dot
-    /// or is <c>__MACOSX</c>, or a file named <c>Thumbs.db</c> or <c>desktop.ini</c>.
+    /// or is <c>__MACOSX</c>, or a file named <c>Thumbs.db</c> or <c>desktop.ini</c>. Mirrors
+    /// <c>TransferExclusions.IsExcluded</c>; a folder walk applies it to the path below the named folder.
     /// </summary>
     public static bool IsExcluded(string relativePath)
     {
@@ -82,12 +89,17 @@ internal static class UploadSources
     /// <summary>Whether the TeensyROM takes files of this name's type.</summary>
     public static bool IsSupported(string fileName) => SupportedExtensions.Contains(Path.GetExtension(fileName));
 
+    /// <summary>Whether <paramref name="path"/> is a browser's unfinished download, judged by its extension.</summary>
+    public static bool IsPartialDownload(string path) => PartialDownloadExtensions.Contains(Path.GetExtension(path));
+
     /// <summary>
     /// Walks what <paramref name="named"/> names. A file arrives as its name; a folder arrives as a folder of its own name
     /// with its layout kept, except <c>.</c> (and a folder with no name, a drive root), whose contents arrive directly.
     /// No names at all means the contents of <paramref name="currentFolder"/>. A named file is
-    /// always kept, whatever its type. Walked files are kept with their type tagged, except hidden, system, linked and
-    /// <see cref="IsExcluded"/> ones, which are skipped without being counted.
+    /// always kept, whatever its type. Walked files are kept with their type tagged, except hidden, system, linked,
+    /// <see cref="IsExcluded"/> and <see cref="IsPartialDownload"/> ones, which are skipped without being counted. The
+    /// exclusions are judged below the named folder, so a folder named <c>.stash</c> still sends its contents; the rule
+    /// mirrors <c>TransferExclusions</c>.
     /// </summary>
     /// <param name="currentFolder">What relative names are resolved against.</param>
     public static UploadPlan Resolve(IReadOnlyList<string> named, string currentFolder)
@@ -129,10 +141,9 @@ internal static class UploadSources
     private static List<UploadFile> Walk(string root, string prefix) =>
         Directory.EnumerateFiles(root, "*", WalkOptions)
             .Select(file => (File: file, Relative: Path.GetRelativePath(root, file).Replace(Path.DirectorySeparatorChar, '/')))
+            .Where(entry => !IsExcluded(entry.Relative) && !IsPartialDownload(entry.Relative))
             .OrderBy(entry => entry.Relative, StringComparer.Ordinal)
-            .Select(entry => (entry.File, Landing: prefix.Length == 0 ? entry.Relative : $"{prefix}/{entry.Relative}"))
-            .Where(entry => !IsExcluded(entry.Landing))
-            .Select(entry => Describe(entry.File, entry.Landing, foundInFolder: true))
+            .Select(entry => Describe(entry.File, prefix.Length == 0 ? entry.Relative : $"{prefix}/{entry.Relative}", foundInFolder: true))
             .ToList();
 
     private static UploadFile Describe(string localPath, string relativePath, bool foundInFolder = false)

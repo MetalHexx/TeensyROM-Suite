@@ -475,6 +475,53 @@ public sealed class FileUploadCommandTests : IDisposable
         host.Consoles.StdErr.Should().NotContain("left out");
     }
 
+    private void WritePartialFolder()
+    {
+        Write("partial/a.prg", 10);
+        Write("partial/notes.bin", 10);
+        Write("partial/movie.crdownload", 10);
+        Write("partial/game.part", 10);
+    }
+
+    [Fact]
+    public async Task AFolder_WithTheEngineSwitchOn_LeavesPartialDownloadsHome()
+    {
+        WritePartialFolder();
+        _allTypesSwitch = true;
+        var host = NewHost();
+
+        var exitCode = await host.RunAsync("file", "upload", "partial", "--to", "/x");
+
+        exitCode.Should().Be(0, host.Consoles.StdErr);
+        Uploaded().Should().Equal("partial/a.prg", "partial/notes.bin");
+        host.Consoles.StdErr.Should().NotContain("left out");
+    }
+
+    [Fact]
+    public async Task AFolder_WithTheSwitchOff_LeavesPartialDownloadsHome_WithoutCountingThem()
+    {
+        WritePartialFolder();
+        var host = NewHost();
+
+        var exitCode = await host.RunAsync("file", "upload", "partial", "--to", "/x");
+
+        exitCode.Should().Be(0, host.Consoles.StdErr);
+        Uploaded().Should().Equal("partial/a.prg");
+        host.Consoles.StdErr.Should().Contain("1 file was left out");
+    }
+
+    [Fact]
+    public async Task ANamedPartialDownload_IsSentLikeAnyNamedFile()
+    {
+        Write("movie.crdownload", 10);
+        var host = NewHost();
+
+        var exitCode = await host.RunAsync("file", "upload", "movie.crdownload", "--to", "/x");
+
+        exitCode.Should().Be(0, host.Consoles.StdErr);
+        Uploaded().Should().Equal("movie.crdownload");
+    }
+
     [Fact]
     public async Task AFolder_WithAllTypes_SendsEveryFile_WithoutReadingTheSwitch()
     {
@@ -499,15 +546,16 @@ public sealed class FileUploadCommandTests : IDisposable
     }
 
     [Fact]
-    public async Task AFolderNamedWithADotPrefix_LosesEverythingInIt_LikeAnyHiddenFolder()
+    public async Task AFolderNamedWithADotPrefix_SendsItsContents_AndADotFolderInsideStaysHome()
     {
         Write(".stash/a.prg", 10);
+        Write(".stash/.cache/b.prg", 10);
         var host = NewHost();
 
         var exitCode = await host.RunAsync("file", "upload", ".stash", "--to", "/x");
 
-        exitCode.Should().Be((int)CliExitCode.NotFound);
-        _calls.Should().BeEmpty();
+        exitCode.Should().Be(0, host.Consoles.StdErr);
+        Uploaded().Should().Equal(".stash/a.prg");
     }
 
     [Fact]
@@ -1603,6 +1651,19 @@ public sealed class UploadSourcesTests
     public void IsExcluded_MatchesDotSegments_MacosxFolders_AndTheWindowsJunkFiles(string path, bool expected)
     {
         UploadSources.IsExcluded(path).Should().Be(expected);
+    }
+
+    [Theory]
+    [InlineData("movie.crdownload", true)]
+    [InlineData("GAME.PART", true)]
+    [InlineData("Movie.CrDownload", true)]
+    [InlineData("games/sub/game.part", true)]
+    [InlineData("my.partial.prg", false)]
+    [InlineData("games.part/a.prg", false)]
+    [InlineData("games/sub/deep/c.sid", false)]
+    public void IsPartialDownload_MatchesBothBrowserSuffixes_IgnoringCase(string path, bool expected)
+    {
+        UploadSources.IsPartialDownload(path).Should().Be(expected);
     }
 
     private static UploadPlan PlanOf(params UploadFile[] files) => new(files, [], []);
