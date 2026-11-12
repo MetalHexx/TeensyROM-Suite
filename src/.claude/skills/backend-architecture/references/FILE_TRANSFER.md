@@ -205,6 +205,11 @@ Queued files are **delivered, not discarded**: the pump drains the queue normall
 | GET | `/api/transfers` | ListTransferJobs | Every job the registry holds, as snapshots |
 | GET | `/api/devices/{deviceId}/transfers/active` | GetActiveTransferJob | Get the job currently holding device lease |
 | POST | `/api/transfers/{jobId}/cancel` | CancelTransferJob | Transition straight to Cancelled, releasing device/staging/scratch; pump discards remaining files |
+| GET | `/api/settings/file-transfer` | GetFileTransferSettings | The upload settings: `autoLaunchOnCopyEnabled`, `allFileTypesInFolders`, `allFileTypesInArchives` |
+| PUT | `/api/settings/file-transfer` | SetFileTransferSettings | Change any of the three upload settings and leave the rest of the settings alone; a missing or null value stays as it is, and at least one is required |
+| PUT | `/api/watch-folders/{watchFolderId}/file-types` | SetWatchFolderFileTypes | Change a folder's `allFileTypes` and `allFileTypesInArchives`; applies to files that land after the change |
+
+`CreateJobEndpoint`'s body takes `launch` (becomes the job's `LaunchRequested`) and `allFileTypesInArchives`; when `allFileTypesInArchives` is absent the job takes `FileTransferSettings.AllFileTypesInArchives`. The job keeps its value for its whole life, so a settings change never reaches a job already running.
 
 ### SignalR Hub: TransferHub
 
@@ -274,7 +279,8 @@ Queued files are **delivered, not discarded**: the pump drains the queue normall
 
 `TransferPump.TryFinalize` makes the launch decision once a job has sent its last file. `ITransferAutoLauncher.ShouldLaunch` decides whether a launch is due. `TryComplete` then moves the job to `Completed`, leaving a due launch `Pending`, so a poller never sees `Completed` with the launch undecided. The lease is released, staging and scratch are purged, and only then does `StartLaunch` run the launch in the background. Its outcome arrives on a later snapshot as `launchState`, `launchedPath` and `launchError`.
 
-- **Who launches.** An upload launches when `FileTransferSettings.AutoLaunchOnCopyEnabled` is on or the job's `LaunchRequested` is set (`trom file upload --launch`). A watch-folder job launches only when both the setting and its destination's `launch` flag are set.
+- **Who launches.** An upload launches when `FileTransferSettings.AutoLaunchOnCopyEnabled` is on or the job's `LaunchRequested` is set (`trom file upload --launch`). A watch-folder job launches when `LaunchRequested` is set, which `WatchFolderDelivery` takes from its destination's `launch` flag, and the setting never applies. `AutoLaunchOnCopyEnabled` therefore means "launch after an upload", not after a watch-folder transfer.
+- **Which types an archive yields.** The job's `AllFileTypesInArchives` decides: off, `ArchiveExpansionService` drops an entry that is neither a known type nor a nested archive; on, it keeps every entry. `TransferExclusions` runs first and drops hidden and system entries whatever the switch says.
 - **Which file.** As each file completes, `LaunchCandidateRanker.IsBetter` keeps the best candidate so far. Games (`Prg`, `Crt`, `P00`) rank 0, `Sid` 1, images and text (`Kla`, `Koa`, `Art`, `Aas`, `Hpi`, `Seq`, `Txt`) 2, `Hex` 3. A tie goes to the earlier file name, then the earlier full device path. `.trh` never launches. Neither do `D64`, `Zip`, `Nfo` or any other unranked type, such as `.reu`, `.d71`, `.d81`, `.md`, `.ocp` and `.pic`.
 - **Failures.** A failed or incompatible launch is logged as a warning and recorded as `launchState` `Failed` or `Incompatible`. The job stays `Completed`.
 
@@ -284,12 +290,15 @@ Queued files are **delivered, not discarded**: the pump drains the queue normall
 
 `WatchFolderWatcher` runs one loop that watches every enabled watch folder and sends what arrives in it to that folder's destinations. The loop owns all watch state. `FileSystemWatcher` callbacks, settings changes and the poll timer only post messages to its channel, so nothing starts or stops from a callback (a settings change arrives synchronously under the settings lock). The watcher reports each folder's state through `IWatchFolderStatus`: `Watching`, `Off` (turned off) or `Unavailable` (the folder is missing or its watch failed to start).
 
-Folders live in `TeensySettings.WatchFolders` (`Settings.json`). Only the `/api/watch-folders` endpoints change them, through `WatchFolderStore`: add, remove a folder, remove one device from a folder, change a destination's device folder and launch flag in place (`PUT /api/watch-folders/{watchFolderId}/devices/{deviceId}`; a different device or storage is a different destination), and enable or disable. Files that land while a folder is disabled are never sent later. `WatchFolderStore` refuses a folder nested in another watched folder, a second destination for a device that already has one on the folder, and a device without a chip id. A whole-settings save keeps the folders.
+Folders live in `TeensySettings.WatchFolders` (`Settings.json`). Only the `/api/watch-folders` endpoints change them, through `WatchFolderStore`: add, remove a folder, remove one device from a folder, change a destination's device folder and launch flag in place (`PUT /api/watch-folders/{watchFolderId}/devices/{deviceId}`; a different device or storage is a different destination), change its file-type switches (`PUT /api/watch-folders/{watchFolderId}/file-types`), and enable or disable. Each folder carries `AllFileTypes` and `AllFileTypesInArchives`, both off by default. Files that land while a folder is disabled are never sent later. `WatchFolderStore` refuses a folder nested in another watched folder, a second destination for a device that already has one on the folder, and a device without a chip id. A whole-settings save keeps the folders.
 
 ### Arrival rules
 
 - Only files that arrive after the folder is watched count. Files already there are ignored. A new subfolder is walked, and its files count.
-- Only transferable types and archives count: `TransferableFileTypes`, and `IArchiveReader.IsArchiveExtension` for archives. A file renamed from a name the TeensyROM does not take to one it does arrives on the rename, which is how a browser's partial download counts.
+- `TransferExclusions` filters first, whatever the switches say: any path segment that starts with `.` or is `__MACOSX`, `Thumbs.db` and `desktop.ini`, and browser partial downloads (`.crdownload`, `.part`; Safari's `.download` package is handled in the tracker).
+- With the folder's `AllFileTypes` off, only transferable types and archives count: `TransferableFileTypes`, and `IArchiveReader.IsArchiveExtension` for archives. With it on, every file that passes the exclusions counts.
+- The watcher gives each `ArrivalTracker` a live `ArrivalRules` (`AllFileTypes`, `AllFileTypesInArchives`) read from the folder as it is now, so a switch flipped while the folder is watched applies to the next arrival. The archive switch reaches the delivery job's `AllFileTypesInArchives`.
+- Rename rule: a rename counts as an arrival when the old name was not one that would have been sent. With `AllFileTypes` off, that is an old name that was not a known type or archive. With it on, an old name says little (`a.doc` to `b.doc` is a rename of a file sent long ago), so only an old name that was a partial download or excluded, or a file still settling under its old name, counts. This is how a browser's partial download arrives.
 - A file is settled once its size and readability hold still for `SettleTime`. Settled files that arrive within `GroupingWindow` of one another form one set. A set closes after a `GroupingWindow` with nothing new settling. While files are still being written, the set waits, for at most `MaxSetHold` from when it opened.
 
 ### Delivery
@@ -348,6 +357,8 @@ Bound from the `WatchFolders` configuration section by `WatchFolderOptionsBinder
 | **Options** | `apps/api/src/TeensyRom.Api/Transfers/TransferOptions.cs` |
 | **Job Service** (Start, AddFile, Seal) | `apps/api/src/TeensyRom.Api/Transfers/ITransferJobService.cs`<br/>`apps/api/src/TeensyRom.Api/Transfers/TransferJobService.cs` |
 | **Auto-Launch** | `apps/api/src/TeensyRom.Api/Transfers/TransferAutoLauncher.cs`<br/>`apps/api/src/TeensyRom.Api/Transfers/LaunchCandidateRanker.cs`<br/>`apps/api/src/TeensyRom.Api/Transfers/TransferableFileTypes.cs` |
+| **Exclusions** | `apps/api/src/TeensyRom.Api/Transfers/TransferExclusions.cs` |
+| **Upload Settings Endpoints** | `apps/api/src/TeensyRom.Api/Endpoints/Settings/GetFileTransferSettings/`<br/>`apps/api/src/TeensyRom.Api/Endpoints/Settings/SetFileTransferSettings/` |
 | **Origin and Launch State** | `apps/api/src/TeensyRom.Core/Entities/Transfers/TransferOrigin.cs`<br/>`apps/api/src/TeensyRom.Core/Entities/Transfers/TransferLaunchState.cs` |
 | **List Endpoint** | `apps/api/src/TeensyRom.Api/Endpoints/Transfers/ListJobs/` |
 | **Watched Folders** | `apps/api/src/TeensyRom.Api/WatchFolders/` (`WatchFolderWatcher.cs`, `ArrivalTracker.cs`, `WatchFolderDelivery.cs`, `WatchFolderStore.cs`, `WatchFolderPaths.cs`, `WatchFolderOptions.cs`, `WatchFolderOptionsBinder.cs`, `WatchedFileSystem.cs`, `FileSystemFolderWatchFactory.cs`) |

@@ -82,6 +82,7 @@ Video is optional but recommended.
 - **Large folders:** browsing stays smooth in folders with thousands of files.
 - **Back and forward:** retrace your steps through folders, like a browser.
 - **Several carts:** browse multiple connected carts at the same time.
+- **Every file listed:** files the TeensyROM can't launch are listed too, but they can't be played.
 
 ## Mobile and responsive
 
@@ -114,8 +115,8 @@ Send files from your computer to your cart's storage.
 - **Drag, or choose:** drop files or whole folders in, or pick them.
 - **Live progress:** each transfer shows how far it has come, the speed, how long it has taken and which files failed. You can cancel a transfer while it runs.
 - **Archives:** `.zip`, `.7z` and `.rar` files are unpacked on the way in.
-- **File types:** only the types a TeensyROM takes are sent, and the rest are left out.
-- **Auto launch:** a transferred file can start on the cart as soon as its transfer finishes.
+- **File types:** files you pick or drop on their own are always sent. Files found in a folder you drop, or inside an archive, are sent only if the TeensyROM recognizes their type, unless *All file types in folders* or *All file types in archives* is on in the Transfer Settings panel's Uploads section. Hidden and system files are never sent.
+- **Auto launch:** a file you upload can start on the cart as soon as its transfer finishes. Turn it on or off in the Uploads section of the Transfer Settings panel. Each watch-folder device has its own.
 - **Several carts at once:** each cart takes one transfer at a time, and different carts transfer side by side. If a cart is busy, you can retry once it is free.
 - **Every transfer in one place:** transfers started from [Trom Terminal](trom-terminal.md) or a watch folder show here too. Open one for its details, or hide them without stopping it.
 
@@ -132,12 +133,14 @@ For each watch folder you choose:
 - **Folder to watch:** a folder on the computer that runs the suite. Files that land in it or its subfolders are sent.
 - **Cart and storage:** which cart gets the files, on SD or USB.
 - **Cart folder:** where on the cart the files go.
-- **Auto launch:** start a file on the cart as soon as it lands.
+- **Auto launch:** start a file on the cart as soon as it lands. Each cart you add to the folder has its own.
+- **All file types:** send every file that lands, not only the types the TeensyROM recognizes. Off by default.
+- **All file types in archives:** send everything inside an archive that lands, not only the types the TeensyROM recognizes. Off by default.
 - **More carts:** send the same folder to several carts.
 
-Add as many watch folders as you like. You can edit a destination, turn a folder off and on, and remove it.
+Add as many watch folders as you like. You can edit a destination, change a folder's file types, turn a folder off and on, and remove it.
 
-Only files that arrive after you add the folder are sent, and only of types the TeensyROM takes. Archives are unpacked on the cart. Your files stay in the folder: they are copied, never moved or deleted. Files that land close together go as one transfer. A file that lands while its cart is busy with another transfer is skipped, and a file that lands while its folder is turned off is not sent later. A transfer from a watch folder resets the cart like any other, which stops what is running.
+Only files that arrive after you add the folder are sent, and by default only of types the TeensyROM recognizes; turn on *All file types* to send the rest. Hidden and system files, and a browser's unfinished downloads, are never sent. Archives are unpacked on the cart, and what comes out follows *All file types in archives*. Your files stay in the folder: they are copied, never moved or deleted. Files that land close together go as one transfer. A file that lands while its cart is busy with another transfer is skipped, and a file that lands while its folder is turned off is not sent later. A transfer from a watch folder resets the cart like any other, which stops what is running.
 
 You can also manage watch folders from [Trom Terminal](trom-terminal.md) with `trom watch-folder`.
 
