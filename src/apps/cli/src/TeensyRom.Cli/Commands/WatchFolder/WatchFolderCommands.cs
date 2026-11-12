@@ -37,6 +37,14 @@ internal sealed class WatchFolderAddSettings : StorageSettings
     [Description("Have the TeensyROM launch each file that lands.")]
     public bool Launch { get; set; }
 
+    [CommandOption("--all-types")]
+    [Description("Send every file that lands in the folder, not only the types the TeensyROM recognizes.")]
+    public bool AllTypes { get; set; }
+
+    [CommandOption("--all-in-archives")]
+    [Description("Send everything inside archives that land in the folder.")]
+    public bool AllInArchives { get; set; }
+
     public override ValidationResult Validate() =>
         Path.IsValidUnixPath() ? base.Validate() : ValidationResult.Error($"--path must be a valid unix path, such as {DefaultDevicePath}, not '{Path}'.");
 }
@@ -69,10 +77,37 @@ internal sealed class WatchFolderSetSettings : DeviceSettings
     /// <summary>True, false, or null when neither launch flag was given.</summary>
     public bool? LaunchValue => Launch ? true : NoLaunch ? false : null;
 
+    [CommandOption("--all-types")]
+    [Description("Send every file that lands in the folder, not only the types the TeensyROM recognizes.")]
+    public bool AllTypes { get; set; }
+
+    [CommandOption("--no-all-types")]
+    [Description("Send only the types the TeensyROM recognizes.")]
+    public bool NoAllTypes { get; set; }
+
+    /// <summary>True, false, or null when neither all-types flag was given.</summary>
+    public bool? AllTypesValue => AllTypes ? true : NoAllTypes ? false : null;
+
+    [CommandOption("--all-in-archives")]
+    [Description("Send everything inside archives that land in the folder.")]
+    public bool AllInArchives { get; set; }
+
+    [CommandOption("--no-all-in-archives")]
+    [Description("Send only the types the TeensyROM recognizes from inside archives.")]
+    public bool NoAllInArchives { get; set; }
+
+    /// <summary>True, false, or null when neither all-in-archives flag was given.</summary>
+    public bool? AllInArchivesValue => AllInArchives ? true : NoAllInArchives ? false : null;
+
     public override ValidationResult Validate()
     {
         if (Launch && NoLaunch) return ValidationResult.Error("Give --launch or --no-launch, not both.");
-        if (Path is null && LaunchValue is null) return ValidationResult.Error("Give --path, --launch or --no-launch: there is nothing to change.");
+        if (AllTypes && NoAllTypes) return ValidationResult.Error("Give --all-types or --no-all-types, not both.");
+        if (AllInArchives && NoAllInArchives) return ValidationResult.Error("Give --all-in-archives or --no-all-in-archives, not both.");
+        if (Path is null && LaunchValue is null && AllTypesValue is null && AllInArchivesValue is null)
+        {
+            return ValidationResult.Error("Give --path, --launch, --no-launch, --all-types, --no-all-types, --all-in-archives or --no-all-in-archives: there is nothing to change.");
+        }
         if (Path is not null && !Path.IsValidUnixPath()) return ValidationResult.Error($"--path must be a valid unix path, such as {WatchFolderAddSettings.DefaultDevicePath}, not '{Path}'.");
 
         return base.Validate();
@@ -131,7 +166,7 @@ internal sealed class WatchFolderAddCommand(
 
     protected override async Task<int> RunAsync(CommandContext context, WatchFolderAddSettings settings, CancellationToken ct)
     {
-        var added = await watchFolders.AddAsync(_folder, Devices.RequireDeviceId(), Storage.StorageType, settings.Path, settings.Launch, ct);
+        var added = await watchFolders.AddAsync(_folder, Devices.RequireDeviceId(), Storage.StorageType, settings.Path, settings.Launch, settings.AllTypes, settings.AllInArchives, ct);
         var folder = WatchFolderOutput.ToJson(added.WatchFolder);
 
         if (Output.Mode == OutputMode.Json) Output.Json(new WatchFolderAddJson(added.Created, folder));
@@ -180,8 +215,9 @@ internal sealed class WatchFolderRemoveCommand(ICliOutput output, IEngineControl
 }
 
 /// <summary>
-/// <c>trom watch-folder set &lt;FOLDER&gt;</c>: changes where a watched folder's files land on a TeensyROM, and whether the
-/// TeensyROM launches them, without removing and re-adding the destination.
+/// <c>trom watch-folder set &lt;FOLDER&gt;</c>: changes where a watched folder's files land on a TeensyROM, whether the
+/// TeensyROM launches them, and which file types the folder sends, without removing and re-adding the destination. A
+/// change to the file-type switches alone applies to the whole folder and needs no device.
 /// </summary>
 internal sealed class WatchFolderSetCommand(ICliOutput output, IEngineControl engine, IDeviceChooser chooser, IWatchFolderService watchFolders)
     : EngineCommand<WatchFolderSetSettings>(output, engine)
@@ -189,12 +225,24 @@ internal sealed class WatchFolderSetCommand(ICliOutput output, IEngineControl en
     protected override async Task<int> RunAsync(CommandContext context, WatchFolderSetSettings settings, CancellationToken ct)
     {
         var folder = await watchFolders.FindAsync(WatchFolderPaths.Resolve(settings.Folder), ct);
-        var deviceId = string.IsNullOrWhiteSpace(settings.Device)
-            ? SoleDestination(folder)
-            : await WatchFolderDevices.ChooseAsync(chooser, settings.Device, folder, ct);
+        string? deviceId = null;
 
-        var updated = await watchFolders.SetDeviceAsync(folder.Id, deviceId, settings.Path, settings.LaunchValue, ct);
+        if (settings.Path is not null || settings.LaunchValue is not null)
+        {
+            deviceId = string.IsNullOrWhiteSpace(settings.Device)
+                ? SoleDestination(folder)
+                : await WatchFolderDevices.ChooseAsync(chooser, settings.Device, folder, ct);
+        }
+        var updated = folder;
 
+        if (settings.AllTypesValue is not null || settings.AllInArchivesValue is not null)
+        {
+            updated = await watchFolders.SetFileTypesAsync(folder.Id, settings.AllTypesValue, settings.AllInArchivesValue, ct);
+        }
+        if (deviceId is not null)
+        {
+            updated = await watchFolders.SetDeviceAsync(folder.Id, deviceId, settings.Path, settings.LaunchValue, ct);
+        }
         WatchFolderOutput.Show(Output, WatchFolderOutput.ToJson(updated));
 
         return 0;
