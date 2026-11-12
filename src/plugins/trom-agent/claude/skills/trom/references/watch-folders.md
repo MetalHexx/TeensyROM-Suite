@@ -12,9 +12,11 @@ Confirm each of these with the user before you run anything:
 - The TeensyROM (`--device`) and its storage (`--storage sd|usb`).
 - The folder on the TeensyROM the files land in (`--path`, default `/auto-transfer`).
 - Whether the TeensyROM launches each file that lands (`--launch`).
-- Whether the folder sends files of every type (`--all-types`) and everything inside its archives (`--all-in-archives`). Both are off by default; ask only when the person wants files outside the known types.
+- Whether the folder sends files of every type (`--all-types`) and everything inside its archives (`--all-in-archives`), only when `init`'s `capabilities` list `transfer set`. Both are off by default; ask only when the person wants files outside the known types.
 
 Then run `trom watch-folder add "<folder>" --device <name> --storage <sd|usb> --path "<device folder>" [--launch] [--all-types] [--all-in-archives] --json`. The result is `{created, folder}`. `created` is false when the folder was already watched, and then this TeensyROM was added to it as another destination.
+
+`--all-types` and `--all-in-archives` apply only when this add creates the folder. If `created` is false they were ignored: change them with `trom watch-folder set "<folder>" --all-types` (or `--all-in-archives`), and read `allTypes` and `allInArchives` back from the result.
 
 A folder can't sit inside another watched folder, or contain one.
 
