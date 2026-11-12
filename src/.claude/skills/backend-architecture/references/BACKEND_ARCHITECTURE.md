@@ -276,6 +276,8 @@ public class GetDirectoryEndpoint(IDeviceConnectionManager deviceManager)
 }
 ```
 
+The folder listing (`GetDirectory`) returns every file; one the API can't classify as launchable is typed `Unknown`. Search and launch handle only launchable files, and launching an `Unknown` file is a 400.
+
 **Key Pattern**: Endpoints are **thin adapters** that:
 1. Extract/validate request data
 2. Resolve domain services (devices, storage)

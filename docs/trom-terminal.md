@@ -72,7 +72,7 @@ trom file upload ./Artillery.sid --to /music --launch
 trom file download /music/Artillery.sid --to ./backup
 ```
 
-Files you name are always sent, whatever their type. Folders and archives send only the types a TeensyROM recognizes, unless the upload settings or `--all-types` and `--all-in-archives` say otherwise. Hidden and system files are never sent. A copy can reset the cart, which stops what is running.
+Files you name are always sent, whatever their type. Folders and archives send only the types a TeensyROM recognizes, unless the upload settings or `--all-types` and `--all-in-archives` say otherwise. Hidden and system files found in a folder or an archive are never sent; a file you name is sent even if its name starts with a dot. A copy can reset the cart, which stops what is running.
 
 The upload settings are shared with Trom UI. `trom transfer settings` shows them, and `trom transfer set` changes one:
 
@@ -98,7 +98,7 @@ trom watch-folder resume ./roms
 trom watch-folder remove ./roms
 ```
 
-Add `--launch` to start each file as it lands, and use `trom watch-folder set` to change a destination. A watch folder sends only the types a TeensyROM recognizes. Add `--all-types` to send every file, and `--all-in-archives` to send everything inside archives; `trom watch-folder set` takes both and their `--no-` forms to change them later. The rules are the same as in [Trom UI](trom-ui.md#watch-folders). You can also manage watch folders from the guided menu.
+Add `--launch` to start each file as it lands, and use `trom watch-folder set` to change a destination. A watch folder sends only the types a TeensyROM recognizes. Add `--all-types` to send every file, and `--all-in-archives` to send everything inside archives; these take effect when the add creates the folder. For a folder you already watch, use `trom watch-folder set`, which takes both and their `--no-` forms. The rules are the same as in [Trom UI](trom-ui.md#watch-folders). You can also manage watch folders from the guided menu.
 
 ## Themes
 
