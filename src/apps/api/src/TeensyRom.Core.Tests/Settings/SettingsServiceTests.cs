@@ -1768,6 +1768,53 @@ public class SettingsServiceTests : IDisposable
     }
 
     [Fact]
+    public void GetSettings_ReadOnlyPreChangeFile_UpgradesInMemoryWarnsAndWritesAtTheNextSave()
+    {
+        GivenSettingsFile(FileWithWatchFolder(autoLaunch: false, version: null));
+        File.SetAttributes(_settingsFilePath, FileAttributes.ReadOnly);
+        try
+        {
+            var service = new SettingsService(_mockLogger);
+
+            var settings = service.GetSettings();
+            settings.SettingsVersion.Should().Be(SettingsUpgrades.CurrentVersion);
+            settings.WatchFolders.Single().Destinations.Should().OnlyContain(d => !d.Launch);
+            _mockLogger.ReceivedWithAnyArgs().InternalWarning(default!, default);
+            LaunchableItemSerializer.Deserialize<TeensySettings>(File.ReadAllText(_settingsFilePath))!
+                .SettingsVersion.Should().NotBe(SettingsUpgrades.CurrentVersion);
+
+            File.SetAttributes(_settingsFilePath, FileAttributes.Normal);
+            service.UpdateSettings(s => s with { AppSettings = s.AppSettings with { FirstTimeSetup = !s.AppSettings.FirstTimeSetup } });
+
+            LaunchableItemSerializer.Deserialize<TeensySettings>(File.ReadAllText(_settingsFilePath))!
+                .SettingsVersion.Should().Be(SettingsUpgrades.CurrentVersion);
+        }
+        finally
+        {
+            File.SetAttributes(_settingsFilePath, FileAttributes.Normal);
+        }
+    }
+
+    [Fact]
+    public void FileTypeSwitches_ShouldSurviveSaveAndReload()
+    {
+        var service = new SettingsService(_mockLogger);
+
+        service.UpdateSettings(s => s with
+        {
+            FileTransferSettings = s.FileTransferSettings with { AllFileTypesInFolders = true, AllFileTypesInArchives = true },
+            WatchFolders = [new WatchFolder { Id = "f1", Path = Path.GetTempPath(), AllFileTypes = true, AllFileTypesInArchives = true }]
+        });
+        var reloaded = new SettingsService(_mockLogger).GetSettings();
+
+        reloaded.FileTransferSettings.AllFileTypesInFolders.Should().BeTrue();
+        reloaded.FileTransferSettings.AllFileTypesInArchives.Should().BeTrue();
+        var folder = reloaded.WatchFolders.Should().ContainSingle().Subject;
+        folder.AllFileTypes.Should().BeTrue();
+        folder.AllFileTypesInArchives.Should().BeTrue();
+    }
+
+    [Fact]
     public void Constructor_WithNoFile_WritesDefaultsAtTheCurrentVersion()
     {
         var settings = new SettingsService(_mockLogger).GetSettings();

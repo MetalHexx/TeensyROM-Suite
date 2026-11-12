@@ -112,17 +112,19 @@ public class SaveSettingsMapperTests
     }
 
     [Fact]
-    public void ToEntity_MapsEveryFileTransferSetting()
+    public void ToEntity_KeepsTheExistingFileTransferSettings()
     {
-        var mapper = GivenMapperWithExisting();
+        var transferSettings = new FileTransferSettings { AutoLaunchOnCopyEnabled = true, AllFileTypesInFolders = false, AllFileTypesInArchives = false };
+        _settingsService.GetSettings().Returns(new TeensySettings { FileTransferSettings = transferSettings });
+        var mapper = new SaveSettingsMapper(_settingsService);
         var request = GivenRequest() with
         {
             FileTransferSettings = new FileTransferSettingsDto { AutoLaunchOnCopyEnabled = false, AllFileTypesInFolders = true, AllFileTypesInArchives = true }
         };
 
-        var transfer = mapper.ToEntity(request).FileTransferSettings;
+        var entity = mapper.ToEntity(request);
 
-        transfer.Should().BeEquivalentTo(new { AutoLaunchOnCopyEnabled = false, AllFileTypesInFolders = true, AllFileTypesInArchives = true });
+        entity.FileTransferSettings.Should().BeSameAs(transferSettings);
     }
 
     [Fact]

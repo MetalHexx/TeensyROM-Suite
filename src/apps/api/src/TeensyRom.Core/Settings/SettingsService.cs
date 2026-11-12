@@ -58,7 +58,18 @@ namespace TeensyRom.Core.Settings
                     {
                         // Writes directly: SaveSettings would publish on _settings, which is still null during the constructor's first load.
                         _currentSettings = SettingsUpgrades.Apply(loaded, out var upgraded);
-                        if (upgraded) WriteSettings(_currentSettings);
+                        if (upgraded)
+                        {
+                            try
+                            {
+                                WriteSettings(_currentSettings);
+                            }
+                            catch (Exception ex) when (ex is IOException or UnauthorizedAccessException)
+                            {
+                                // The upgraded settings stay in memory and are written by the next save.
+                                _log.InternalWarning($"Settings file {_settingsFilePath} could not be rewritten after its upgrade ({ex.Message}); the upgrade is kept in memory and written at the next save.");
+                            }
+                        }
                     }
                 }
                 if (_currentSettings is null)

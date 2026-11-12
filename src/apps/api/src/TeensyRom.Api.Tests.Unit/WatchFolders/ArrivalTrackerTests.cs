@@ -616,6 +616,41 @@ public class ArrivalTrackerTests
         Run(15).Should().BeEmpty();
     }
 
+    [Theory]
+    [InlineData(false)]
+    [InlineData(true)]
+    public void Archive_WithOnlyAResolvedExcludedEntry_IsDropped_WhateverTheSwitch(bool allFileTypesInArchives)
+    {
+        _rules = new ArrivalRules(AllFileTypes: false, allFileTypesInArchives);
+        _fs.AddFile(P("mac.zip"), 100);
+        _archives.ReadIndex(P("mac.zip")).Returns(Index(("music/Thumbs.db", false)));
+        Created("mac.zip");
+
+        Run(15).Should().BeEmpty();
+    }
+
+    [Fact]
+    public void Archive_WithADotSlashTransferableEntry_IsKept_WithTheSwitchOff()
+    {
+        _rules = new ArrivalRules(AllFileTypes: false, AllFileTypesInArchives: false);
+        _fs.AddFile(P("dot.zip"), 100);
+        _archives.ReadIndex(P("dot.zip")).Returns(Index(("./game.prg", false)));
+        Created("dot.zip");
+
+        Run(10).Should().ContainSingle().Which.Files.Should().ContainSingle().Which.RelativePath.Should().Be("dot.zip");
+    }
+
+    [Fact]
+    public void Archive_WithOnlyADotSlashUntransferableEntry_IsDropped_WithTheSwitchOff()
+    {
+        _rules = new ArrivalRules(AllFileTypes: false, AllFileTypesInArchives: false);
+        _fs.AddFile(P("dot.zip"), 100);
+        _archives.ReadIndex(P("dot.zip")).Returns(Index(("./notes.doc", false)));
+        Created("dot.zip");
+
+        Run(15).Should().BeEmpty();
+    }
+
     [Fact]
     public void ArchiveSwitchFlippedWhileWatching_AppliesToTheNextArchive()
     {
