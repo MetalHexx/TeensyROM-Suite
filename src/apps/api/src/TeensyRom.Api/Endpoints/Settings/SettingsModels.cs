@@ -171,6 +171,16 @@ namespace TeensyRom.Api.Endpoints.Settings
         /// Automatically launch files after copying them.
         /// </summary>
         [Required] public bool AutoLaunchOnCopyEnabled { get; set; }
+
+        /// <summary>
+        /// Send every file in a folder upload, not only known types.
+        /// </summary>
+        [Required] public bool AllFileTypesInFolders { get; set; }
+
+        /// <summary>
+        /// Send everything inside archives, not only known types.
+        /// </summary>
+        [Required] public bool AllFileTypesInArchives { get; set; }
     }
 
     /// <summary>

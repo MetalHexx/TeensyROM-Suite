@@ -103,6 +103,29 @@ public class SaveSettingsMapperTests
     }
 
     [Fact]
+    public void ToEntity_KeepsTheExistingSettingsVersion()
+    {
+        _settingsService.GetSettings().Returns(new TeensySettings { SettingsVersion = SettingsUpgrades.CurrentVersion });
+        var mapper = new SaveSettingsMapper(_settingsService);
+
+        mapper.ToEntity(GivenRequest()).SettingsVersion.Should().Be(SettingsUpgrades.CurrentVersion);
+    }
+
+    [Fact]
+    public void ToEntity_MapsEveryFileTransferSetting()
+    {
+        var mapper = GivenMapperWithExisting();
+        var request = GivenRequest() with
+        {
+            FileTransferSettings = new FileTransferSettingsDto { AutoLaunchOnCopyEnabled = false, AllFileTypesInFolders = true, AllFileTypesInArchives = true }
+        };
+
+        var transfer = mapper.ToEntity(request).FileTransferSettings;
+
+        transfer.Should().BeEquivalentTo(new { AutoLaunchOnCopyEnabled = false, AllFileTypesInFolders = true, AllFileTypesInArchives = true });
+    }
+
+    [Fact]
     public void ToEntity_KeepsTheExistingWatchFolders()
     {
         var watchFolders = new List<WatchFolder> { new() { Id = "f1", Path = "/watched" } };

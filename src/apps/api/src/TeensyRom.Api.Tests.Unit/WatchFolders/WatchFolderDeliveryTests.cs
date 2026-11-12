@@ -94,6 +94,20 @@ public class WatchFolderDeliveryTests
     }
 
     [Theory]
+    [InlineData(true)]
+    [InlineData(false)]
+    public async Task EveryJob_CarriesTheFoldersArchiveSwitch(bool allFileTypesInArchives)
+    {
+        var folder = Folder(Destination("dev-a"), Destination("dev-b"));
+        folder = folder with { AllFileTypesInArchives = allFileTypesInArchives };
+        _store.Get("w1").Returns(folder);
+
+        await Deliver(folder, File("pack.zip", archive: true));
+
+        _starts.Should().HaveCount(2).And.OnlyContain(s => s.AllFileTypesInArchives == allFileTypesInArchives);
+    }
+
+    [Theory]
     [InlineData(TransferStartError.DeviceNotFound)]
     [InlineData(TransferStartError.StorageUnavailable)]
     [InlineData(TransferStartError.DeviceBusy)]

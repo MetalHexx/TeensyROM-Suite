@@ -50,11 +50,16 @@ namespace TeensyRom.Core.Settings
 
                 if (File.Exists(_settingsFilePath))
                 {
-                    using var stream = File.Open(_settingsFilePath, FileMode.Open, FileAccess.Read);
-                    using var reader = new StreamReader(stream);
-                    var content = reader.ReadToEnd();
+                    // Read fully and close the file before any upgrade rewrite.
+                    var content = File.ReadAllText(_settingsFilePath);
 
-                    _currentSettings = LaunchableItemSerializer.Deserialize<TeensySettings>(content);
+                    var loaded = LaunchableItemSerializer.Deserialize<TeensySettings>(content);
+                    if (loaded is not null)
+                    {
+                        // Writes directly: SaveSettings would publish on _settings, which is still null during the constructor's first load.
+                        _currentSettings = SettingsUpgrades.Apply(loaded, out var upgraded);
+                        if (upgraded) WriteSettings(_currentSettings);
+                    }
                 }
                 if (_currentSettings is null)
                 {
@@ -173,7 +178,7 @@ namespace TeensyRom.Core.Settings
 
         private TeensySettings InitDefaultSettings()
         {
-            return new TeensySettings();
+            return new TeensySettings { SettingsVersion = SettingsUpgrades.CurrentVersion };
         }
 
         private void WriteSettings(TeensySettings settings)

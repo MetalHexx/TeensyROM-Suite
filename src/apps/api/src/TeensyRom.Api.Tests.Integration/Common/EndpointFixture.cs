@@ -36,6 +36,8 @@ namespace TeensyRom.Api.Tests.Integration.Common
         }
         public Fixture DataGenerator { get; private set; } = new();
 
+        public IServiceProvider Services => _factory.Services;
+
         private readonly WebApplicationFactory<Program> _factory;
 
         public EndpointFixture()

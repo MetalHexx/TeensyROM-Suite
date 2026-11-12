@@ -120,6 +120,22 @@ public class TransferJobServiceTests : IDisposable
         _notifier.DidNotReceiveWithAnyArgs().JobChanged(default!);
     }
 
+    [Theory]
+    [InlineData(true)]
+    [InlineData(false)]
+    public void Start_AllFileTypesInArchives_ReachesTheCreatedJob(bool allFileTypesInArchives)
+    {
+        GivenDevice();
+        var job = NewJob();
+        _registry.Create(DeviceId, Arg.Any<TeensyStorageType>(), Arg.Any<DirectoryPath>(), Arg.Any<int>(), Arg.Any<TransferOrigin?>(), Arg.Any<bool>(), allFileTypesInArchives)
+            .Returns(job);
+        _leases.TryAcquire(DeviceId, job.JobId).Returns(true);
+
+        var result = NewService().Start(NewStart() with { AllFileTypesInArchives = allFileTypesInArchives });
+
+        result.Job.Should().BeSameAs(job);
+    }
+
     [Fact]
     public void Start_LeaseAcquired_ReturnsJobAndNotifiesOnce()
     {

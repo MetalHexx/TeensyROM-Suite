@@ -55,6 +55,9 @@ namespace TeensyRom.Api.Transfers
         /// <summary>True when the creator asked for a launch on completion regardless of the auto-launch setting.</summary>
         public bool LaunchRequested { get; }
 
+        /// <summary>True when everything inside this job's archives is sent, not only known types.</summary>
+        public bool AllFileTypesInArchives { get; }
+
         /// <summary>The best launchable file this job has sent so far, or null when none qualifies.</summary>
         public string? LaunchCandidate
         {
@@ -89,7 +92,8 @@ namespace TeensyRom.Api.Transfers
             Func<DateTime>? clock = null,
             int expectedArchiveCount = 0,
             TransferOrigin? origin = null,
-            bool launchRequested = false)
+            bool launchRequested = false,
+            bool allFileTypesInArchives = false)
         {
             JobId = Guid.NewGuid().ToString("N");
             DeviceId = deviceId;
@@ -97,6 +101,7 @@ namespace TeensyRom.Api.Transfers
             Destination = destination;
             Origin = origin ?? TransferOrigin.Upload;
             LaunchRequested = launchRequested;
+            AllFileTypesInArchives = allFileTypesInArchives;
             _options = options;
             _clock = clock ?? (() => DateTime.UtcNow);
             _expectedArchiveCount = expectedArchiveCount;
