@@ -22,6 +22,8 @@ describe('updateDeviceVideoDeviceId', () => {
     },
     fileTransferSettings: {
       autoLaunchOnCopyEnabled: false,
+      allFileTypesInFolders: false,
+      allFileTypesInArchives: false,
     },
     searchSettings: {
       weights: {
@@ -56,6 +58,8 @@ describe('updateDeviceVideoDeviceId', () => {
     mockSettingsService = {
       getSettings: vi.fn(),
       saveSettings: vi.fn(),
+      getFileTransferSettings: vi.fn(),
+      saveFileTransferSettings: vi.fn(),
     };
 
     TestBed.configureTestingModule({

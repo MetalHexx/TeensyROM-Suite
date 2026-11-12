@@ -3,7 +3,7 @@ import { of, throwError, timer } from 'rxjs';
 import { map } from 'rxjs/operators';
 import '@analogjs/vitest-angular/setup-zone';
 import { TestBed } from '@angular/core/testing';
-import { Settings, ISettingsService, SETTINGS_SERVICE, PlayerFilterType } from '@teensyrom-nx/domain';
+import { Settings, FileTransferSettings, ISettingsService, SETTINGS_SERVICE, PlayerFilterType } from '@teensyrom-nx/domain';
 import { SettingsStore } from './settings-store';
 
 // --------------------------------------------------------------------------
@@ -14,6 +14,7 @@ type SettingsStoreInstance = {
   settings: () => Settings | null;
   history: () => Settings[];
   historyPosition: () => number;
+  storedCurrent: () => Settings | null;
   isLoading: () => boolean;
   isSaving: () => boolean;
   error: () => string | null;
@@ -21,6 +22,8 @@ type SettingsStoreInstance = {
 
   loadSettings: () => Promise<void>;
   saveSettings: () => Promise<void>;
+  saveFileTransferSettings: (change: Partial<FileTransferSettings>) => Promise<void>;
+  refreshFileTransferSettings: () => Promise<void>;
   updateSettings: (params: { settings: Partial<Settings> }) => void;
   undo: () => void;
   redo: () => void;
@@ -50,6 +53,8 @@ describe('SettingsStore (NgRx Signal Store)', () => {
     },
     fileTransferSettings: {
       autoLaunchOnCopyEnabled: false,
+      allFileTypesInFolders: false,
+      allFileTypesInArchives: false,
     },
     searchSettings: {
       weights: {
@@ -74,6 +79,8 @@ describe('SettingsStore (NgRx Signal Store)', () => {
     mockSettingsService = {
       getSettings: vi.fn(),
       saveSettings: vi.fn(),
+      getFileTransferSettings: vi.fn(),
+      saveFileTransferSettings: vi.fn(),
     };
 
     TestBed.configureTestingModule({
@@ -956,6 +963,84 @@ describe('SettingsStore (NgRx Signal Store)', () => {
 
       store.redo();
       expect(store.settings()?.knownDevices[0].videoSettings.enableVideo).toBe(true);
+    });
+  });
+
+  // --------------------------------------------------------------------------
+  // FILE TRANSFER SETTINGS TESTS
+  // --------------------------------------------------------------------------
+
+  describe('File transfer settings', () => {
+    const saved = {
+      autoLaunchOnCopyEnabled: false,
+      allFileTypesInFolders: true,
+      allFileTypesInArchives: false,
+    };
+
+    /** Loads settings, edits them, then undoes so `settings`, `storedCurrent` and `history` all hold a copy. */
+    const loadWithHistory = async () => {
+      vi.mocked(mockSettingsService.getSettings).mockReturnValue(of(createMockSettings()));
+      await store.loadSettings();
+      store.updateSettings({ settings: { appSettings: { setupCompleted: true } } });
+      store.undo();
+    };
+
+    it('saveFileTransferSettings sends only the change and replaces the values everywhere', async () => {
+      await loadWithHistory();
+      vi.mocked(mockSettingsService.saveFileTransferSettings).mockReturnValue(of(saved));
+
+      await store.saveFileTransferSettings({ allFileTypesInFolders: true });
+
+      expect(mockSettingsService.saveFileTransferSettings).toHaveBeenCalledWith({
+        allFileTypesInFolders: true,
+      });
+      expect(store.settings()?.fileTransferSettings).toEqual(saved);
+      expect(store.storedCurrent()?.fileTransferSettings).toEqual(saved);
+      expect(store.history()).toHaveLength(1);
+      expect(store.history()[0].fileTransferSettings).toEqual(saved);
+      expect(store.historyPosition()).toBe(0);
+      expect(store.isSaving()).toBe(false);
+      expect(store.error()).toBeNull();
+    });
+
+    it('saveFileTransferSettings keeps the values and sets the error on failure', async () => {
+      await loadWithHistory();
+      vi.mocked(mockSettingsService.saveFileTransferSettings).mockReturnValue(
+        throwError(() => new Error('engine down'))
+      );
+
+      await store.saveFileTransferSettings({ allFileTypesInFolders: true });
+
+      expect(store.error()).toBe('engine down');
+      expect(store.isSaving()).toBe(false);
+      expect(store.settings()?.fileTransferSettings.allFileTypesInFolders).toBe(false);
+      expect(store.history()[0].fileTransferSettings.allFileTypesInFolders).toBe(false);
+    });
+
+    it('refreshFileTransferSettings applies the engine values without touching history', async () => {
+      await loadWithHistory();
+      vi.mocked(mockSettingsService.getFileTransferSettings).mockReturnValue(of(saved));
+
+      await store.refreshFileTransferSettings();
+
+      expect(store.settings()?.fileTransferSettings).toEqual(saved);
+      expect(store.storedCurrent()?.fileTransferSettings).toEqual(saved);
+      expect(store.history()).toHaveLength(1);
+      expect(store.history()[0].fileTransferSettings).toEqual(saved);
+      expect(store.historyPosition()).toBe(0);
+      expect(store.settings()?.appSettings.setupCompleted).toBe(false);
+    });
+
+    it('refreshFileTransferSettings leaves the values alone when the read fails', async () => {
+      await loadWithHistory();
+      vi.mocked(mockSettingsService.getFileTransferSettings).mockReturnValue(
+        throwError(() => new Error('offline'))
+      );
+
+      await store.refreshFileTransferSettings();
+
+      expect(store.settings()?.fileTransferSettings.allFileTypesInFolders).toBe(false);
+      expect(store.error()).toBeNull();
     });
   });
 });

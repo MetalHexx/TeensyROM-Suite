@@ -6,6 +6,7 @@ import { vi } from 'vitest';
 import { DeviceStore, SettingsStore } from '@teensyrom-nx/application';
 import {
   Device,
+  FileTransferSettings,
   ISettingsService,
   PlayerFilterType,
   SETTINGS_SERVICE,
@@ -48,7 +49,14 @@ const device = (deviceId: string, name: string, usb: boolean): Device =>
 const rackDevice = device('dev-1', 'Rack TeensyROM', false);
 const benchDevice = device('dev-2', 'Bench TeensyROM', true);
 
-const settings = (autoLaunch = false): Settings =>
+const uploadSettings = (overrides: Partial<FileTransferSettings> = {}): FileTransferSettings => ({
+  autoLaunchOnCopyEnabled: false,
+  allFileTypesInFolders: false,
+  allFileTypesInArchives: false,
+  ...overrides,
+});
+
+const settings = (): Settings =>
   ({
     playerSettings: {
       repeatModeOnStartup: false,
@@ -59,7 +67,7 @@ const settings = (autoLaunch = false): Settings =>
       startupLaunchEnabled: false,
       startupLaunchRandom: false,
     },
-    fileTransferSettings: { autoLaunchOnCopyEnabled: autoLaunch },
+    fileTransferSettings: uploadSettings(),
     searchSettings: {
       weights: {
         nameWeight: 1,
@@ -78,7 +86,14 @@ const settings = (autoLaunch = false): Settings =>
 
 describe('TransferSettingsPanelComponent', () => {
   let fixture: ComponentFixture<TransferSettingsPanelComponent>;
-  let settingsService: { getSettings: ReturnType<typeof vi.fn>; saveSettings: ReturnType<typeof vi.fn> };
+  let settingsService: {
+    getSettings: ReturnType<typeof vi.fn>;
+    saveSettings: ReturnType<typeof vi.fn>;
+    getFileTransferSettings: ReturnType<typeof vi.fn>;
+    saveFileTransferSettings: ReturnType<typeof vi.fn>;
+  };
+  /** What the engine holds for the three Uploads switches. */
+  let engineUploads: FileTransferSettings;
   let watchFolders: Record<string, ReturnType<typeof vi.fn>>;
   let settingsStore: InstanceType<typeof SettingsStore>;
   let initialFolders: WatchFolder[];
@@ -97,9 +112,17 @@ describe('TransferSettingsPanelComponent', () => {
 
   const setup = async (options: { folders?: WatchFolder[]; withSettings?: boolean } = {}) => {
     initialFolders = options.folders ?? [];
+    engineUploads = uploadSettings();
     settingsService = {
       getSettings: vi.fn().mockReturnValue(of(settings())),
       saveSettings: vi.fn().mockReturnValue(of(undefined)),
+      getFileTransferSettings: vi.fn().mockImplementation(() => of({ ...engineUploads })),
+      saveFileTransferSettings: vi
+        .fn()
+        .mockImplementation((change: Partial<FileTransferSettings>) => {
+          engineUploads = { ...engineUploads, ...change };
+          return of({ ...engineUploads });
+        }),
     };
     watchFolders = {
       list: vi.fn().mockImplementation(async () => initialFolders),
@@ -133,57 +156,79 @@ describe('TransferSettingsPanelComponent', () => {
 
   afterEach(() => fixture?.destroy());
 
-  describe('global auto-launch', () => {
-    it('reflects the stored setting', async () => {
+  describe('uploads', () => {
+    const switches = [
+      { testId: 'auto-launch-switch', key: 'autoLaunchOnCopyEnabled' },
+      { testId: 'all-types-in-folders-switch', key: 'allFileTypesInFolders' },
+      { testId: 'all-types-in-archives-switch', key: 'allFileTypesInArchives' },
+    ] as const;
+    const isOn = (testId: string) =>
+      query(testId)?.querySelector('button')?.getAttribute('aria-checked');
+
+    it('reflects each stored setting', async () => {
       await setup();
-      expect(query('auto-launch-switch')?.querySelector('button')?.getAttribute('aria-checked')).toBe(
-        'false'
-      );
+      expect(switches.map(({ testId }) => isOn(testId))).toEqual(['false', 'false', 'false']);
 
       settingsStore.updateSettings({
-        settings: { fileTransferSettings: { autoLaunchOnCopyEnabled: true } },
+        settings: { fileTransferSettings: uploadSettings({ allFileTypesInFolders: true }) },
       });
       await settle();
 
-      expect(query('auto-launch-switch')?.querySelector('button')?.getAttribute('aria-checked')).toBe(
-        'true'
-      );
+      expect(switches.map(({ testId }) => isOn(testId))).toEqual(['false', 'true', 'false']);
     });
 
-    it('updates the setting and saves it when toggled', async () => {
-      await setup();
+    for (const { testId, key } of switches) {
+      it(`saves only its own setting when ${key} is toggled`, async () => {
+        await setup();
 
-      query('auto-launch-switch')?.querySelector('button')?.click();
-      await settle();
+        clickButton(query(testId));
+        await settle();
 
-      expect(settingsStore.getSettings()()?.fileTransferSettings.autoLaunchOnCopyEnabled).toBe(true);
-      expect(settingsService.saveSettings).toHaveBeenCalledTimes(1);
-      expect(settingsService.saveSettings.mock.calls[0][0].fileTransferSettings).toEqual({
-        autoLaunchOnCopyEnabled: true,
+        expect(settingsService.saveFileTransferSettings).toHaveBeenCalledTimes(1);
+        expect(settingsService.saveFileTransferSettings).toHaveBeenCalledWith({ [key]: true });
+        expect(settingsService.saveSettings).not.toHaveBeenCalled();
+        expect(settingsStore.getSettings()()?.fileTransferSettings[key]).toBe(true);
+        expect(isOn(testId)).toBe('true');
       });
-    });
+    }
 
-    it('shows the failure and puts the switch back when the save fails', async () => {
+    it('shows the failure and keeps the switch at the saved value when the save fails', async () => {
       await setup();
-      settingsService.saveSettings.mockImplementation(() =>
+      settingsService.saveFileTransferSettings.mockImplementation(() =>
         timer(0).pipe(switchMap(() => throwError(() => new Error('Engine offline'))))
       );
 
-      query('auto-launch-switch')?.querySelector('button')?.click();
+      clickButton(query('all-types-in-folders-switch'));
       await settle();
       await settle();
 
       expect(query('settings-error')?.textContent).toContain('Engine offline');
-      expect(settingsStore.getSettings()()?.fileTransferSettings.autoLaunchOnCopyEnabled).toBe(false);
-      expect(query('auto-launch-switch')?.querySelector('button')?.getAttribute('aria-checked')).toBe(
-        'false'
-      );
+      expect(settingsStore.getSettings()()?.fileTransferSettings.allFileTypesInFolders).toBe(false);
+      expect(isOn('all-types-in-folders-switch')).toBe('false');
+    });
+
+    it('re-reads the engine settings each time the panel opens', async () => {
+      await setup();
+      expect(settingsService.getFileTransferSettings).toHaveBeenCalledTimes(1);
+
+      fixture.componentRef.setInput('open', false);
+      fixture.detectChanges();
+      engineUploads = uploadSettings({ allFileTypesInArchives: true });
+      fixture.componentRef.setInput('open', true);
+      fixture.detectChanges();
+      await settle();
+      await settle();
+
+      expect(settingsService.getFileTransferSettings).toHaveBeenCalledTimes(2);
+      expect(isOn('all-types-in-archives-switch')).toBe('true');
     });
 
     it('is disabled while settings have not loaded', async () => {
       await setup({ withSettings: false });
 
-      expect(query('auto-launch-switch')?.querySelector('button')?.disabled).toBe(true);
+      for (const { testId } of switches) {
+        expect(query(testId)?.querySelector('button')?.disabled).toBe(true);
+      }
     });
   });
 
@@ -879,7 +924,7 @@ describe('TransferSettingsPanelComponent', () => {
     });
   });
 
-  it('moves focus to the Global switch', async () => {
+  it('moves focus to the first Uploads switch', async () => {
     await setup();
 
     fixture.componentInstance.focusEntry();

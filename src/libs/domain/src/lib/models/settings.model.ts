@@ -39,8 +39,12 @@ export interface SearchSettings {
  * File transfer settings
  */
 export interface FileTransferSettings {
-  /** Whether to auto-launch files after copying */
+  /** Launch one file after an upload from any app. Watch folders launch by each device's own switch. */
   autoLaunchOnCopyEnabled: boolean;
+  /** Send every file in a folder you upload, not only the types the TeensyROM recognizes. */
+  allFileTypesInFolders: boolean;
+  /** Send everything inside an archive you upload, not only the types the TeensyROM recognizes. */
+  allFileTypesInArchives: boolean;
 }
 
 /**

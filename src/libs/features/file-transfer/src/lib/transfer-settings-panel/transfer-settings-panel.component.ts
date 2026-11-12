@@ -20,6 +20,7 @@ import { merge } from 'rxjs';
 import { DeviceStore, SettingsStore, WatchFolderStore } from '@teensyrom-nx/application';
 import {
   Device,
+  FileTransferSettings,
   StorageType,
   WatchFolder,
   WatchFolderDestination,
@@ -53,9 +54,9 @@ type OpenForm =
   | { kind: 'edit-device'; watchFolderId: string; deviceId: string };
 
 /**
- * The File Transfer view side panel: the global auto-launch switch and the list of watch folders
- * with their devices. It reloads the list every time it opens, since the engine can change
- * folders while the panel is closed. Rows and forms are presentational; this container owns the
+ * The File Transfer view side panel: the Uploads switches and the list of watch folders with their
+ * devices. It reloads the list and re-reads the Uploads switches every time it opens, since the
+ * engine can change them while the panel is closed. Rows and forms are presentational; this container owns the
  * store calls, the form groups, which single form is open, and where the engine's refusals show.
  */
 @Component({
@@ -82,9 +83,9 @@ export class TransferSettingsPanelComponent {
   private readonly injector = inject(Injector);
   private readonly host = inject<ElementRef<HTMLElement>>(ElementRef);
 
-  private readonly globalSwitch = viewChild<MatSlideToggle>('globalSwitch');
+  private readonly uploadsSwitch = viewChild<MatSlideToggle>('uploadsSwitch');
 
-  /** Whether the panel is open; the list reloads each time this becomes true. */
+  /** Whether the panel is open; the list and the Uploads switches reload each time this becomes true. */
   readonly open = input(false);
   /** Duration in milliseconds of the panel card own entry; `0` for reduced motion. */
   readonly animationDuration = input(400);
@@ -95,7 +96,15 @@ export class TransferSettingsPanelComponent {
   protected readonly WatchFolderState = WatchFolderState;
 
   protected readonly autoLaunchTooltip: TooltipConfig = {
-    body: 'Start a transferred file on the device when its transfer finishes.',
+    body: "Launch one file after an upload. Watch folders use each device's own Auto launch.",
+    position: TooltipPosition.Top,
+  };
+  protected readonly allTypesInFoldersTooltip: TooltipConfig = {
+    body: 'Send every file in a folder you upload, not only the types the TeensyROM recognizes. Files you pick are always sent.',
+    position: TooltipPosition.Top,
+  };
+  protected readonly allTypesInArchivesTooltip: TooltipConfig = {
+    body: 'Send everything inside an archive you upload, not only the types the TeensyROM recognizes.',
     position: TooltipPosition.Top,
   };
   protected readonly addFolderTooltip: TooltipConfig = {
@@ -117,6 +126,12 @@ export class TransferSettingsPanelComponent {
   protected readonly settingsReady = computed(() => this.settings() !== null);
   protected readonly autoLaunch = computed(
     () => this.settings()?.fileTransferSettings.autoLaunchOnCopyEnabled ?? false
+  );
+  protected readonly allTypesInFolders = computed(
+    () => this.settings()?.fileTransferSettings.allFileTypesInFolders ?? false
+  );
+  protected readonly allTypesInArchives = computed(
+    () => this.settings()?.fileTransferSettings.allFileTypesInArchives ?? false
   );
 
   protected readonly openForm = signal<OpenForm | null>(null);
@@ -160,7 +175,10 @@ export class TransferSettingsPanelComponent {
   constructor() {
     effect(() => {
       if (this.open()) {
-        untracked(() => void this.watchFolderStore.loadWatchFolders());
+        untracked(() => {
+          void this.watchFolderStore.loadWatchFolders();
+          void this.settingsStore.refreshFileTransferSettings();
+        });
       }
     });
 
@@ -183,26 +201,22 @@ export class TransferSettingsPanelComponent {
       .subscribe(() => this.formErrors.set({}));
   }
 
-  /** Moves keyboard focus to the Global switch. */
+  /** Moves keyboard focus to the first Uploads switch. */
   focusEntry(): void {
-    this.globalSwitch()?.focus();
+    this.uploadsSwitch()?.focus();
   }
 
   /**
-   * Applies and saves the switch. When the save fails the stored value goes back to what the
-   * engine still holds, which moves the switch back through its binding.
+   * Saves one Uploads switch on its own. The toggle snaps back to the stored value first and
+   * moves only when the store takes the saved value, so a failed save leaves it where it was.
    */
-  protected async onAutoLaunchChange(checked: boolean): Promise<void> {
-    const previous = this.autoLaunch();
-    this.settingsStore.updateSettings({
-      settings: { fileTransferSettings: { autoLaunchOnCopyEnabled: checked } },
-    });
-    await this.settingsStore.saveSettings();
-    if (!this.settingsStore.error()) return;
-
-    this.settingsStore.updateSettings({
-      settings: { fileTransferSettings: { autoLaunchOnCopyEnabled: previous } },
-    });
+  protected async onUploadSettingChange(
+    toggle: MatSlideToggle,
+    key: keyof FileTransferSettings,
+    checked: boolean
+  ): Promise<void> {
+    toggle.checked = this.settings()?.fileTransferSettings[key] ?? false;
+    await this.settingsStore.saveFileTransferSettings({ [key]: checked });
   }
 
   protected isPending(watchFolderId: string): boolean {

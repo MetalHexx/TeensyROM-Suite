@@ -18,6 +18,7 @@ import {
   SETTINGS_SERVICE,
   STORAGE_SERVICE,
   Settings,
+  FileTransferSettings,
   StorageDirectory,
   StorageType,
 } from '@teensyrom-nx/domain';
@@ -140,6 +141,8 @@ export function createPlayerHarness(options: PlayerHarnessOptions = {}): PlayerH
   const settingsService: ISettingsService = {
     getSettings: vi.fn<() => Observable<Settings>>(() => EMPTY),
     saveSettings: vi.fn((settings: Settings) => of(settings)),
+    getFileTransferSettings: vi.fn<() => Observable<FileTransferSettings>>(() => EMPTY),
+    saveFileTransferSettings: vi.fn<() => Observable<FileTransferSettings>>(() => EMPTY),
   };
 
   TestBed.resetTestingModule();

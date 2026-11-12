@@ -929,10 +929,35 @@ describe('DomainMapper (Settings)', () => {
     it('should map file transfer settings correctly', () => {
       const dto = createMockGetSettingsResponse({
         autoLaunchOnCopyEnabled: false,
+        allFileTypesInFolders: true,
+        allFileTypesInArchives: true,
       });
       const result = DomainMapper.toSettings(dto);
 
-      expect(result.fileTransferSettings.autoLaunchOnCopyEnabled).toBe(false);
+      expect(result.fileTransferSettings).toEqual({
+        autoLaunchOnCopyEnabled: false,
+        allFileTypesInFolders: true,
+        allFileTypesInArchives: true,
+      });
+    });
+
+    it('should round-trip the three file transfer switches through the DTO', () => {
+      const settings = createMockDomainSettings({
+        autoLaunchOnCopyEnabled: true,
+        allFileTypesInFolders: true,
+        allFileTypesInArchives: false,
+      });
+
+      const dto = DomainMapper.toSettingsDto(settings);
+
+      expect(dto.fileTransferSettings).toEqual({
+        autoLaunchOnCopyEnabled: true,
+        allFileTypesInFolders: true,
+        allFileTypesInArchives: false,
+      });
+      expect(DomainMapper.toFileTransferSettings(dto.fileTransferSettings)).toEqual(
+        settings.fileTransferSettings
+      );
     });
 
     it('should map app settings correctly (inverse firstTimeSetup)', () => {
@@ -1169,6 +1194,8 @@ interface MockSettingsOverrides {
   startupLaunchEnabled?: boolean;
   startupLaunchRandom?: boolean;
   autoLaunchOnCopyEnabled?: boolean;
+  allFileTypesInFolders?: boolean;
+  allFileTypesInArchives?: boolean;
   firstTimeSetup?: boolean;
   deviceId?: string;
   enableVideo?: boolean;
@@ -1206,6 +1233,8 @@ function createMockGetSettingsResponse(overrides: MockSettingsOverrides = {}): G
 
   const fileTransferSettings: FileTransferSettingsDto = {
     autoLaunchOnCopyEnabled: overrides.autoLaunchOnCopyEnabled ?? false,
+    allFileTypesInFolders: overrides.allFileTypesInFolders ?? false,
+    allFileTypesInArchives: overrides.allFileTypesInArchives ?? false,
   };
 
   const searchWeights: SearchWeightsDto = {
@@ -1269,6 +1298,8 @@ interface MockDomainSettingsOverrides {
   startupLaunchEnabled?: boolean;
   startupLaunchRandom?: boolean;
   autoLaunchOnCopyEnabled?: boolean;
+  allFileTypesInFolders?: boolean;
+  allFileTypesInArchives?: boolean;
   setupCompleted?: boolean;
   deviceId?: string;
   enableVideo?: boolean;
@@ -1290,6 +1321,8 @@ function createMockDomainSettings(overrides: MockDomainSettingsOverrides = {}): 
     },
     fileTransferSettings: {
       autoLaunchOnCopyEnabled: overrides.autoLaunchOnCopyEnabled ?? false,
+      allFileTypesInFolders: overrides.allFileTypesInFolders ?? false,
+      allFileTypesInArchives: overrides.allFileTypesInArchives ?? false,
     },
     searchSettings: {
       weights: {

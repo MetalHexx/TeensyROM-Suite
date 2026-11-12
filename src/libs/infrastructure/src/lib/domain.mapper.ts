@@ -534,9 +534,11 @@ export class DomainMapper {
     };
   }
 
-  private static toFileTransferSettings(dto: FileTransferSettingsDto): FileTransferSettings {
+  static toFileTransferSettings(dto: FileTransferSettingsDto): FileTransferSettings {
     return {
       autoLaunchOnCopyEnabled: dto.autoLaunchOnCopyEnabled,
+      allFileTypesInFolders: dto.allFileTypesInFolders,
+      allFileTypesInArchives: dto.allFileTypesInArchives,
     };
   }
 
@@ -545,6 +547,8 @@ export class DomainMapper {
   ): FileTransferSettingsDto {
     return {
       autoLaunchOnCopyEnabled: settings.autoLaunchOnCopyEnabled,
+      allFileTypesInFolders: settings.allFileTypesInFolders,
+      allFileTypesInArchives: settings.allFileTypesInArchives,
     };
   }
 

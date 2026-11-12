@@ -4,7 +4,9 @@ import { signal } from '@angular/core';
 import { Subject } from 'rxjs';
 import {
   ALERT_SERVICE,
+  ISettingsService,
   ITransferHubService,
+  SETTINGS_SERVICE,
   StorageType,
   TRANSFER_HUB_SERVICE,
   TRANSFER_SERVICE,
@@ -95,6 +97,7 @@ describe('TransferTracker', () => {
         { provide: TRANSFER_HUB_SERVICE, useValue: hub as unknown as ITransferHubService },
         { provide: TRANSFER_SERVICE, useValue: { cancelJob: vi.fn() } },
         { provide: ALERT_SERVICE, useValue: alerts },
+        { provide: SETTINGS_SERVICE, useValue: {} as Partial<ISettingsService> },
         {
           provide: DeviceStore,
           useValue: { devices: signal([{ deviceId: 'device-1', name: 'My TeensyROM' }]) },
