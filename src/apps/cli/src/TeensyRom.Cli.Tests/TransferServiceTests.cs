@@ -36,12 +36,26 @@ public sealed class TransferServiceTests : IDisposable
         _api.CreateTransferJobAsync(DeviceId, ApiStorageType.USB, Arg.Do<CreateJobBody>(b => body = b), Arg.Any<CancellationToken>())
             .Returns(new CreateJobResponse { JobId = "job-1", Job = Job() });
 
-        var job = await _sut.CreateAsync(TeensyStorageType.USB, "/games", 2, launch: true, CancellationToken.None);
+        var job = await _sut.CreateAsync(TeensyStorageType.USB, "/games", 2, launch: true, allInArchives: false, CancellationToken.None);
 
         job.JobId.Should().Be("job-1");
         body!.DestinationDirectory.Should().Be("/games");
         body.ExpectedArchiveCount.Should().Be(2);
         body.Launch.Should().BeTrue();
+    }
+
+    [Theory]
+    [InlineData(true, true)]
+    [InlineData(false, null)]
+    public async Task Create_SendsTheArchivesChoiceOnlyWhenItIsOn_SoTheEngineAppliesItsOwnSettingOtherwise(bool allInArchives, bool? expected)
+    {
+        CreateJobBody? body = null;
+        _api.CreateTransferJobAsync(DeviceId, ApiStorageType.SD, Arg.Do<CreateJobBody>(b => body = b), Arg.Any<CancellationToken>())
+            .Returns(new CreateJobResponse { JobId = "job-1", Job = Job() });
+
+        await _sut.CreateAsync(TeensyStorageType.SD, "/x", 0, false, allInArchives, CancellationToken.None);
+
+        body!.AllFileTypesInArchives.Should().Be(expected);
     }
 
     [Fact]
@@ -60,7 +74,7 @@ public sealed class TransferServiceTests : IDisposable
         _api.CreateTransferJobAsync(default!, default, default!, default)
             .ThrowsAsyncForAnyArgs(ApiTestSupport.ApiFailure(409, """{"title":"Alpha is busy with a transfer.","status":409,"code":"deviceBusyWithTransfer"}"""));
 
-        var act = () => _sut.CreateAsync(TeensyStorageType.SD, "/x", 0, false, CancellationToken.None);
+        var act = () => _sut.CreateAsync(TeensyStorageType.SD, "/x", 0, false, false, CancellationToken.None);
 
         var error = (await act.Should().ThrowAsync<CliException>()).Which;
         error.Code.Should().Be(CliExitCode.DeviceBusy);
@@ -73,7 +87,7 @@ public sealed class TransferServiceTests : IDisposable
         _api.CreateTransferJobAsync(default!, default, default!, default)
             .ThrowsAsyncForAnyArgs(ApiTestSupport.ApiFailure(409, """{"title":"Device already has an active transfer."}"""));
 
-        var act = () => _sut.CreateAsync(TeensyStorageType.SD, "/x", 0, false, CancellationToken.None);
+        var act = () => _sut.CreateAsync(TeensyStorageType.SD, "/x", 0, false, false, CancellationToken.None);
 
         var error = (await act.Should().ThrowAsync<CliException>()).Which;
         error.Code.Should().Be(CliExitCode.Failed);
@@ -86,7 +100,7 @@ public sealed class TransferServiceTests : IDisposable
         _api.CreateTransferJobAsync(default!, default, default!, default)
             .ThrowsAsyncForAnyArgs(ApiTestSupport.ApiFailure(404, """{"title":"The storage SD is not available."}"""));
 
-        var act = () => _sut.CreateAsync(TeensyStorageType.SD, "/x", 0, false, CancellationToken.None);
+        var act = () => _sut.CreateAsync(TeensyStorageType.SD, "/x", 0, false, false, CancellationToken.None);
 
         var error = (await act.Should().ThrowAsync<TeensyApiException>()).Which;
         error.StatusCode.Should().Be(404);

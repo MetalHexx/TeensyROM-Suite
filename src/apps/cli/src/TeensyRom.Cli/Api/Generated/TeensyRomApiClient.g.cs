@@ -32,6 +32,21 @@ namespace TeensyRom.Cli.Api.Generated
 
         /// <param name="cancellationToken">A cancellation token that can be used by other objects or threads to receive notice of cancellation.</param>
         /// <summary>
+        /// Set Watch Folder File Types
+        /// </summary>
+        /// <remarks>
+        /// Changes which files a watch folder sends, without changing its destinations.
+        /// <br/>
+        /// <br/>- Send only the switches to change; a missing or null value stays as it is.
+        /// <br/>- At least one switch is required.
+        /// <br/>- Applies to files that land after the change.
+        /// </remarks>
+        /// <returns>OK</returns>
+        /// <exception cref="ApiException">A server side error occurred.</exception>
+        System.Threading.Tasks.Task<SetWatchFolderFileTypesResponse> SetWatchFolderFileTypesAsync(string watchFolderId, SetWatchFolderFileTypesBody body, System.Threading.CancellationToken cancellationToken = default(System.Threading.CancellationToken));
+
+        /// <param name="cancellationToken">A cancellation token that can be used by other objects or threads to receive notice of cancellation.</param>
+        /// <summary>
         /// Set Watch Folder Enabled
         /// </summary>
         /// <remarks>
@@ -108,6 +123,7 @@ namespace TeensyRom.Cli.Api.Generated
         /// Sends the files of a folder on the engine's machine to a device storage.
         /// <br/>
         /// <br/>- Adding a folder that is already watched adds a destination for another device to it.
+        /// <br/>- The file-type switches apply only when the add creates the folder; a destination joining a watched folder leaves them as they are.
         /// <br/>- A device receives a folder through one destination only; a second one is refused with 409.
         /// <br/>- A folder nested inside a watched folder, or containing one, is refused with 400.
         /// <br/>- The device must be connected and report its chip id, and the storage must be available.
@@ -351,6 +367,36 @@ namespace TeensyRom.Cli.Api.Generated
 
         /// <param name="cancellationToken">A cancellation token that can be used by other objects or threads to receive notice of cancellation.</param>
         /// <summary>
+        /// Set File Transfer Settings
+        /// </summary>
+        /// <remarks>
+        /// Changes the file transfer settings and leaves every other section of the settings alone.
+        /// <br/>
+        /// <br/>- Send only the settings to change; a missing or null value stays as it is.
+        /// <br/>- At least one setting is required.
+        /// <br/>- Returns all three settings as they are after the change.
+        /// </remarks>
+        /// <returns>OK</returns>
+        /// <exception cref="ApiException">A server side error occurred.</exception>
+        System.Threading.Tasks.Task<SetFileTransferSettingsResponse> SetFileTransferSettingsAsync(SetFileTransferSettingsBody body, System.Threading.CancellationToken cancellationToken = default(System.Threading.CancellationToken));
+
+        /// <param name="cancellationToken">A cancellation token that can be used by other objects or threads to receive notice of cancellation.</param>
+        /// <summary>
+        /// Get File Transfer Settings
+        /// </summary>
+        /// <remarks>
+        /// Retrieves the file transfer settings alone.
+        /// <br/>
+        /// <br/>- **Auto-launch**: launch a file after an upload finishes. Watch folders launch by their destination's own switch instead.
+        /// <br/>- **All file types in folders**: send every file in a folder upload, not only known types.
+        /// <br/>- **All file types in archives**: send everything inside archives, not only known types.
+        /// </remarks>
+        /// <returns>OK</returns>
+        /// <exception cref="ApiException">A server side error occurred.</exception>
+        System.Threading.Tasks.Task<GetFileTransferSettingsResponse> GetFileTransferSettingsAsync(System.Threading.CancellationToken cancellationToken = default(System.Threading.CancellationToken));
+
+        /// <param name="cancellationToken">A cancellation token that can be used by other objects or threads to receive notice of cancellation.</param>
+        /// <summary>
         /// Save User Settings
         /// </summary>
         /// <remarks>
@@ -362,8 +408,8 @@ namespace TeensyRom.Cli.Api.Generated
         /// <br/>  - TCP: Host address, port (1-65535), and timeout values (milliseconds)
         /// <br/>- **Player Settings**: Playback behavior and startup preferences
         /// <br/>  - Repeat mode, play timer, mute settings, startup filter and launch options
-        /// <br/>- **File Transfer Settings**: Auto-launch configuration
-        /// <br/>  - Auto-launch flag
+        /// <br/>- **File Transfer Settings**: Accepted but not saved here
+        /// <br/>  - The stored transfer settings are kept; change them with `PUT /api/settings/file-transfer`
         /// <br/>- **Search Settings**: Search weights, stop words, and content exclusions
         /// <br/>  - Search weights must be &gt;= 0 with at least one &gt; 0
         /// <br/>  - Stop words, banned directories, and banned files lists
@@ -376,6 +422,8 @@ namespace TeensyRom.Cli.Api.Generated
         /// <br/>- TCP port must be between 1 and 65535
         /// <br/>- Timeout values must be positive integers (milliseconds)
         /// <br/>- Search weights must be non-negative with at least one &gt; 0
+        /// <br/>
+        /// <br/>The stored watch folders and transfer settings are kept as they are. Transfer settings change only through `PUT /api/settings/file-transfer`.
         /// <br/>
         /// <br/>Settings are persisted to Settings.json and immediately available in memory.
         /// </remarks>
@@ -980,6 +1028,119 @@ namespace TeensyRom.Cli.Api.Generated
 
         /// <param name="cancellationToken">A cancellation token that can be used by other objects or threads to receive notice of cancellation.</param>
         /// <summary>
+        /// Set Watch Folder File Types
+        /// </summary>
+        /// <remarks>
+        /// Changes which files a watch folder sends, without changing its destinations.
+        /// <br/>
+        /// <br/>- Send only the switches to change; a missing or null value stays as it is.
+        /// <br/>- At least one switch is required.
+        /// <br/>- Applies to files that land after the change.
+        /// </remarks>
+        /// <returns>OK</returns>
+        /// <exception cref="ApiException">A server side error occurred.</exception>
+        public virtual async System.Threading.Tasks.Task<SetWatchFolderFileTypesResponse> SetWatchFolderFileTypesAsync(string watchFolderId, SetWatchFolderFileTypesBody body, System.Threading.CancellationToken cancellationToken = default(System.Threading.CancellationToken))
+        {
+            if (watchFolderId == null)
+                throw new System.ArgumentNullException("watchFolderId");
+
+            if (body == null)
+                throw new System.ArgumentNullException("body");
+
+            var client_ = _httpClient;
+            var disposeClient_ = false;
+            try
+            {
+                using (var request_ = new System.Net.Http.HttpRequestMessage())
+                {
+                    var json_ = System.Text.Json.JsonSerializer.SerializeToUtf8Bytes(body, JsonSerializerSettings);
+                    var content_ = new System.Net.Http.ByteArrayContent(json_);
+                    content_.Headers.ContentType = System.Net.Http.Headers.MediaTypeHeaderValue.Parse("application/json");
+                    request_.Content = content_;
+                    request_.Method = new System.Net.Http.HttpMethod("PUT");
+                    request_.Headers.Accept.Add(System.Net.Http.Headers.MediaTypeWithQualityHeaderValue.Parse("application/json"));
+
+                    var urlBuilder_ = new System.Text.StringBuilder();
+                
+                    // Operation Path: "api/watch-folders/{watchFolderId}/file-types"
+                    urlBuilder_.Append("api/watch-folders/");
+                    urlBuilder_.Append(System.Uri.EscapeDataString(ConvertToString(watchFolderId, System.Globalization.CultureInfo.InvariantCulture)));
+                    urlBuilder_.Append("/file-types");
+
+                    PrepareRequest(client_, request_, urlBuilder_);
+
+                    var url_ = urlBuilder_.ToString();
+                    request_.RequestUri = new System.Uri(url_, System.UriKind.RelativeOrAbsolute);
+
+                    PrepareRequest(client_, request_, url_);
+
+                    var response_ = await client_.SendAsync(request_, System.Net.Http.HttpCompletionOption.ResponseHeadersRead, cancellationToken).ConfigureAwait(false);
+                    var disposeResponse_ = true;
+                    try
+                    {
+                        var headers_ = new System.Collections.Generic.Dictionary<string, System.Collections.Generic.IEnumerable<string>>();
+                        foreach (var item_ in response_.Headers)
+                            headers_[item_.Key] = item_.Value;
+                        if (response_.Content != null && response_.Content.Headers != null)
+                        {
+                            foreach (var item_ in response_.Content.Headers)
+                                headers_[item_.Key] = item_.Value;
+                        }
+
+                        ProcessResponse(client_, response_);
+
+                        var status_ = (int)response_.StatusCode;
+                        if (status_ == 200)
+                        {
+                            var objectResponse_ = await ReadObjectResponseAsync<SetWatchFolderFileTypesResponse>(response_, headers_, cancellationToken).ConfigureAwait(false);
+                            if (objectResponse_.Object == null)
+                            {
+                                throw new ApiException("Response was null which was not expected.", status_, objectResponse_.Text, headers_, null);
+                            }
+                            return objectResponse_.Object;
+                        }
+                        else
+                        if (status_ == 400)
+                        {
+                            var objectResponse_ = await ReadObjectResponseAsync<ProblemDetails>(response_, headers_, cancellationToken).ConfigureAwait(false);
+                            if (objectResponse_.Object == null)
+                            {
+                                throw new ApiException("Response was null which was not expected.", status_, objectResponse_.Text, headers_, null);
+                            }
+                            throw new ApiException<ProblemDetails>("Bad Request", status_, objectResponse_.Text, headers_, objectResponse_.Object, null);
+                        }
+                        else
+                        if (status_ == 404)
+                        {
+                            var objectResponse_ = await ReadObjectResponseAsync<ProblemDetails>(response_, headers_, cancellationToken).ConfigureAwait(false);
+                            if (objectResponse_.Object == null)
+                            {
+                                throw new ApiException("Response was null which was not expected.", status_, objectResponse_.Text, headers_, null);
+                            }
+                            throw new ApiException<ProblemDetails>("Not Found", status_, objectResponse_.Text, headers_, objectResponse_.Object, null);
+                        }
+                        else
+                        {
+                            var responseData_ = response_.Content == null ? null : await response_.Content.ReadAsStringAsync().ConfigureAwait(false);
+                            throw new ApiException("The HTTP status code of the response was not expected (" + status_ + ").", status_, responseData_, headers_, null);
+                        }
+                    }
+                    finally
+                    {
+                        if (disposeResponse_)
+                            response_.Dispose();
+                    }
+                }
+            }
+            finally
+            {
+                if (disposeClient_)
+                    client_.Dispose();
+            }
+        }
+
+        /// <param name="cancellationToken">A cancellation token that can be used by other objects or threads to receive notice of cancellation.</param>
+        /// <summary>
         /// Set Watch Folder Enabled
         /// </summary>
         /// <remarks>
@@ -1507,6 +1668,7 @@ namespace TeensyRom.Cli.Api.Generated
         /// Sends the files of a folder on the engine's machine to a device storage.
         /// <br/>
         /// <br/>- Adding a folder that is already watched adds a destination for another device to it.
+        /// <br/>- The file-type switches apply only when the add creates the folder; a destination joining a watched folder leaves them as they are.
         /// <br/>- A device receives a folder through one destination only; a second one is refused with 409.
         /// <br/>- A folder nested inside a watched folder, or containing one, is refused with 400.
         /// <br/>- The device must be connected and report its chip id, and the storage must be available.
@@ -3226,6 +3388,205 @@ namespace TeensyRom.Cli.Api.Generated
 
         /// <param name="cancellationToken">A cancellation token that can be used by other objects or threads to receive notice of cancellation.</param>
         /// <summary>
+        /// Set File Transfer Settings
+        /// </summary>
+        /// <remarks>
+        /// Changes the file transfer settings and leaves every other section of the settings alone.
+        /// <br/>
+        /// <br/>- Send only the settings to change; a missing or null value stays as it is.
+        /// <br/>- At least one setting is required.
+        /// <br/>- Returns all three settings as they are after the change.
+        /// </remarks>
+        /// <returns>OK</returns>
+        /// <exception cref="ApiException">A server side error occurred.</exception>
+        public virtual async System.Threading.Tasks.Task<SetFileTransferSettingsResponse> SetFileTransferSettingsAsync(SetFileTransferSettingsBody body, System.Threading.CancellationToken cancellationToken = default(System.Threading.CancellationToken))
+        {
+            if (body == null)
+                throw new System.ArgumentNullException("body");
+
+            var client_ = _httpClient;
+            var disposeClient_ = false;
+            try
+            {
+                using (var request_ = new System.Net.Http.HttpRequestMessage())
+                {
+                    var json_ = System.Text.Json.JsonSerializer.SerializeToUtf8Bytes(body, JsonSerializerSettings);
+                    var content_ = new System.Net.Http.ByteArrayContent(json_);
+                    content_.Headers.ContentType = System.Net.Http.Headers.MediaTypeHeaderValue.Parse("application/json");
+                    request_.Content = content_;
+                    request_.Method = new System.Net.Http.HttpMethod("PUT");
+                    request_.Headers.Accept.Add(System.Net.Http.Headers.MediaTypeWithQualityHeaderValue.Parse("application/json"));
+
+                    var urlBuilder_ = new System.Text.StringBuilder();
+                
+                    // Operation Path: "api/settings/file-transfer"
+                    urlBuilder_.Append("api/settings/file-transfer");
+
+                    PrepareRequest(client_, request_, urlBuilder_);
+
+                    var url_ = urlBuilder_.ToString();
+                    request_.RequestUri = new System.Uri(url_, System.UriKind.RelativeOrAbsolute);
+
+                    PrepareRequest(client_, request_, url_);
+
+                    var response_ = await client_.SendAsync(request_, System.Net.Http.HttpCompletionOption.ResponseHeadersRead, cancellationToken).ConfigureAwait(false);
+                    var disposeResponse_ = true;
+                    try
+                    {
+                        var headers_ = new System.Collections.Generic.Dictionary<string, System.Collections.Generic.IEnumerable<string>>();
+                        foreach (var item_ in response_.Headers)
+                            headers_[item_.Key] = item_.Value;
+                        if (response_.Content != null && response_.Content.Headers != null)
+                        {
+                            foreach (var item_ in response_.Content.Headers)
+                                headers_[item_.Key] = item_.Value;
+                        }
+
+                        ProcessResponse(client_, response_);
+
+                        var status_ = (int)response_.StatusCode;
+                        if (status_ == 200)
+                        {
+                            var objectResponse_ = await ReadObjectResponseAsync<SetFileTransferSettingsResponse>(response_, headers_, cancellationToken).ConfigureAwait(false);
+                            if (objectResponse_.Object == null)
+                            {
+                                throw new ApiException("Response was null which was not expected.", status_, objectResponse_.Text, headers_, null);
+                            }
+                            return objectResponse_.Object;
+                        }
+                        else
+                        if (status_ == 400)
+                        {
+                            var objectResponse_ = await ReadObjectResponseAsync<HttpValidationProblemDetails>(response_, headers_, cancellationToken).ConfigureAwait(false);
+                            if (objectResponse_.Object == null)
+                            {
+                                throw new ApiException("Response was null which was not expected.", status_, objectResponse_.Text, headers_, null);
+                            }
+                            throw new ApiException<HttpValidationProblemDetails>("Bad Request", status_, objectResponse_.Text, headers_, objectResponse_.Object, null);
+                        }
+                        else
+                        if (status_ == 500)
+                        {
+                            var objectResponse_ = await ReadObjectResponseAsync<ProblemDetails>(response_, headers_, cancellationToken).ConfigureAwait(false);
+                            if (objectResponse_.Object == null)
+                            {
+                                throw new ApiException("Response was null which was not expected.", status_, objectResponse_.Text, headers_, null);
+                            }
+                            throw new ApiException<ProblemDetails>("Internal Server Error", status_, objectResponse_.Text, headers_, objectResponse_.Object, null);
+                        }
+                        else
+                        {
+                            var responseData_ = response_.Content == null ? null : await response_.Content.ReadAsStringAsync().ConfigureAwait(false);
+                            throw new ApiException("The HTTP status code of the response was not expected (" + status_ + ").", status_, responseData_, headers_, null);
+                        }
+                    }
+                    finally
+                    {
+                        if (disposeResponse_)
+                            response_.Dispose();
+                    }
+                }
+            }
+            finally
+            {
+                if (disposeClient_)
+                    client_.Dispose();
+            }
+        }
+
+        /// <param name="cancellationToken">A cancellation token that can be used by other objects or threads to receive notice of cancellation.</param>
+        /// <summary>
+        /// Get File Transfer Settings
+        /// </summary>
+        /// <remarks>
+        /// Retrieves the file transfer settings alone.
+        /// <br/>
+        /// <br/>- **Auto-launch**: launch a file after an upload finishes. Watch folders launch by their destination's own switch instead.
+        /// <br/>- **All file types in folders**: send every file in a folder upload, not only known types.
+        /// <br/>- **All file types in archives**: send everything inside archives, not only known types.
+        /// </remarks>
+        /// <returns>OK</returns>
+        /// <exception cref="ApiException">A server side error occurred.</exception>
+        public virtual async System.Threading.Tasks.Task<GetFileTransferSettingsResponse> GetFileTransferSettingsAsync(System.Threading.CancellationToken cancellationToken = default(System.Threading.CancellationToken))
+        {
+            var client_ = _httpClient;
+            var disposeClient_ = false;
+            try
+            {
+                using (var request_ = new System.Net.Http.HttpRequestMessage())
+                {
+                    request_.Method = new System.Net.Http.HttpMethod("GET");
+                    request_.Headers.Accept.Add(System.Net.Http.Headers.MediaTypeWithQualityHeaderValue.Parse("application/json"));
+
+                    var urlBuilder_ = new System.Text.StringBuilder();
+                
+                    // Operation Path: "api/settings/file-transfer"
+                    urlBuilder_.Append("api/settings/file-transfer");
+
+                    PrepareRequest(client_, request_, urlBuilder_);
+
+                    var url_ = urlBuilder_.ToString();
+                    request_.RequestUri = new System.Uri(url_, System.UriKind.RelativeOrAbsolute);
+
+                    PrepareRequest(client_, request_, url_);
+
+                    var response_ = await client_.SendAsync(request_, System.Net.Http.HttpCompletionOption.ResponseHeadersRead, cancellationToken).ConfigureAwait(false);
+                    var disposeResponse_ = true;
+                    try
+                    {
+                        var headers_ = new System.Collections.Generic.Dictionary<string, System.Collections.Generic.IEnumerable<string>>();
+                        foreach (var item_ in response_.Headers)
+                            headers_[item_.Key] = item_.Value;
+                        if (response_.Content != null && response_.Content.Headers != null)
+                        {
+                            foreach (var item_ in response_.Content.Headers)
+                                headers_[item_.Key] = item_.Value;
+                        }
+
+                        ProcessResponse(client_, response_);
+
+                        var status_ = (int)response_.StatusCode;
+                        if (status_ == 200)
+                        {
+                            var objectResponse_ = await ReadObjectResponseAsync<GetFileTransferSettingsResponse>(response_, headers_, cancellationToken).ConfigureAwait(false);
+                            if (objectResponse_.Object == null)
+                            {
+                                throw new ApiException("Response was null which was not expected.", status_, objectResponse_.Text, headers_, null);
+                            }
+                            return objectResponse_.Object;
+                        }
+                        else
+                        if (status_ == 500)
+                        {
+                            var objectResponse_ = await ReadObjectResponseAsync<ProblemDetails>(response_, headers_, cancellationToken).ConfigureAwait(false);
+                            if (objectResponse_.Object == null)
+                            {
+                                throw new ApiException("Response was null which was not expected.", status_, objectResponse_.Text, headers_, null);
+                            }
+                            throw new ApiException<ProblemDetails>("Internal Server Error", status_, objectResponse_.Text, headers_, objectResponse_.Object, null);
+                        }
+                        else
+                        {
+                            var responseData_ = response_.Content == null ? null : await response_.Content.ReadAsStringAsync().ConfigureAwait(false);
+                            throw new ApiException("The HTTP status code of the response was not expected (" + status_ + ").", status_, responseData_, headers_, null);
+                        }
+                    }
+                    finally
+                    {
+                        if (disposeResponse_)
+                            response_.Dispose();
+                    }
+                }
+            }
+            finally
+            {
+                if (disposeClient_)
+                    client_.Dispose();
+            }
+        }
+
+        /// <param name="cancellationToken">A cancellation token that can be used by other objects or threads to receive notice of cancellation.</param>
+        /// <summary>
         /// Save User Settings
         /// </summary>
         /// <remarks>
@@ -3237,8 +3598,8 @@ namespace TeensyRom.Cli.Api.Generated
         /// <br/>  - TCP: Host address, port (1-65535), and timeout values (milliseconds)
         /// <br/>- **Player Settings**: Playback behavior and startup preferences
         /// <br/>  - Repeat mode, play timer, mute settings, startup filter and launch options
-        /// <br/>- **File Transfer Settings**: Auto-launch configuration
-        /// <br/>  - Auto-launch flag
+        /// <br/>- **File Transfer Settings**: Accepted but not saved here
+        /// <br/>  - The stored transfer settings are kept; change them with `PUT /api/settings/file-transfer`
         /// <br/>- **Search Settings**: Search weights, stop words, and content exclusions
         /// <br/>  - Search weights must be &gt;= 0 with at least one &gt; 0
         /// <br/>  - Stop words, banned directories, and banned files lists
@@ -3251,6 +3612,8 @@ namespace TeensyRom.Cli.Api.Generated
         /// <br/>- TCP port must be between 1 and 65535
         /// <br/>- Timeout values must be positive integers (milliseconds)
         /// <br/>- Search weights must be non-negative with at least one &gt; 0
+        /// <br/>
+        /// <br/>The stored watch folders and transfer settings are kept as they are. Transfer settings change only through `PUT /api/settings/file-transfer`.
         /// <br/>
         /// <br/>Settings are persisted to Settings.json and immediately available in memory.
         /// </remarks>
@@ -7573,6 +7936,12 @@ namespace TeensyRom.Cli.Api.Generated
         [System.Text.Json.Serialization.JsonPropertyName("launch")]
         public bool Launch { get; set; } = default!;
 
+        [System.Text.Json.Serialization.JsonPropertyName("allFileTypes")]
+        public bool AllFileTypes { get; set; } = default!;
+
+        [System.Text.Json.Serialization.JsonPropertyName("allFileTypesInArchives")]
+        public bool AllFileTypesInArchives { get; set; } = default!;
+
         private System.Collections.Generic.IDictionary<string, object>? _additionalProperties;
 
         [System.Text.Json.Serialization.JsonExtensionData]
@@ -7969,6 +8338,9 @@ namespace TeensyRom.Cli.Api.Generated
 
         [System.Text.Json.Serialization.JsonPropertyName("launch")]
         public bool Launch { get; set; } = default!;
+
+        [System.Text.Json.Serialization.JsonPropertyName("allFileTypesInArchives")]
+        public bool? AllFileTypesInArchives { get; set; } = default!;
 
         private System.Collections.Generic.IDictionary<string, object>? _additionalProperties;
 
@@ -8896,6 +9268,12 @@ namespace TeensyRom.Cli.Api.Generated
         [System.Text.Json.Serialization.JsonPropertyName("autoLaunchOnCopyEnabled")]
         public bool AutoLaunchOnCopyEnabled { get; set; } = default!;
 
+        [System.Text.Json.Serialization.JsonPropertyName("allFileTypesInFolders")]
+        public bool AllFileTypesInFolders { get; set; } = default!;
+
+        [System.Text.Json.Serialization.JsonPropertyName("allFileTypesInArchives")]
+        public bool AllFileTypesInArchives { get; set; } = default!;
+
         private System.Collections.Generic.IDictionary<string, object>? _additionalProperties;
 
         [System.Text.Json.Serialization.JsonExtensionData]
@@ -9033,6 +9411,25 @@ namespace TeensyRom.Cli.Api.Generated
 
         [System.Text.Json.Serialization.JsonPropertyName("set")]
         public DjSetDto2? Set { get; set; } = default!;
+
+        private System.Collections.Generic.IDictionary<string, object>? _additionalProperties;
+
+        [System.Text.Json.Serialization.JsonExtensionData]
+        public System.Collections.Generic.IDictionary<string, object> AdditionalProperties
+        {
+            get { return _additionalProperties ?? (_additionalProperties = new System.Collections.Generic.Dictionary<string, object>()); }
+            set { _additionalProperties = value; }
+        }
+
+    }
+
+    [System.CodeDom.Compiler.GeneratedCode("NJsonSchema", "14.4.0.0 (NJsonSchema v11.3.2.0 (Newtonsoft.Json v13.0.0.0))")]
+    public partial class GetFileTransferSettingsResponse
+    {
+
+        [System.Text.Json.Serialization.JsonPropertyName("fileTransferSettings")]
+        [System.ComponentModel.DataAnnotations.Required]
+        public FileTransferSettingsDto FileTransferSettings { get; set; } = new FileTransferSettingsDto();
 
         private System.Collections.Generic.IDictionary<string, object>? _additionalProperties;
 
@@ -10377,6 +10774,49 @@ namespace TeensyRom.Cli.Api.Generated
     }
 
     [System.CodeDom.Compiler.GeneratedCode("NJsonSchema", "14.4.0.0 (NJsonSchema v11.3.2.0 (Newtonsoft.Json v13.0.0.0))")]
+    public partial class SetFileTransferSettingsBody
+    {
+
+        [System.Text.Json.Serialization.JsonPropertyName("autoLaunchOnCopyEnabled")]
+        public bool? AutoLaunchOnCopyEnabled { get; set; } = default!;
+
+        [System.Text.Json.Serialization.JsonPropertyName("allFileTypesInFolders")]
+        public bool? AllFileTypesInFolders { get; set; } = default!;
+
+        [System.Text.Json.Serialization.JsonPropertyName("allFileTypesInArchives")]
+        public bool? AllFileTypesInArchives { get; set; } = default!;
+
+        private System.Collections.Generic.IDictionary<string, object>? _additionalProperties;
+
+        [System.Text.Json.Serialization.JsonExtensionData]
+        public System.Collections.Generic.IDictionary<string, object> AdditionalProperties
+        {
+            get { return _additionalProperties ?? (_additionalProperties = new System.Collections.Generic.Dictionary<string, object>()); }
+            set { _additionalProperties = value; }
+        }
+
+    }
+
+    [System.CodeDom.Compiler.GeneratedCode("NJsonSchema", "14.4.0.0 (NJsonSchema v11.3.2.0 (Newtonsoft.Json v13.0.0.0))")]
+    public partial class SetFileTransferSettingsResponse
+    {
+
+        [System.Text.Json.Serialization.JsonPropertyName("fileTransferSettings")]
+        [System.ComponentModel.DataAnnotations.Required]
+        public FileTransferSettingsDto FileTransferSettings { get; set; } = new FileTransferSettingsDto();
+
+        private System.Collections.Generic.IDictionary<string, object>? _additionalProperties;
+
+        [System.Text.Json.Serialization.JsonExtensionData]
+        public System.Collections.Generic.IDictionary<string, object> AdditionalProperties
+        {
+            get { return _additionalProperties ?? (_additionalProperties = new System.Collections.Generic.Dictionary<string, object>()); }
+            set { _additionalProperties = value; }
+        }
+
+    }
+
+    [System.CodeDom.Compiler.GeneratedCode("NJsonSchema", "14.4.0.0 (NJsonSchema v11.3.2.0 (Newtonsoft.Json v13.0.0.0))")]
     public partial class SetWatchFolderDeviceBody
     {
 
@@ -10436,6 +10876,46 @@ namespace TeensyRom.Cli.Api.Generated
 
     [System.CodeDom.Compiler.GeneratedCode("NJsonSchema", "14.4.0.0 (NJsonSchema v11.3.2.0 (Newtonsoft.Json v13.0.0.0))")]
     public partial class SetWatchFolderEnabledResponse
+    {
+
+        [System.Text.Json.Serialization.JsonPropertyName("watchFolder")]
+        [System.ComponentModel.DataAnnotations.Required]
+        public WatchFolderDto WatchFolder { get; set; } = new WatchFolderDto();
+
+        private System.Collections.Generic.IDictionary<string, object>? _additionalProperties;
+
+        [System.Text.Json.Serialization.JsonExtensionData]
+        public System.Collections.Generic.IDictionary<string, object> AdditionalProperties
+        {
+            get { return _additionalProperties ?? (_additionalProperties = new System.Collections.Generic.Dictionary<string, object>()); }
+            set { _additionalProperties = value; }
+        }
+
+    }
+
+    [System.CodeDom.Compiler.GeneratedCode("NJsonSchema", "14.4.0.0 (NJsonSchema v11.3.2.0 (Newtonsoft.Json v13.0.0.0))")]
+    public partial class SetWatchFolderFileTypesBody
+    {
+
+        [System.Text.Json.Serialization.JsonPropertyName("allFileTypes")]
+        public bool? AllFileTypes { get; set; } = default!;
+
+        [System.Text.Json.Serialization.JsonPropertyName("allFileTypesInArchives")]
+        public bool? AllFileTypesInArchives { get; set; } = default!;
+
+        private System.Collections.Generic.IDictionary<string, object>? _additionalProperties;
+
+        [System.Text.Json.Serialization.JsonExtensionData]
+        public System.Collections.Generic.IDictionary<string, object> AdditionalProperties
+        {
+            get { return _additionalProperties ?? (_additionalProperties = new System.Collections.Generic.Dictionary<string, object>()); }
+            set { _additionalProperties = value; }
+        }
+
+    }
+
+    [System.CodeDom.Compiler.GeneratedCode("NJsonSchema", "14.4.0.0 (NJsonSchema v11.3.2.0 (Newtonsoft.Json v13.0.0.0))")]
+    public partial class SetWatchFolderFileTypesResponse
     {
 
         [System.Text.Json.Serialization.JsonPropertyName("watchFolder")]
@@ -11078,6 +11558,12 @@ namespace TeensyRom.Cli.Api.Generated
         [System.Text.Json.Serialization.JsonPropertyName("enabled")]
         public bool Enabled { get; set; } = default!;
 
+        [System.Text.Json.Serialization.JsonPropertyName("allFileTypes")]
+        public bool AllFileTypes { get; set; } = default!;
+
+        [System.Text.Json.Serialization.JsonPropertyName("allFileTypesInArchives")]
+        public bool AllFileTypesInArchives { get; set; } = default!;
+
         [System.Text.Json.Serialization.JsonPropertyName("state")]
         public WatchFolderState State { get; set; } = default!;
 
@@ -11110,6 +11596,12 @@ namespace TeensyRom.Cli.Api.Generated
 
         [System.Text.Json.Serialization.JsonPropertyName("enabled")]
         public bool Enabled { get; set; } = default!;
+
+        [System.Text.Json.Serialization.JsonPropertyName("allFileTypes")]
+        public bool AllFileTypes { get; set; } = default!;
+
+        [System.Text.Json.Serialization.JsonPropertyName("allFileTypesInArchives")]
+        public bool AllFileTypesInArchives { get; set; } = default!;
 
         [System.Text.Json.Serialization.JsonPropertyName("state")]
         public WatchFolderState State { get; set; } = default!;
