@@ -58,7 +58,7 @@ A folder sends to each TeensyROM once. To change a destination's device folder o
 
 ## What lands
 
-- A watch folder sends the known types unless it was added with `--all-types` or later changed with `set --all-types`. Its archives (`.zip`, `.7z`, `.rar`) are expanded on the TeensyROM, as with an upload, and what comes out follows `--all-in-archives`. Excluded names (hidden and system files, `__MACOSX`) and browser partial downloads are never sent.
+- A watch folder sends the known types unless it was added with `--all-types` or later changed with `set --all-types`. Its archives (`.zip`, `.7z`, `.rar`) are expanded on the TeensyROM, as with an upload, and what comes out follows `--all-in-archives`. Excluded names (hidden and system files, `__MACOSX`) are never sent, and neither are browser partial downloads that land in the folder (not those inside an archive).
 - Only files that arrive after the folder is watched count. Files already there are not sent.
 - Files that arrive close together go as one transfer. The batch waits up to two minutes for any file still being written, so a normal download or copy goes as one transfer.
 - The engine copies each file and never deletes or moves it from the folder.

@@ -1,7 +1,8 @@
 namespace TeensyRom.Api.Transfers;
 
 /// <summary>
-/// Names tr-web never sends from a folder walk, an archive or a watch folder, whatever the file-type switches say.
+/// Names tr-web never sends, whatever the file-type switches say. The excluded names apply everywhere: folder walks, archive entries and watch folders.
+/// The partial-download suffixes apply to folder walks and watch-folder arrivals, not to archive entries.
 /// A browser's new partial-download suffix is a one-line addition here.
 /// <c>trom</c>'s <c>UploadSources</c> and the web scanner's <c>transfer.constants.ts</c> mirror these lists, so a change here is a change in all three places.
 /// </summary>

@@ -641,6 +641,17 @@ public class ArrivalTrackerTests
     }
 
     [Fact]
+    public void Archive_WithOnlyADotSlashDsStoreEntry_IsKept_WithTheSwitchOn()
+    {
+        _rules = new ArrivalRules(AllFileTypes: false, AllFileTypesInArchives: true);
+        _fs.AddFile(P("dot.zip"), 100);
+        _archives.ReadIndex(P("dot.zip")).Returns(Index(("./.DS_Store", false)));
+        Created("dot.zip");
+
+        Run(10).Should().ContainSingle().Which.Files.Should().ContainSingle().Which.RelativePath.Should().Be("dot.zip");
+    }
+
+    [Fact]
     public void Archive_WithOnlyADotSlashUntransferableEntry_IsDropped_WithTheSwitchOff()
     {
         _rules = new ArrivalRules(AllFileTypes: false, AllFileTypesInArchives: false);
