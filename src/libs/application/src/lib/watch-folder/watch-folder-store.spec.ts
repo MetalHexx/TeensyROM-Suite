@@ -215,12 +215,12 @@ describe('WatchFolderStore', () => {
   });
 
   describe('addWatchFolder and setDestination', () => {
-    it('adds a new folder and resolves null', async () => {
-      service.add.mockResolvedValue(folder('n'));
+    it('adds a new folder and resolves saved with created true', async () => {
+      service.add.mockResolvedValue({ watchFolder: folder('n'), created: true });
 
       const result = await store.addWatchFolder(addInput);
 
-      expect(result).toBeNull();
+      expect(result).toEqual({ rejection: null, created: true });
       expect(store.getFolders()().map((f) => f.id)).toEqual(['n']);
     });
 
@@ -233,10 +233,11 @@ describe('WatchFolderStore', () => {
           { id: 'x', deviceId: 'dev-2', deviceName: null, storageType: StorageType.Sd, path: '/z', launch: false },
         ],
       });
-      service.add.mockResolvedValue(grown);
+      service.add.mockResolvedValue({ watchFolder: grown, created: false });
 
-      await store.addWatchFolder(addInput);
+      const result = await store.addWatchFolder(addInput);
 
+      expect(result).toEqual({ rejection: null, created: false });
       expect(store.getFolders()()).toHaveLength(1);
       expect(store.getFolders()()[0].destinations).toHaveLength(2);
     });
@@ -246,7 +247,7 @@ describe('WatchFolderStore', () => {
 
       const result = await store.addWatchFolder(addInput);
 
-      expect(result).toEqual({ message: 'Not a folder', field: 'folder' });
+      expect(result).toEqual({ rejection: { message: 'Not a folder', field: 'folder' } });
       expect(store.error()).toBeNull();
       expect(store.getFolders()()).toEqual([]);
     });

@@ -44,6 +44,13 @@ export interface AddWatchFolderInput {
   allFileTypesInArchives: boolean;
 }
 
+/** What an add did: the folder as it now stands, and whether this add created it.
+ *  `created` is false when a destination joined a folder that was already watched. */
+export interface WatchFolderAddResult {
+  watchFolder: WatchFolder;
+  created: boolean;
+}
+
 /** The file-type switches of a folder that can change; an omitted field stays as it is. */
 export interface WatchFolderFileTypesChange {
   allFileTypes?: boolean;

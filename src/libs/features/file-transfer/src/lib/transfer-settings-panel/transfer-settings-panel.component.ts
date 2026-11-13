@@ -60,6 +60,9 @@ type OpenForm =
  * engine can change them while the panel is closed. Rows and forms are presentational; this container owns the
  * store calls, the form groups, which single form is open, and where the engine's refusals show.
  */
+const ALREADY_WATCHED_NOTICE =
+  "That folder is already watched, so its file types stay as they are. Use the folder's own switches to change them.";
+
 @Component({
   selector: 'lib-transfer-settings-panel',
   imports: [
@@ -139,6 +142,8 @@ export class TransferSettingsPanelComponent {
   protected readonly submitting = signal(false);
   /** The engine's refusal of the open form, by the field it concerns. */
   protected readonly formErrors = signal<WatchFolderFormErrors>({});
+  /** Shown when an added folder was already watched, so the file-type switches it was added with did not apply. */
+  protected readonly notice = signal<string | null>(null);
 
   protected readonly addFolderForm = this.fb.nonNullable.group({
     folder: ['', [Validators.required, notBlank]],
@@ -179,6 +184,7 @@ export class TransferSettingsPanelComponent {
     effect(() => {
       if (this.open()) {
         untracked(() => {
+          this.notice.set(null);
           void this.watchFolderStore.loadWatchFolders();
           void this.settingsStore.refreshFileTransferSettings();
         });
@@ -317,9 +323,10 @@ export class TransferSettingsPanelComponent {
     const { folder, device, storage, devicePath, launch, allFileTypes, allFileTypesInArchives } =
       this.addFolderForm.getRawValue();
     if (this.addFolderForm.invalid || storage === '') return;
+    let created = true;
     void this.submitForm(
-      () =>
-        this.watchFolderStore.addWatchFolder({
+      async () => {
+        const outcome = await this.watchFolderStore.addWatchFolder({
           path: folder.trim(),
           deviceId: device,
           storageType: storage,
@@ -327,8 +334,16 @@ export class TransferSettingsPanelComponent {
           launch,
           allFileTypes,
           allFileTypesInArchives,
-        }),
-      ['folder', 'device', 'storage', 'devicePath']
+        });
+        if (!outcome.rejection) created = outcome.created;
+        return outcome.rejection;
+      },
+      ['folder', 'device', 'storage', 'devicePath'],
+      () => {
+        if (!created && (allFileTypes || allFileTypesInArchives)) {
+          this.notice.set(ALREADY_WATCHED_NOTICE);
+        }
+      }
     );
   }
 
@@ -337,16 +352,18 @@ export class TransferSettingsPanelComponent {
     const { device, storage, devicePath, launch } = this.addDeviceForm.getRawValue();
     if (!folder || this.addDeviceForm.invalid || storage === '') return;
     void this.submitForm(
-      () =>
-        this.watchFolderStore.addWatchFolder({
-          path: folder.path,
-          deviceId: device,
-          storageType: storage,
-          devicePath,
-          launch,
-          allFileTypes: folder.allFileTypes,
-          allFileTypesInArchives: folder.allFileTypesInArchives,
-        }),
+      async () =>
+        (
+          await this.watchFolderStore.addWatchFolder({
+            path: folder.path,
+            deviceId: device,
+            storageType: storage,
+            devicePath,
+            launch,
+            allFileTypes: folder.allFileTypes,
+            allFileTypesInArchives: folder.allFileTypesInArchives,
+          })
+        ).rejection,
       ['device', 'storage', 'devicePath']
     );
   }
@@ -371,11 +388,13 @@ export class TransferSettingsPanelComponent {
   /**
    * Runs a save for the open form. A refusal shows under the field it concerns when the form has
    * that field, otherwise above the buttons, and the form stays open; a save closes the form.
-   * The result is dropped if the user has moved on to another form meanwhile.
+   * The result is dropped if the user has moved on to another form meanwhile. `onSaved` runs only
+   * when the save closed the form as submitted.
    */
   private async submitForm(
     save: () => Promise<WatchFolderRejection | null>,
-    fields: WatchFolderField[]
+    fields: WatchFolderField[],
+    onSaved?: () => void
   ): Promise<void> {
     if (this.submitting()) return;
     const submitted = this.openForm();
@@ -389,6 +408,7 @@ export class TransferSettingsPanelComponent {
         this.formErrors.set({ [key]: rejection.message });
       } else {
         this.closeForm();
+        onSaved?.();
       }
     } finally {
       this.submitting.set(false);
@@ -397,6 +417,7 @@ export class TransferSettingsPanelComponent {
 
   private show(form: OpenForm): void {
     this.formErrors.set({});
+    this.notice.set(null);
     this.openForm.set(form);
   }
 

@@ -67,6 +67,8 @@
 
       @if (error(); as message) {
       <p class="group-error" role="alert" data-testid="watch-folders-error">{{ message }}</p>
+      } @if (notice(); as message) {
+      <p class="group-note" role="status" data-testid="watch-folders-notice">{{ message }}</p>
       }
 
       @for (folder of folders(); track folder.id) {

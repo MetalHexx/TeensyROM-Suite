@@ -138,7 +138,7 @@ For each watch folder you choose:
 - **All file types in archives:** send everything inside an archive that lands, not only the types the TeensyROM recognizes. Off by default.
 - **More carts:** send the same folder to several carts.
 
-Add as many watch folders as you like. You can edit a destination, change a folder's file types, turn a folder off and on, and remove it.
+Add as many watch folders as you like. Adding a folder you already watch adds the cart to it and leaves its file-type switches as they are, so use the folder's own switches to change them. You can edit a destination, change a folder's file types, turn a folder off and on, and remove it.
 
 Only files that arrive after you add the folder are sent, and by default only of types the TeensyROM recognizes; turn on *All file types* to send the rest. Hidden and system files, and a browser's unfinished downloads, are never sent. Archives are unpacked on the cart, and what comes out follows *All file types in archives*. Your files stay in the folder: they are copied, never moved or deleted. Files that land close together go as one transfer. A file that lands while its cart is busy with another transfer is skipped, and a file that lands while its folder is turned off is not sent later. A transfer from a watch folder resets the cart like any other, which stops what is running.
 
