@@ -2787,6 +2787,94 @@
         }
       }
     },
+    "/api/devices/{deviceId}/storage/{storageType}/files": {
+      "delete": {
+        "tags": [
+          "Files"
+        ],
+        "summary": "Delete File",
+        "description": "Deletes one file from the device's storage and drops it from the storage cache.\n\n- Folders can't be deleted, because the firmware removes files only. A folder is refused (400) when the engine's cached listing of its parent knows it. A folder made on the cart outside the engine since that listing was cached isn't known, so the delete reaches the device, the firmware refuses it, and this answers 502 with the device's message.\n- Favorite copies, playlists and bans that name the file are left as they are. A path under /favorites/ is refused (400); untag a favorite with unfavorite instead.\n- Answers 409 (code deviceBusyWithTransfer) when the device is busy with a transfer.",
+        "operationId": "DeleteFile",
+        "parameters": [
+          {
+            "name": "deviceId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "storageType",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "$ref": "#/components/schemas/TeensyStorageType"
+            }
+          },
+          {
+            "name": "FilePath",
+            "in": "query",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/DeleteFileResponse"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Bad Request",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Not Found",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "Conflict",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          },
+          "502": {
+            "description": "Bad Gateway",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/api/devices/{deviceId}/storage/{storageType}/ban": {
       "post": {
         "tags": [
@@ -3896,6 +3984,17 @@
         }
       },
       "DeleteDjSetResponse": {
+        "required": [
+          "message"
+        ],
+        "type": "object",
+        "properties": {
+          "message": {
+            "type": "string"
+          }
+        }
+      },
+      "DeleteFileResponse": {
         "required": [
           "message"
         ],

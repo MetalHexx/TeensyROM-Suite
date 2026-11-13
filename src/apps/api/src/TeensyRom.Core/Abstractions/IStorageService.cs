@@ -28,6 +28,14 @@ namespace TeensyRom.Core.Abstractions
         Task<bool> RemoveFavorite(LaunchableItem file, TeensyStorageType storageType, CancellationToken ct);
 
         /// <summary>
+        /// Deletes one file from the device and drops it from the cache. Folders are refused, judged from the
+        /// cached parent listing (banned subfolders included), and nothing is sent to the device.
+        /// A missing or banned parent folder reads as <see cref="FileDeleteOutcome.NotFound"/>, so a file inside
+        /// a banned folder answers not found until the folder is unbanned.
+        /// </summary>
+        Task<FileDeleteResult> DeleteFile(FilePath path, CancellationToken ct);
+
+        /// <summary>
         /// Upserts a single freshly-transferred file into the in-memory cache so it is queryable
         /// immediately, without re-indexing. Does not persist to disk - see <see cref="PersistCache"/>.
         /// </summary>
