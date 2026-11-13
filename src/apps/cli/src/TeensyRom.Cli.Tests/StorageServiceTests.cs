@@ -319,6 +319,35 @@ public class StorageServiceTests
     }
 
     [Fact]
+    public async Task DeleteFile_AsksTrWebToDeleteThePathOnTheCurrentStorage()
+    {
+        await _sut.DeleteFile("/a.prg");
+
+        await _api.Received(1).DeleteFileAsync(DeviceId, ApiStorageType.SD, "/a.prg", Arg.Any<CancellationToken>());
+    }
+
+    [Fact]
+    public async Task DeleteFile_AfterSwitchingToUsb_DeletesOnUsb()
+    {
+        _sut.SwitchStorage(TeensyStorageType.USB);
+
+        await _sut.DeleteFile("/a.prg");
+
+        await _api.Received(1).DeleteFileAsync(DeviceId, ApiStorageType.USB, "/a.prg", Arg.Any<CancellationToken>());
+    }
+
+    [Fact]
+    public async Task DeleteFile_WhenTheEngineRefuses_ThrowsItsMessage()
+    {
+        _api.DeleteFileAsync(DeviceId, Arg.Any<ApiStorageType>(), Arg.Any<string>(), Arg.Any<CancellationToken>())
+            .Returns(Task.FromException<DeleteFileResponse>(ApiFailure(400, """{"title":"/music is a folder. Only files can be deleted."}""")));
+
+        var act = () => _sut.DeleteFile("/music");
+
+        await act.Should().ThrowAsync<TeensyApiException>().WithMessage("/music is a folder. Only files can be deleted.");
+    }
+
+    [Fact]
     public async Task BanFile_AsksTrWebToBanThePathOnTheGivenStorage_AndReturnsItsAnswer()
     {
         _api.BanFileAsync(DeviceId, ApiStorageType.USB, "/music/Commando.sid", Arg.Any<CancellationToken>())
