@@ -13,7 +13,7 @@ using TeensyRom.Cli.Settings;
 namespace TeensyRom.Cli.Commands.File;
 
 /// <summary>The paths of a <c>file</c> command that works through many of them.</summary>
-internal sealed class FilePathsSettings : StorageSettings
+internal class FilePathsSettings : StorageSettings
 {
     [CommandArgument(0, "<PATHS>")]
     [Description("The files to work on. Use - to read every path from stdin, one per line.")]
@@ -27,7 +27,7 @@ internal sealed class FilePathsSettings : StorageSettings
     }
 }
 
-/// <summary>What happened to one path of a <c>file favorite|unfavorite|ban</c> run, as the JSON array carries it.</summary>
+/// <summary>What happened to one path of a <c>file favorite|unfavorite|ban|delete</c> run, as the JSON array carries it.</summary>
 internal record FilePathResultJson(string Path, bool Ok, string Message);
 
 /// <summary>A ban's result: the name now banned, and whether it already was.</summary>
@@ -42,28 +42,34 @@ internal sealed record FileBanResultJson(string Path, bool Ok, string Message, s
 /// The exit code is 0 when every path succeeded, 1 when any path failed for a reason other than not being found, and
 /// otherwise 5 (every failure was a not-found). Piped, stdout carries the paths that succeeded, one per line.
 /// </remarks>
-internal abstract class FilePathsCommand<TResult>(
+internal abstract class FilePathsCommand<TSettings, TResult>(
     ICliOutput output,
     IEngineControl engine,
     IDeviceChooser chooser,
     IDeviceService devices,
     IStorageService storage,
     ISettingsService settingsService,
-    IStdinPaths stdin) : DeviceCommand<FilePathsSettings>(output, engine, chooser, devices, storage, settingsService)
+    IStdinPaths stdin) : DeviceCommand<TSettings>(output, engine, chooser, devices, storage, settingsService)
+    where TSettings : FilePathsSettings
     where TResult : FilePathResultJson
 {
+    /// <summary>Runs once, after the paths are expanded and validated and before any is processed. Throw to stop the run.</summary>
+    protected virtual void BeforeAll(IReadOnlyList<string> paths, TSettings settings) { }
+
     /// <summary>Works on one validated path; a thrown error becomes that path's failure.</summary>
     protected abstract Task<TResult> ProcessAsync(string path);
 
     /// <summary>The result to report for a path that failed with <paramref name="message"/>.</summary>
     protected abstract TResult Failure(string path, string message);
 
-    protected override async Task<int> RunAsync(CommandContext context, FilePathsSettings settings, CancellationToken ct)
+    protected override async Task<int> RunAsync(CommandContext context, TSettings settings, CancellationToken ct)
     {
         var paths = stdin.Expand(settings.Paths);
 
         var invalid = paths.FirstOrDefault(path => !path.IsValidUnixPath());
         if (invalid is not null) throw new CliException(CliExitCode.Usage, $"'{invalid}' is not a valid unix path, such as /music.");
+
+        BeforeAll(paths, settings);
 
         var results = new List<TResult>();
         var failedForOtherReasons = false;
@@ -111,3 +117,14 @@ internal abstract class FilePathsCommand<TResult>(
         }
     }
 }
+
+/// <summary>A <see cref="FilePathsCommand{TSettings, TResult}"/> that takes only the paths and the storage options.</summary>
+internal abstract class FilePathsCommand<TResult>(
+    ICliOutput output,
+    IEngineControl engine,
+    IDeviceChooser chooser,
+    IDeviceService devices,
+    IStorageService storage,
+    ISettingsService settingsService,
+    IStdinPaths stdin) : FilePathsCommand<FilePathsSettings, TResult>(output, engine, chooser, devices, storage, settingsService, stdin)
+    where TResult : FilePathResultJson;

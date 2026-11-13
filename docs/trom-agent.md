@@ -45,13 +45,14 @@ See the [Stream Player](trom-terminal.md#stream-player).
 
 ### Library tours and curation
 
-Browse your library folder by folder, search it, favorite what you love and ban the stinkers.
+Browse your library folder by folder, search it, favorite what you love, ban the stinkers and delete files you don't want. Trom Agent names the files and asks before it deletes.
 
 - "walk me through my music folder"
 - "find everything by Martin Galway"
 - "ban that one"
+- "delete that file from my games folder"
 
-See [searching, favorites and bans](trom-terminal.md#one-line-commands).
+See [searching, favorites, bans and deleting](trom-terminal.md#one-line-commands).
 
 ### Copy files and watch folders
 

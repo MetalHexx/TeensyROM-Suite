@@ -139,6 +139,14 @@ internal sealed class StorageService(ITeensyRomApiClient api, IDeviceService dev
         alert.Publish($"{item.Path} was untagged as a favorite.");
     }
 
+    public async Task DeleteFile(string path)
+    {
+        var deviceId = devices.RequireDeviceId();
+        var storage = StorageType.ToApi();
+
+        await ApiErrors.Call(() => api.DeleteFileAsync(deviceId, storage, path));
+    }
+
     public async Task<BanResult> BanFile(string path, TeensyStorageType storage)
     {
         var deviceId = devices.RequireDeviceId();

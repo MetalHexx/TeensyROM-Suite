@@ -44,6 +44,12 @@ internal interface IStorageService
     Task RemoveFavorite(ILaunchableItem item);
 
     /// <summary>
+    /// Deletes the file at <paramref name="path"/> on the current storage through tr-web. Publishes no alert; the caller reports.
+    /// </summary>
+    /// <exception cref="TeensyApiException">tr-web answered 400 for a folder, 404 for no such file, or 409 when the device was busy.</exception>
+    Task DeleteFile(string path);
+
+    /// <summary>
     /// Bans the file at <paramref name="path"/> through tr-web, which adds its name to the banned files. The file is
     /// never looked up here: banned files are invisible to listings, so a lookup would report an already-banned file
     /// as missing.

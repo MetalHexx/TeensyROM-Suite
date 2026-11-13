@@ -30,7 +30,7 @@ Copy between this computer and the TeensyROM with `trom file upload` and `trom f
 - `totals.copied` counts the files an archive expands to, so it can exceed the number of rows in `files`.
 - Ask where files go when the user hasn't said: the device folder for an upload, the folder on the computer for a download. Your own working folder is wherever this session started, which is rarely where the user wants files.
 - Before any copy, confirm what goes where. A copy replaces a same-named file at the destination.
-- Never pass `--yes`. It sends the whole current folder, which is rarely what the user means; ask for the files instead.
+- Never pass `--yes` to `file upload`. It sends the whole current folder, which is rarely what the user means; ask for the files instead.
 - An upload resets the TeensyROM unless the engine believes it is idle with nothing launched on it, and a reset stops whatever is playing. Say so when you confirm, and don't copy during a timed set unless the user wants the set to end.
 - When the `auto-launch` upload setting is on, an upload also launches one file once it lands: games first, never `.trh`. Say so when you confirm a copy.
 - Report the summary, and each failure in plain words.
@@ -44,10 +44,21 @@ Favorite, unfavorite and ban work as in `dj.md` (Curating), with the same rule: 
 - List the bans: `trom file banned --json` returns `[{entry, kind}]`, where `kind` is `file` or `folder`. Takes no `--device`.
 - Lift a ban on request: `trom file unban "<entry>" --json`. Give the entry as `trom file banned` prints it, or a device file path. Takes no `--device`.
 
+## Deleting
+
+Offer delete only when `init`'s `capabilities` lists `file delete`. You can't answer a terminal prompt, so the confirmation is yours.
+
+- Name the exact files and the device to the user, and wait for a yes. Never delete a file the user didn't name.
+- Say that, like any device command other than a launch, a delete resets a C64 that is running a program.
+- Then run `trom file delete "<path>"... --device <name> [--storage sd|usb] --yes --json`. `--yes` is right here only because the user just confirmed.
+- The JSON is `[{path, ok, message}]`. It exits 5 when every failure was a not-found, and 1 for any other failure; report each failure in plain words.
+- Only files can be deleted. A folder path fails with "Only files can be deleted". A path under `/favorites/` is a favorite's copy: point to `trom file unfavorite` instead.
+- Favorite copies, playlists and bans that name a deleted file are left as they are.
+
 ## Search and random
 
 `trom file search "<text>" --json` and `trom file random --json` read only what the engine has cached. When stderr carries an `indexIncomplete` notice, gently remind the user and offer `trom index build --device <name> --storage <sd|usb>` (as a background command, after they agree).
 
 ## Not yet
 
-Deleting files, and copying or moving files on the TeensyROM itself, are not in trom yet. For a move, if `init`'s `capabilities` lists `file download` and `file upload`, offer to download the files and then upload them to the new folder, confirming each copy as under Copying. The originals stay on the TeensyROM, since deleting isn't in trom yet. If `init`'s `capabilities` does not list a command for what the user asks, say plainly: "this version of trom can't do that yet".
+Deleting files is available when `init`'s `capabilities` lists `file delete` (see Deleting). Folders can't be deleted. Copying or moving files on the TeensyROM itself is still not in trom. For a move, if `capabilities` lists `file download`, `file upload` and `file delete`, offer to download the files, upload them to the new folder, and then delete the originals, confirming each step as under Copying and Deleting. Without `file delete`, the originals stay on the TeensyROM. If `init`'s `capabilities` does not list a command for what the user asks, say plainly: "this version of trom can't do that yet".
