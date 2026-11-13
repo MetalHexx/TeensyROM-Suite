@@ -2,6 +2,7 @@ import { InjectionToken } from '@angular/core';
 import {
   AddWatchFolderInput,
   WatchFolder,
+  WatchFolderAddResult,
   WatchFolderDestinationChange,
   WatchFolderField,
   WatchFolderFileTypesChange,
@@ -11,7 +12,7 @@ import {
 export interface IWatchFolderService {
   list(): Promise<WatchFolder[]>;
   /** Adds a folder, or a destination for another device to a folder already watched. */
-  add(input: AddWatchFolderInput): Promise<WatchFolder>;
+  add(input: AddWatchFolderInput): Promise<WatchFolderAddResult>;
   setDestination(
     watchFolderId: string,
     deviceId: string,

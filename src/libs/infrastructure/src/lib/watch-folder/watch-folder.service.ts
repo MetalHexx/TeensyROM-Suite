@@ -4,6 +4,7 @@ import {
   AddWatchFolderInput,
   IWatchFolderService,
   WatchFolder,
+  WatchFolderAddResult,
   WatchFolderDestinationChange,
   WatchFolderField,
   WatchFolderFileTypesChange,
@@ -40,7 +41,7 @@ export class WatchFolderService implements IWatchFolderService {
     return response.watchFolders.map((dto) => WatchFolderMapper.toWatchFolder(dto));
   }
 
-  async add(input: AddWatchFolderInput): Promise<WatchFolder> {
+  async add(input: AddWatchFolderInput): Promise<WatchFolderAddResult> {
     try {
       const response = await this.watchFoldersApi.addWatchFolder({
         addWatchFolderBody: {
@@ -53,7 +54,10 @@ export class WatchFolderService implements IWatchFolderService {
           allFileTypesInArchives: input.allFileTypesInArchives,
         },
       });
-      return WatchFolderMapper.toWatchFolder(response.watchFolder);
+      return {
+        watchFolder: WatchFolderMapper.toWatchFolder(response.watchFolder),
+        created: response.created,
+      };
     } catch (error) {
       throw await this.toRejection(error);
     }

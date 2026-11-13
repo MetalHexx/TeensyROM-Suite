@@ -112,6 +112,8 @@ describe('TransferSettingsPanelComponent', () => {
     fixture.detectChanges();
   };
 
+  const added = (watchFolder: WatchFolder, created = true) => ({ watchFolder, created });
+
   const setup = async (options: { folders?: WatchFolder[]; withSettings?: boolean } = {}) => {
     initialFolders = options.folders ?? [];
     engineUploads = uploadSettings();
@@ -533,7 +535,7 @@ describe('TransferSettingsPanelComponent', () => {
 
       it('starts with both file-type switches off and sends them as chosen', async () => {
         await setup();
-        watchFolders['add'].mockResolvedValue(folder('new', { allFileTypes: true }));
+        watchFolders['add'].mockResolvedValue(added(folder('new', { allFileTypes: true })));
         await fillAddFolder();
         const checked = (testId: string) =>
           query(testId)?.querySelector('button')?.getAttribute('aria-checked');
@@ -548,6 +550,128 @@ describe('TransferSettingsPanelComponent', () => {
         expect(watchFolders['add']).toHaveBeenCalledWith(
           expect.objectContaining({ allFileTypes: true, allFileTypesInArchives: true })
         );
+      });
+
+      describe('already-watched notice', () => {
+        const notice = () => query('watch-folders-notice');
+        const addExisting = async (switches: string[], created = false) => {
+          watchFolders['add'].mockResolvedValue(added(folder('new'), created));
+          await fillAddFolder();
+          for (const testId of switches) {
+            clickButton(query(testId));
+            await settle();
+          }
+          await submit();
+        };
+
+        it.each([['form-all-types'], ['form-all-in-archives']])(
+          'closes the form and says the file types stay when %s was on for a folder already watched',
+          async (toggle) => {
+            await setup();
+
+            await addExisting([toggle]);
+
+            expect(query('watch-folder-form')).toBeNull();
+            expect(notice()?.textContent).toContain('already watched');
+            expect(notice()?.textContent).toContain('stay as they are');
+          }
+        );
+
+        it('shows no notice when both switches were off', async () => {
+          await setup();
+
+          await addExisting([]);
+
+          expect(query('watch-folder-form')).toBeNull();
+          expect(notice()).toBeNull();
+        });
+
+        it('shows no notice when the add created the folder', async () => {
+          await setup();
+
+          await addExisting(['form-all-types', 'form-all-in-archives'], true);
+
+          expect(query('watch-folder-form')).toBeNull();
+          expect(notice()).toBeNull();
+        });
+
+        it('shows no notice when the add was refused, and keeps the form open', async () => {
+          await setup();
+          watchFolders['add'].mockRejectedValue(reject('folder', 'Not found'));
+          await fillAddFolder();
+          clickButton(query('form-all-types'));
+          await settle();
+
+          await submit();
+
+          expect(query('watch-folder-form')).not.toBeNull();
+          expect(notice()).toBeNull();
+        });
+
+        it('shows no notice from an Add device form', async () => {
+          await setup({ folders: [folder('a', { allFileTypes: true })] });
+          watchFolders['add'].mockResolvedValue(
+            added(folder('a', { allFileTypes: true }), false)
+          );
+          query<HTMLButtonElement>('add-device')?.click();
+          await settle();
+
+          await submit();
+
+          expect(query('watch-folder-device-form')).toBeNull();
+          expect(notice()).toBeNull();
+        });
+
+        it('clears when any form opens', async () => {
+          await setup({ folders: [folder('a')] });
+          await addExisting(['form-all-types']);
+          expect(notice()).not.toBeNull();
+
+          query<HTMLButtonElement>('add-device')?.click();
+          await settle();
+
+          expect(notice()).toBeNull();
+        });
+
+        it('clears when the panel is reopened', async () => {
+          await setup();
+          await addExisting(['form-all-types']);
+          expect(notice()).not.toBeNull();
+
+          fixture.componentRef.setInput('open', false);
+          fixture.detectChanges();
+          fixture.componentRef.setInput('open', true);
+          fixture.detectChanges();
+          await settle();
+
+          expect(notice()).toBeNull();
+        });
+
+        it('shows nothing when the form changed before the save resolved', async () => {
+          await setup();
+          let resolveAdd: (value: ReturnType<typeof added>) => void = () => undefined;
+          watchFolders['add'].mockReturnValue(
+            new Promise((resolve) => {
+              resolveAdd = resolve;
+            })
+          );
+          await fillAddFolder();
+          clickButton(query('form-all-types'));
+          await settle();
+          submitButton()?.click();
+          await settle();
+
+          clickButton(query('form-cancel'));
+          await settle();
+          clickButton(query('add-watch-folder'));
+          await settle();
+          resolveAdd(added(folder('new'), false));
+          await settle();
+          await settle();
+
+          expect(query('watch-folder-form')).not.toBeNull();
+          expect(notice()).toBeNull();
+        });
       });
 
       it('gates Add on the folder, since the rest starts filled in', async () => {
@@ -597,19 +721,21 @@ describe('TransferSettingsPanelComponent', () => {
       it('saves the trimmed folder and the chosen device, then closes and lists it', async () => {
         await setup();
         watchFolders['add'].mockResolvedValue(
-          folder('new', {
-            path: 'D:\\Incoming',
-            destinations: [
-              {
-                id: 'new-1',
-                deviceId: 'dev-2',
-                deviceName: 'Bench TeensyROM',
-                storageType: StorageType.Sd,
-                path: '/auto-transfer',
-                launch: false,
-              },
-            ],
-          })
+          added(
+            folder('new', {
+              path: 'D:\\Incoming',
+              destinations: [
+                {
+                  id: 'new-1',
+                  deviceId: 'dev-2',
+                  deviceName: 'Bench TeensyROM',
+                  storageType: StorageType.Sd,
+                  path: '/auto-transfer',
+                  launch: false,
+                },
+              ],
+            })
+          )
         );
 
         await fillAddFolder();
@@ -814,7 +940,7 @@ describe('TransferSettingsPanelComponent', () => {
 
       it('passes the folder current file-type switches along', async () => {
         await setup({ folders: [folder('a', { allFileTypes: true })] });
-        watchFolders['add'].mockResolvedValue(folder('a', { allFileTypes: true }));
+        watchFolders['add'].mockResolvedValue(added(folder('a', { allFileTypes: true }), false));
         query<HTMLButtonElement>('add-device')?.click();
         await settle();
 
@@ -828,19 +954,21 @@ describe('TransferSettingsPanelComponent', () => {
       it('saves through add with the folder path and closes', async () => {
         await setup({ folders: [folder('a')] });
         watchFolders['add'].mockResolvedValue(
-          folder('a', {
-            destinations: [
-              ...folder('a').destinations,
-              {
-                id: 'a-2',
-                deviceId: 'dev-2',
-                deviceName: 'Bench TeensyROM',
-                storageType: StorageType.Usb,
-                path: '/auto-transfer',
-                launch: false,
-              },
-            ],
-          })
+          added(
+            folder('a', {
+              destinations: [
+                ...folder('a').destinations,
+                {
+                  id: 'a-2',
+                  deviceId: 'dev-2',
+                  deviceName: 'Bench TeensyROM',
+                  storageType: StorageType.Usb,
+                  path: '/auto-transfer',
+                  launch: false,
+                },
+              ],
+            })
+          )
         );
         query<HTMLButtonElement>('add-device')?.click();
         await settle();
@@ -864,19 +992,21 @@ describe('TransferSettingsPanelComponent', () => {
       it('returns focus to the last device when adding it leaves nothing more to add', async () => {
         await setup({ folders: [folder('a')] });
         watchFolders['add'].mockResolvedValue(
-          folder('a', {
-            destinations: [
-              ...folder('a').destinations,
-              {
-                id: 'a-2',
-                deviceId: 'dev-2',
-                deviceName: 'Bench TeensyROM',
-                storageType: StorageType.Sd,
-                path: '/auto-transfer',
-                launch: false,
-              },
-            ],
-          })
+          added(
+            folder('a', {
+              destinations: [
+                ...folder('a').destinations,
+                {
+                  id: 'a-2',
+                  deviceId: 'dev-2',
+                  deviceName: 'Bench TeensyROM',
+                  storageType: StorageType.Sd,
+                  path: '/auto-transfer',
+                  launch: false,
+                },
+              ],
+            })
+          )
         );
         query<HTMLButtonElement>('add-device')?.click();
         await settle();

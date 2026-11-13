@@ -42,7 +42,8 @@
   line-height: 24px;
 }
 
-.group-empty {
+.group-empty,
+.group-note {
   margin: 0;
   padding: var(--spacing-xs) 0;
   color: var(--color-dimmed-light);

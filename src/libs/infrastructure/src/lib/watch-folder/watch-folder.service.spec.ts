@@ -59,10 +59,10 @@ describe('WatchFolderService', () => {
       expect(folders[0].destinations[0].storageType).toBe(StorageType.Sd);
     });
 
-    it('adds a folder with the API storage type and returns the mapped folder', async () => {
+    it('adds a folder with the API storage type and returns the mapped folder and created', async () => {
       api.addWatchFolder.mockResolvedValue({ watchFolder: dto, created: true });
 
-      const folder = await service.add({
+      const result = await service.add({
         path: 'C:\\Games',
         deviceId: 'dev-1',
         storageType: StorageType.Usb,
@@ -83,7 +83,25 @@ describe('WatchFolderService', () => {
           allFileTypesInArchives: false,
         },
       });
-      expect(folder.id).toBe('f1');
+      expect(result.watchFolder.id).toBe('f1');
+      expect(result.created).toBe(true);
+    });
+
+    it('reports created false when the add joined a folder already watched', async () => {
+      api.addWatchFolder.mockResolvedValue({ watchFolder: dto, created: false });
+
+      const result = await service.add({
+        path: 'C:\\Games',
+        deviceId: 'dev-2',
+        storageType: StorageType.Sd,
+        devicePath: null,
+        launch: false,
+        allFileTypes: true,
+        allFileTypesInArchives: false,
+      });
+
+      expect(result.created).toBe(false);
+      expect(result.watchFolder.id).toBe('f1');
     });
 
     it('sends only the changed fields when setting a destination', async () => {
