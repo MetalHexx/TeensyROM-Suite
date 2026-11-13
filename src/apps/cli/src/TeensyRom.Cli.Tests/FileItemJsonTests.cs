@@ -104,8 +104,20 @@ public sealed class FileItemJsonTests
 
         var names = JsonSerializer.SerializeToNode(FileItemJson.From(item, TeensyStorageType.SD), CliJson.Indented)!.AsObject().Select(p => p.Key);
 
-        names.Should().Equal("name", "path", "storage", "fileType", "size", "isFavorite", "isCompatible", "title", "creator", "releaseInfo", "shareUrl", "playLength");
+        names.Should().Equal("name", "path", "storage", "fileType", "size", "isFavorite", "isCompatible", "launchable", "title", "creator", "releaseInfo", "shareUrl", "playLength");
         FileItemJson.From(item, TeensyStorageType.SD).PlayLength.Should().Be("00:03:20");
+    }
+
+    [Fact]
+    public void Launchable_IsTrueForALaunchableFile_AndFalseForAnUnknownOne_InBothForms()
+    {
+        var song = ApiMapper.ToFileItem(SongDto());
+        var unknown = ApiMapper.ToFileItem(new FileItemDto { Name = "x.bin", Path = "/x.bin", Type = FileItemType.Unknown, IsCompatible = true });
+
+        FileItemJson.From(song, TeensyStorageType.SD).Launchable.Should().BeTrue();
+        FileItemJson.From(unknown, TeensyStorageType.SD).Launchable.Should().BeFalse();
+        Full(song)["launchable"]!.GetValue<bool>().Should().BeTrue();
+        Full(unknown)["launchable"]!.GetValue<bool>().Should().BeFalse();
     }
 
     [Fact]

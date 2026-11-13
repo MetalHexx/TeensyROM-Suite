@@ -145,9 +145,15 @@ namespace TeensyRom.Api.Models
         [Required] public FileItemType Type { get; set; } = FileItemType.Unknown;
 
         /// <summary>
-        /// Creates a <see cref="FileItemDto"/> from an <see cref="LaunchableItem"/> entity.
+        /// Creates a <see cref="FileItemDto"/> from a launchable entity.
         /// </summary>
-        public static FileItemDto FromLaunchable(LaunchableItem item)
+        public static FileItemDto FromLaunchable(LaunchableItem item) => FromFile(item);
+
+        /// <summary>
+        /// Creates a <see cref="FileItemDto"/> from any <see cref="FileItem"/> entity. Files the API cannot
+        /// classify as a song, game, image or hex item are typed <see cref="FileItemType.Unknown"/>.
+        /// </summary>
+        public static FileItemDto FromFile(FileItem item)
         {
             var vm = new FileItemDto
             {

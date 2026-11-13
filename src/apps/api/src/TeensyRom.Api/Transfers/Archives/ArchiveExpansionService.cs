@@ -240,10 +240,14 @@ namespace TeensyRom.Api.Transfers.Archives
                         return;
                     }
 
+                    // Hidden files, Mac residue and the like are never sent, whatever the job's switch says.
+                    // Dropped silently, like a directory: not a failure, and no outcome for the archive.
+                    if (TransferExclusions.IsExcluded(relativePath)) return;
+
                     var isNestedArchive = reader.IsArchiveExtension(entry.Path);
                     var isSupported = TransferableFileTypes.IsTransferable(entry.Path);
 
-                    if (!isNestedArchive && !isSupported)
+                    if (!isNestedArchive && !isSupported && !job.AllFileTypesInArchives)
                     {
                         // A `.doc` inside a collection is not an error - never copied, so it costs nothing
                         // and never counts against this archive's declared-byte budget.

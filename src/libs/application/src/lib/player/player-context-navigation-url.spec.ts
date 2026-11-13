@@ -2,7 +2,7 @@ import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest';
 import { of } from 'rxjs';
 import { TestBed } from '@angular/core/testing';
 import { Location } from '@angular/common';
-import { LaunchMode, StorageType } from '@teensyrom-nx/domain';
+import { FileItemType, LaunchMode, StorageType } from '@teensyrom-nx/domain';
 import { createPlayerHarness, type PlayerHarness } from './testing/player-context-harness';
 import { createTestFileItem } from '@teensyrom-nx/testing/fixtures';
 
@@ -182,6 +182,26 @@ describe('PlayerContextService - URL and popstate', () => {
       await flush();
 
       expect(navigateSpy).not.toHaveBeenCalled();
+    });
+
+    it('launches nothing when the URL names an unknown-type file', async () => {
+      const unknownFile = createTestFileItem({
+        name: 'notes.bin',
+        path: '/music/notes.bin',
+        parentPath: directoryPath,
+        type: FileItemType.Unknown,
+      });
+      await harness.arrangeDirectory({ deviceId, path: directoryPath, files: [...files, unknownFile] });
+      window.history.pushState(
+        null,
+        '',
+        `/player?device=${deviceId}&storage=SD&path=${directoryPath}&file=${unknownFile.name}`
+      );
+
+      window.dispatchEvent(new PopStateEvent('popstate'));
+      await flush();
+
+      expect(harness.service.getCurrentFile(deviceId)()).toBeNull();
     });
 
     it('warns and does not relaunch when the named file is not in the directory', async () => {

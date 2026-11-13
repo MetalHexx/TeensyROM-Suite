@@ -76,6 +76,8 @@ describe('SettingsViewComponent', () => {
     },
     fileTransferSettings: {
       autoLaunchOnCopyEnabled: false,
+      allFileTypesInFolders: false,
+      allFileTypesInArchives: false,
     },
     searchSettings: {
       weights: {
@@ -117,6 +119,8 @@ describe('SettingsViewComponent', () => {
     mockSettingsService = {
       getSettings: vi.fn().mockResolvedValue(mockSettings),
       saveSettings: vi.fn().mockResolvedValue(undefined),
+      getFileTransferSettings: vi.fn(),
+      saveFileTransferSettings: vi.fn(),
     } as ISettingsService;
 
     // Initialize mock signals

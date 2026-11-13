@@ -5,6 +5,7 @@ import { SettingsState } from '../settings-state.interface';
 import { StateSignals, WritableStateSource } from '@ngrx/signals';
 import { loadSettings } from './load-settings';
 import { saveSettings } from './save-settings';
+import { saveFileTransferSettings } from './save-file-transfer-settings';
 import { updateSettings } from './update-settings';
 import { undo } from './undo';
 import { redo } from './redo';
@@ -19,6 +20,7 @@ export function withSettingsActions() {
     return {
       ...loadSettings(writableStore, settingsService),
       ...saveSettings(writableStore, settingsService),
+      ...saveFileTransferSettings(writableStore, settingsService),
       ...updateSettings(writableStore),
       ...undo(writableStore),
       ...redo(writableStore),

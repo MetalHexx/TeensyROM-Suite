@@ -35,6 +35,30 @@
     </div>
   </lib-dropdown-dialog>
 </div>
+<div class="type-switches">
+  <mat-slide-toggle
+    #allTypesSwitch
+    [checked]="folder().allFileTypes"
+    [disabled]="pending()"
+    [aria-label]="'All file types for ' + folder().path"
+    [libTooltip]="allTypesTooltip"
+    data-testid="watch-folder-all-types-switch"
+    (change)="onFileTypeToggle(allTypesSwitch, 'allFileTypes', $event.checked)"
+  >
+    All file types
+  </mat-slide-toggle>
+  <mat-slide-toggle
+    #allInArchivesSwitch
+    [checked]="folder().allFileTypesInArchives"
+    [disabled]="pending()"
+    [aria-label]="'All file types in archives for ' + folder().path"
+    [libTooltip]="allTypesInArchivesTooltip"
+    data-testid="watch-folder-all-in-archives-switch"
+    (change)="onFileTypeToggle(allInArchivesSwitch, 'allFileTypesInArchives', $event.checked)"
+  >
+    All file types in archives
+  </mat-slide-toggle>
+</div>
 @if (folder().state === WatchFolderState.Unavailable) {
 <p class="folder-note" role="status" data-testid="watch-folder-unavailable">
   Unavailable — the folder is missing or can't be watched

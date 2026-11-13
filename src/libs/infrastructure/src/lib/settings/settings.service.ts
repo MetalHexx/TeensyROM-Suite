@@ -1,7 +1,12 @@
 import { Injectable, Inject } from '@angular/core';
 import { from, Observable, catchError, map, throwError } from 'rxjs';
 import { SettingsApiService } from '@teensyrom-nx/data-access/api-client';
-import { ISettingsService, Settings, ALERT_SERVICE, IAlertService } from '@teensyrom-nx/domain';
+import {
+  ISettingsService,
+  Settings,
+  FileTransferSettings,
+  ALERT_SERVICE, IAlertService,
+} from '@teensyrom-nx/domain';
 import { DomainMapper } from '../domain.mapper';
 import { logError } from '@teensyrom-nx/utils';
 
@@ -47,6 +52,39 @@ export class SettingsService implements ISettingsService {
     return from(this.apiService.saveSettings({ saveSettingsRequest: saveRequest })).pipe(
       map(() => settings), // Echo back the input settings since API only returns a message
       catchError((error) => this.handleError(error, 'saveSettings', 'Failed to save settings'))
+    );
+  }
+
+  /**
+   * Retrieves only the upload settings from the backend API.
+   *
+   * @returns Observable emitting the engine's current upload settings
+   */
+  getFileTransferSettings(): Observable<FileTransferSettings> {
+    return from(this.apiService.getFileTransferSettings()).pipe(
+      map((response) => DomainMapper.toFileTransferSettings(response.fileTransferSettings)),
+      catchError((error) =>
+        this.handleError(error, 'getFileTransferSettings', 'Failed to load upload settings')
+      )
+    );
+  }
+
+  /**
+   * Saves only the given upload settings through the narrow file-transfer endpoint.
+   *
+   * @param change - The upload switches to change
+   * @returns Observable emitting the upload settings as saved
+   */
+  saveFileTransferSettings(
+    change: Partial<FileTransferSettings>
+  ): Observable<FileTransferSettings> {
+    return from(
+      this.apiService.setFileTransferSettings({ setFileTransferSettingsBody: change })
+    ).pipe(
+      map((response) => DomainMapper.toFileTransferSettings(response.fileTransferSettings)),
+      catchError((error) =>
+        this.handleError(error, 'saveFileTransferSettings', 'Failed to save upload settings')
+      )
     );
   }
 

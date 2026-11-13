@@ -127,7 +127,7 @@ internal static class CliHost
         ]),
         new("file", "Browse, search and launch the files on a TeensyROM's storage.",
         [
-            PublicVerb.Of<FileLsCommand, FileLsSettings>("ls", "List a directory: its subdirectories, then its files.", ["file", "ls", "/music"]),
+            PublicVerb.Of<FileLsCommand, FileLsSettings>("ls", "List a directory: its subdirectories, then its files. Files the TeensyROM can't launch are listed too, with launchable false in --json.", ["file", "ls", "/music"]),
             PublicVerb.Of<FileSearchCommand, FileSearchSettings>("search", "Search the files Trom API has cached for a storage. Until a full index is built (trom index build) results can be incomplete, and a notice on stderr says so.", ["file", "search", "commando", "--filter", "music", "--take", "10"]),
             PublicVerb.Of<FileLaunchOneShotCommand, FileLaunchOneShotSettings>("launch", "Launch one file; --player then opens the player on it.", ["file", "launch", "/music/MUSICIANS/T/Tjelta_Geir/Artillery.sid"]),
             PublicVerb.Of<FileRandomOneShotCommand, FileRandomOneShotSettings>("random", "Launch a random file; --player then opens the player on it. Picks from the files Trom API has cached, so a storage that is not fully indexed gets a notice on stderr.", ["file", "random", "--filter", "music", "--directory", "/music"]),
@@ -135,26 +135,31 @@ internal static class CliHost
             PublicVerb.Of<FilePreviousCommand, FilePlaybackSettings>("previous", "Launch the file before the one last launched on this TeensyROM; after random picks, walk back through them.", ["file", "previous"]),
             PublicVerb.Of<FilePauseCommand, FilePlaybackSettings>("pause", "Play/pause for music: pause or resume the song playing. Games and programs can't be paused, so they are stopped instead, which resets the TeensyROM; something stopped is launched again.", ["file", "pause"]),
             PublicVerb.Of<FileStopCommand, FilePlaybackSettings>("stop", "Stop whatever is running by resetting the TeensyROM, the same reset as `trom device reset`.", ["file", "stop"]),
-            PublicVerb.Of<FileUploadCommand, FileUploadSettings>("upload", "Copy files and folders from this computer to the TeensyROM; with no paths, the current folder's contents (asks first unless --yes). Folders keep their layout. Only the file types the TeensyROM takes are sent (.sid .crt .prg .p00 .hex .kla .koa .art .aas .hpi .seq .txt .d64 .nfo .md .ocp .pic .d71 .d81 .reu .trh .zip .7z .rar); others are left out and counted on stderr, and links, hidden and system files are left out silently. .zip, .7z and .rar are expanded on the TeensyROM. --launch has the TeensyROM launch that one file once it lands; with Trom API's auto-launch setting on, an upload launches one file anyway.", ["file", "upload", "Commando.sid", "--to", "/music"]),
+            PublicVerb.Of<FileUploadCommand, FileUploadSettings>("upload", "Copy files and folders from this computer to the TeensyROM; with no paths, the current folder's contents (asks first unless --yes). Folders keep their layout. Files you name are always sent. Folders send only the file types the TeensyROM takes (.sid .crt .prg .p00 .hex .kla .koa .art .aas .hpi .seq .txt .d64 .nfo .md .ocp .pic .d71 .d81 .reu .trh .zip .7z .rar), and others are left out and counted on stderr, unless Trom API's all-types upload setting or --all-types is on. .zip, .7z and .rar are expanded on the TeensyROM and send only the types it takes unless Trom API's all-in-archives upload setting or --all-in-archives is on. Links, hidden and system files are left out of folders and archives, and unfinished browser downloads (.crdownload, .part) are left out of folders too. --launch has the TeensyROM launch that one file once it lands; with Trom API's auto-launch upload setting on, an upload launches one file anyway.", ["file", "upload", "Commando.sid", "--to", "/music"]),
             PublicVerb.Of<FileDownloadCommand, FileDownloadSettings>("download", "Copy files and folders from the TeensyROM to this computer, into the current folder unless --to names another. Folders keep their layout; files over 10 MB are skipped and reported.", ["file", "download", "/games"]),
             PublicVerb.Of<FileFavoriteCommand, FilePathsSettings>("favorite", "Tag files as favorites; give paths, or - to read them from stdin.", ["file", "favorite", "/music/Commando.sid", "/music/Delta.sid"]),
             PublicVerb.Of<FileUnfavoriteCommand, FilePathsSettings>("unfavorite", "Untag favorites; give paths, or - to read them from stdin.", ["file", "unfavorite", "/favorites/music/Commando.sid"]),
+            PublicVerb.Of<FileDeleteCommand, FileDeleteSettings>("delete",
+                "Delete files from the TeensyROM's storage; give paths, or - to read them from stdin. Folders can't be deleted. Asks first unless --yes, which is required without a terminal or when paths come from stdin. Favorite copies, playlists and bans that name a deleted file are left as they are.",
+                ["file", "delete", "/games/old.prg"]),
             PublicVerb.Of<FileBanCommand, FilePathsSettings>("ban", "Ban files so they no longer show up; give paths, or - to read them from stdin.", ["file", "ban", "/music/Commando.sid"]),
             PublicVerb.Of<FileBannedCommand, FileBannedSettings>("banned", "List every ban: banned file names and banned folders. Needs no device; bans apply to every TeensyROM. Piped output is entries only, so `trom file banned | trom file unban -` works; --json and the table carry the kind.", ["file", "banned"]),
             PublicVerb.Of<FileUnbanCommand, FileUnbanSettings>("unban", "Lift bans: file names or folders as `trom file banned` prints them, or device file paths; give entries, or - to read them from stdin. Needs no device.", ["file", "unban", "Commando.sid"])
         ]),
         new("watch-folder", "Watch folders on this computer and send what lands in them to a TeensyROM.",
         [
-            PublicVerb.Of<WatchFolderAddCommand, WatchFolderAddSettings>("add", "Watch a folder on this computer and send each file that lands in it to a TeensyROM, into --path (default /auto-transfer) on the chosen storage. --launch has the TeensyROM launch each file. Adding a folder that is already watched adds this TeensyROM as another destination.", ["watch-folder", "add", "./roms", "--device", "Bench", "--path", "/games"]),
-            PublicVerb.Of<WatchFolderSetCommand, WatchFolderSetSettings>("set", "Change where a watch folder's files land on a TeensyROM (--path) and whether it launches them (--launch or --no-launch), without removing the destination. Name the TeensyROM with --device when the folder sends to several. Exits 5 when the folder or that destination isn't there.", ["watch-folder", "set", "./roms", "--device", "Bench", "--launch"]),
+            PublicVerb.Of<WatchFolderAddCommand, WatchFolderAddSettings>("add", "Watch a folder on this computer and send each file that lands in it to a TeensyROM, into --path (default /auto-transfer) on the chosen storage. --launch has the TeensyROM launch each file; --all-types sends every file that lands, not only the types the TeensyROM recognizes, and --all-in-archives sends everything inside archives (both apply when the folder is created). Adding a folder that is already watched adds this TeensyROM as another destination.", ["watch-folder", "add", "./roms", "--device", "Bench", "--path", "/games", "--all-types"]),
+            PublicVerb.Of<WatchFolderSetCommand, WatchFolderSetSettings>("set", "Change where a watch folder's files land on a TeensyROM (--path) and whether it launches them (--launch or --no-launch), without removing the destination. --all-types/--no-all-types and --all-in-archives/--no-all-in-archives change which files the folder sends, and a change to them alone needs no --device. Name the TeensyROM with --device when the folder sends to several and you change --path or --launch. Exits 5 when the folder or that destination isn't there.", ["watch-folder", "set", "./roms", "--device", "Bench", "--launch"]),
             PublicVerb.Of<WatchFolderRemoveCommand, WatchFolderRemoveSettings>("remove", "Stop watching a folder; with --device, only stop sending its files to that TeensyROM. Exits 5 when the folder isn't watched.", ["watch-folder", "remove", "./roms"]),
-            PublicVerb.Of<WatchFolderListCommand, WatchFolderListSettings>("list", "List the watch folders, their state and where each one's files go. Needs no device.", ["watch-folder", "list"]),
+            PublicVerb.Of<WatchFolderListCommand, WatchFolderListSettings>("list", "List the watch folders, their state, whether each sends all types and everything in archives, and where its files go. Needs no device.", ["watch-folder", "list"]),
             PublicVerb.Of<WatchFolderEnabledCommand, WatchFolderSettings>("pause", "Stop sending a watch folder's files until it is resumed. Files that land while it is paused are not sent later, not even after resume. Exits 5 when the folder isn't watched.", ["watch-folder", "pause", "./roms"]),
             PublicVerb.Of<WatchFolderEnabledCommand, WatchFolderSettings>(WatchFolderEnabledCommand.ResumeVerb, "Start sending a paused watch folder's files again. Exits 5 when the folder isn't watched.", ["watch-folder", "resume", "./roms"])
         ]),
-        new("transfer", "See the transfers Trom API is running.",
+        new("transfer", "See the transfers Trom API is running and change its upload settings.",
         [
-            PublicVerb.Of<TransferListCommand, TransferListSettings>("list", "List the transfers Trom API is running or has just finished, from uploads and watch folders alike. Needs no device.", ["transfer", "list"])
+            PublicVerb.Of<TransferListCommand, TransferListSettings>("list", "List the transfers Trom API is running or has just finished, from uploads and watch folders alike. Needs no device.", ["transfer", "list"]),
+            PublicVerb.Of<TransferSettingsShowCommand, TransferSettingsShowSettings>("settings", "Show Trom API's upload settings: auto-launch, all-types and all-in-archives. Needs no device.", ["transfer", "settings"]),
+            PublicVerb.Of<TransferSetCommand, TransferSetSettings>("set", "Change one upload setting. KEY is auto-launch, all-types or all-in-archives, and VALUE is true or false. Needs no device.", ["transfer", "set", "all-types", "true"])
         ]),
         new("index", "Index a TeensyROM's storage for search and random launches.",
         [
@@ -207,6 +212,8 @@ internal static class CliHost
         (typeof(PlayerCommand), typeof(PlayerSettings)),
         (typeof(IndexCommand), typeof(IndexSettings)),
         (typeof(PortListCommand), typeof(PortListSettings)),
+        (typeof(FileTransferCommand), typeof(FileTransferMenuSettings)),
+        (typeof(UploadSettingsCommand), typeof(UploadSettingsMenuSettings)),
         (typeof(WatchFoldersCommand), typeof(WatchFoldersSettings)),
         (typeof(ThemeScreenCommand), typeof(ThemeScreenSettings)),
         (typeof(SettingsCommand), typeof(SettingsCommandSettings)),
@@ -316,6 +323,7 @@ internal static class CliHost
         services.AddSingleton<ILaunchService, LaunchService>();
         services.AddSingleton<IPlayerService, PlayerService>();
         services.AddSingleton<ITransferService, TransferService>();
+        services.AddSingleton<ITransferSettingsService, TransferSettingsService>();
         services.AddSingleton<IWatchFolderService, WatchFolderService>();
         services.AddSingleton<IThemeService, ThemeService>();
         services.AddSingleton<UploadRunner>();
@@ -441,6 +449,8 @@ internal static class CliHost
             config.AddCommand<PortListCommand>("ports");
             config.AddCommand<GeneratePresetsCommand>("chipsynth");
             config.AddCommand<SettingsCommand>("settings").IsHidden();
+            config.AddCommand<FileTransferCommand>("file-transfer").IsHidden();
+            config.AddCommand<UploadSettingsCommand>("upload-settings").IsHidden();
             config.AddCommand<WatchFoldersCommand>("watch-folders").IsHidden();
             config.AddCommand<ThemeScreenCommand>("theme").IsHidden();
             config.AddCommand<CreditsCommand>("credits");

@@ -156,10 +156,20 @@ internal sealed class TestHost : IDisposable
         Services.TryAddSingleton<ILanAddresses>(new FixedLanAddresses("192.168.1.20"));
         Services.TryAddSingleton<IReleaseCheck>(ReleaseCheck);
         Services.TryAddSingleton(Updates);
+        Services.TryAddSingleton(DefaultTransferSettings());
         CliHost.RegisterCommands(Services);
 
         Composition = new CliComposition(Services, new StartupGate(Engine, Devices, new DeviceChooser(Devices, output)), Consoles.Consoles, output, new TypeRegistrar(Services), TransferLines: TransferLines, ReleaseCheck: ReleaseCheck);
         Session = CliHost.CreateSession(Composition);
+    }
+
+    private static ITransferSettingsService DefaultTransferSettings()
+    {
+        var settings = Substitute.For<ITransferSettingsService>();
+
+        settings.GetAsync(Arg.Any<CancellationToken>()).Returns(new UploadSettings(AutoLaunch: true, AllTypes: false, AllInArchives: false));
+
+        return settings;
     }
 
     public Task<int> RunAsync(params string[] args) => Session.RunAsync(args);

@@ -10,7 +10,7 @@ namespace TeensyRom.Cli.Tests.Integration;
 /// </summary>
 [Collection(RealApiCollection.Name)]
 [Trait("Category", "Hardware")]
-public sealed class HardwareScenarios(SharedApiFixture api)
+public sealed partial class HardwareScenarios(SharedApiFixture api)
 {
     /// <summary>
     /// Launches the file named by CLI_BENCH_FILE (for example /music/MUSICIANS/T/Tjelta_Geir/Artillery.sid)
@@ -385,6 +385,73 @@ public sealed class HardwareScenarios(SharedApiFixture api)
             upload.Json.GetProperty("totals").GetProperty("copied").GetInt32().Should().Be(2);
             var expanded = await ListAsync($"{target}/{pack}", device.DeviceId, storage);
             FilePaths(expanded.Json).Should().HaveCount(2);
+        }
+        finally
+        {
+            Directory.Delete(local, recursive: true);
+        }
+    }
+
+    /// <summary>Uploads a file of a type the TeensyROM can't launch by naming it: it is listed as not launchable, and downloads back with the same bytes.</summary>
+    [SkippableFact]
+    public async Task FileUpload_AnUnknownTypeFile_IsListedNotLaunchable_AndDownloadsBackUnchanged()
+    {
+        var target = UploadFolderOrSkip();
+        var (device, storage) = BenchDeviceOrSkip();
+        var local = NewLocalFolder();
+        var saved = NewLocalFolder();
+
+        try
+        {
+            var name = $"blob-{Guid.NewGuid():N}.bin";
+            var bytes = new byte[] { 0xDE, 0xAD, 0xBE, 0xEF, 0x00, 0x01, 0x02 };
+            var file = Path.Combine(local, name);
+
+            File.WriteAllBytes(file, bytes);
+
+            var upload = await RunJsonAsync("file", "upload", file, "--to", target, "--device", device.DeviceId, "--storage", storage, "--json");
+
+            upload.ExitCode.Should().Be(0, upload.Error);
+            upload.Json.GetProperty("files")[0].GetProperty("ok").GetBoolean().Should().BeTrue();
+
+            var listing = await ListAsync(target, device.DeviceId, storage);
+            var listed = listing.Json.GetProperty("files").EnumerateArray()
+                .Single(entry => entry.GetProperty("path").GetString()!.Equals($"{target}/{name}", StringComparison.OrdinalIgnoreCase));
+            listed.GetProperty("launchable").GetBoolean().Should().BeFalse();
+
+            var download = await RunJsonAsync("file", "download", $"{target}/{name}", "--to", saved, "--device", device.DeviceId, "--storage", storage, "--json");
+
+            download.ExitCode.Should().Be(0, download.Error);
+            File.ReadAllBytes(Path.Combine(saved, name)).Should().Equal(bytes);
+        }
+        finally
+        {
+            Directory.Delete(local, recursive: true);
+            Directory.Delete(saved, recursive: true);
+        }
+    }
+
+    /// <summary>With --all-in-archives, a .zip's entries of types the TeensyROM doesn't take are sent too.</summary>
+    [SkippableFact]
+    public async Task FileUpload_AnArchiveWithAllInArchives_SendsItsUnknownEntries()
+    {
+        var target = UploadFolderOrSkip();
+        var (device, storage) = BenchDeviceOrSkip();
+        var local = NewLocalFolder();
+
+        try
+        {
+            var pack = $"pack-{Guid.NewGuid():N}";
+            WriteProgram(local, "contents/one.prg");
+            File.WriteAllBytes(Path.Combine(local, "contents", "blob.bin"), [0xDE, 0xAD, 0xBE, 0xEF]);
+            var archive = Path.Combine(local, $"{pack}.zip");
+            System.IO.Compression.ZipFile.CreateFromDirectory(Path.Combine(local, "contents"), archive);
+
+            var upload = await RunJsonAsync("file", "upload", archive, "--all-in-archives", "--to", target, "--device", device.DeviceId, "--storage", storage, "--json");
+
+            upload.ExitCode.Should().Be(0, upload.Error);
+            var expanded = await ListAsync($"{target}/{pack}", device.DeviceId, storage);
+            FilePaths(expanded.Json).Should().HaveCount(2).And.Contain(path => path.EndsWith("/blob.bin", StringComparison.OrdinalIgnoreCase));
         }
         finally
         {

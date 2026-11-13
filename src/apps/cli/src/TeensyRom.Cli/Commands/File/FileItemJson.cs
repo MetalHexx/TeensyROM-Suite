@@ -19,6 +19,7 @@ internal sealed record FileItemJson(
     long Size,
     bool IsFavorite,
     bool IsCompatible,
+    bool Launchable,
     string Title,
     string Creator,
     string ReleaseInfo,
@@ -33,6 +34,7 @@ internal sealed record FileItemJson(
         item.Size,
         item.IsFavorite,
         item.IsCompatible,
+        item is ILaunchableItem,
         item.Title,
         item.Creator,
         item.ReleaseInfo,
@@ -41,7 +43,7 @@ internal sealed record FileItemJson(
 
     /// <summary>
     /// The file with every field tr-web returned for it, as an object: the engine's own record (any field it adds later
-    /// comes along) with only what the CLI owns laid over it: <c>storage</c>, <c>fileType</c> and <c>isCompatible</c>.
+    /// comes along) with only what the CLI owns laid over it: <c>storage</c>, <c>fileType</c>, <c>isCompatible</c> and <c>launchable</c>.
     /// Without an API record this is the compact form.
     /// </summary>
     public static JsonObject Full(IFileItem item, TeensyStorageType storage)
@@ -54,6 +56,7 @@ internal sealed record FileItemJson(
         record["storage"] = StorageName(storage);
         record["fileType"] = JsonSerializer.SerializeToNode(item.FileType, CliJson.Indented);
         record["isCompatible"] = item.IsCompatible;
+        record["launchable"] = item is ILaunchableItem;
 
         return record;
     }

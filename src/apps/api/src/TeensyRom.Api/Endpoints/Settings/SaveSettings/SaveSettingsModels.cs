@@ -20,7 +20,7 @@ namespace TeensyRom.Api.Endpoints.Settings.SaveSettings
         [Required] public PlayerSettingsDto PlayerSettings { get; set; } = null!;
 
         /// <summary>
-        /// File transfer preferences.
+        /// Accepted for compatibility and ignored; transfer settings change only through <c>PUT /api/settings/file-transfer</c>.
         /// </summary>
         [Required] public FileTransferSettingsDto FileTransferSettings { get; set; } = null!;
 

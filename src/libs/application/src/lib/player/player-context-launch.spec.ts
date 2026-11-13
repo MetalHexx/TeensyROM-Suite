@@ -90,6 +90,47 @@ describe('PlayerContextService - launch', () => {
       expect(harness.service.getError(deviceId)()).toBeNull();
     });
 
+    it('launches nothing and records no history for an unknown file', async () => {
+      const unknownFile = createTestFileItem({
+        name: 'b.bin',
+        path: '/music/b.bin',
+        type: FileItemType.Unknown,
+      });
+
+      await harness.service.launchFileWithContext({
+        deviceId,
+        file: unknownFile,
+        directoryPath: '/music',
+        files: [...testFiles, unknownFile],
+      });
+
+      expect(harness.playerService.launchFile).not.toHaveBeenCalled();
+      expect(harness.service.getCurrentFile(deviceId)()).toBeNull();
+      expect(harness.service.getFileContext(deviceId)()).toBeNull();
+      expect(harness.service.getPlayHistory(deviceId)()).toBeNull();
+    });
+
+    it('builds the file context from launchable files only, indexed within them', async () => {
+      const first = createTestFileItem({ name: 'a.prg', path: '/music/a.prg', type: FileItemType.Game });
+      const unknownFile = createTestFileItem({
+        name: 'b.bin',
+        path: '/music/b.bin',
+        type: FileItemType.Unknown,
+      });
+      const last = createTestFileItem({ name: 'c.sid', path: '/music/c.sid' });
+
+      await harness.service.launchFileWithContext({
+        deviceId,
+        file: last,
+        directoryPath: '/music',
+        files: [first, unknownFile, last],
+      });
+
+      const fileContext = harness.service.getFileContext(deviceId)();
+      expect(fileContext?.files.map((file) => file.path)).toEqual(['/music/a.prg', '/music/c.sid']);
+      expect(fileContext?.currentIndex).toBe(1);
+    });
+
     it('records the attempted file and sets error state when the launch API fails', async () => {
       // A failed launch marks the attempted file incompatible, which would otherwise schedule
       // a real auto-advance retry (handleIncompatibleFile) that outlives this test and mutates

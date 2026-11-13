@@ -20,11 +20,13 @@ import { merge } from 'rxjs';
 import { DeviceStore, SettingsStore, WatchFolderStore } from '@teensyrom-nx/application';
 import {
   Device,
+  FileTransferSettings,
   StorageType,
   WatchFolder,
   WatchFolderDestination,
   WatchFolderDestinationChange,
   WatchFolderField,
+  WatchFolderFileTypesChange,
   WatchFolderRejection,
   WatchFolderState,
 } from '@teensyrom-nx/domain';
@@ -52,10 +54,13 @@ type OpenForm =
   | { kind: 'add-device'; watchFolderId: string }
   | { kind: 'edit-device'; watchFolderId: string; deviceId: string };
 
+const ALREADY_WATCHED_NOTICE =
+  "That folder is already watched, so its file types stay as they are. Use the folder's own switches to change them.";
+
 /**
- * The File Transfer view side panel: the global auto-launch switch and the list of watch folders
- * with their devices. It reloads the list every time it opens, since the engine can change
- * folders while the panel is closed. Rows and forms are presentational; this container owns the
+ * The File Transfer view side panel: the Uploads switches and the list of watch folders with their
+ * devices. It reloads the list and re-reads the Uploads switches every time it opens, since the
+ * engine can change them while the panel is closed. Rows and forms are presentational; this container owns the
  * store calls, the form groups, which single form is open, and where the engine's refusals show.
  */
 @Component({
@@ -82,9 +87,9 @@ export class TransferSettingsPanelComponent {
   private readonly injector = inject(Injector);
   private readonly host = inject<ElementRef<HTMLElement>>(ElementRef);
 
-  private readonly globalSwitch = viewChild<MatSlideToggle>('globalSwitch');
+  private readonly uploadsSwitch = viewChild<MatSlideToggle>('uploadsSwitch');
 
-  /** Whether the panel is open; the list reloads each time this becomes true. */
+  /** Whether the panel is open; the list and the Uploads switches reload each time this becomes true. */
   readonly open = input(false);
   /** Duration in milliseconds of the panel card own entry; `0` for reduced motion. */
   readonly animationDuration = input(400);
@@ -95,7 +100,15 @@ export class TransferSettingsPanelComponent {
   protected readonly WatchFolderState = WatchFolderState;
 
   protected readonly autoLaunchTooltip: TooltipConfig = {
-    body: 'Start a transferred file on the device when its transfer finishes.',
+    body: "Launch one file after an upload. Watch folders use each device's own Auto launch.",
+    position: TooltipPosition.Top,
+  };
+  protected readonly allTypesInFoldersTooltip: TooltipConfig = {
+    body: 'Send every file in a folder you upload, not only the types the TeensyROM recognizes. Files you pick are always sent.',
+    position: TooltipPosition.Top,
+  };
+  protected readonly allTypesInArchivesTooltip: TooltipConfig = {
+    body: 'Send everything inside an archive you upload, not only the types the TeensyROM recognizes.',
     position: TooltipPosition.Top,
   };
   protected readonly addFolderTooltip: TooltipConfig = {
@@ -118,11 +131,19 @@ export class TransferSettingsPanelComponent {
   protected readonly autoLaunch = computed(
     () => this.settings()?.fileTransferSettings.autoLaunchOnCopyEnabled ?? false
   );
+  protected readonly allTypesInFolders = computed(
+    () => this.settings()?.fileTransferSettings.allFileTypesInFolders ?? false
+  );
+  protected readonly allTypesInArchives = computed(
+    () => this.settings()?.fileTransferSettings.allFileTypesInArchives ?? false
+  );
 
   protected readonly openForm = signal<OpenForm | null>(null);
   protected readonly submitting = signal(false);
   /** The engine's refusal of the open form, by the field it concerns. */
   protected readonly formErrors = signal<WatchFolderFormErrors>({});
+  /** Shown when an added folder was already watched, so the file-type switches it was added with did not apply. */
+  protected readonly notice = signal<string | null>(null);
 
   protected readonly addFolderForm = this.fb.nonNullable.group({
     folder: ['', [Validators.required, notBlank]],
@@ -130,6 +151,8 @@ export class TransferSettingsPanelComponent {
     storage: this.fb.nonNullable.control<StorageType | ''>('', Validators.required),
     devicePath: [DEFAULT_DEVICE_PATH, [Validators.required, notBlank]],
     launch: [false],
+    allFileTypes: [false],
+    allFileTypesInArchives: [false],
   });
   protected readonly addDeviceForm = this.fb.nonNullable.group({
     device: ['', Validators.required],
@@ -160,7 +183,15 @@ export class TransferSettingsPanelComponent {
   constructor() {
     effect(() => {
       if (this.open()) {
-        untracked(() => void this.watchFolderStore.loadWatchFolders());
+        untracked(() => {
+          this.notice.set(null);
+          void this.watchFolderStore.loadWatchFolders();
+          if (this.settings() === null) {
+            void this.settingsStore.loadSettings();
+          } else {
+            void this.settingsStore.refreshFileTransferSettings();
+          }
+        });
       }
     });
 
@@ -183,26 +214,22 @@ export class TransferSettingsPanelComponent {
       .subscribe(() => this.formErrors.set({}));
   }
 
-  /** Moves keyboard focus to the Global switch. */
+  /** Moves keyboard focus to the first Uploads switch. */
   focusEntry(): void {
-    this.globalSwitch()?.focus();
+    this.uploadsSwitch()?.focus();
   }
 
   /**
-   * Applies and saves the switch. When the save fails the stored value goes back to what the
-   * engine still holds, which moves the switch back through its binding.
+   * Saves one Uploads switch on its own. The toggle snaps back to the stored value first and
+   * moves only when the store takes the saved value, so a failed save leaves it where it was.
    */
-  protected async onAutoLaunchChange(checked: boolean): Promise<void> {
-    const previous = this.autoLaunch();
-    this.settingsStore.updateSettings({
-      settings: { fileTransferSettings: { autoLaunchOnCopyEnabled: checked } },
-    });
-    await this.settingsStore.saveSettings();
-    if (!this.settingsStore.error()) return;
-
-    this.settingsStore.updateSettings({
-      settings: { fileTransferSettings: { autoLaunchOnCopyEnabled: previous } },
-    });
+  protected async onUploadSettingChange(
+    toggle: MatSlideToggle,
+    key: keyof FileTransferSettings,
+    checked: boolean
+  ): Promise<void> {
+    toggle.checked = this.settings()?.fileTransferSettings[key] ?? false;
+    await this.settingsStore.saveFileTransferSettings({ [key]: checked });
   }
 
   protected isPending(watchFolderId: string): boolean {
@@ -215,6 +242,10 @@ export class TransferSettingsPanelComponent {
 
   protected onEnabledChange(watchFolderId: string, enabled: boolean): void {
     void this.watchFolderStore.setFolderEnabled({ watchFolderId, enabled });
+  }
+
+  protected onFileTypesChange(watchFolderId: string, change: WatchFolderFileTypesChange): void {
+    void this.watchFolderStore.setFolderFileTypes({ watchFolderId, change });
   }
 
   protected onDeleteFolder(watchFolderId: string): void {
@@ -293,18 +324,30 @@ export class TransferSettingsPanelComponent {
   }
 
   protected submitAddFolder(): void {
-    const { folder, device, storage, devicePath, launch } = this.addFolderForm.getRawValue();
+    const { folder, device, storage, devicePath, launch, allFileTypes, allFileTypesInArchives } =
+      this.addFolderForm.getRawValue();
     if (this.addFolderForm.invalid || storage === '') return;
+    let created = true;
     void this.submitForm(
-      () =>
-        this.watchFolderStore.addWatchFolder({
+      async () => {
+        const outcome = await this.watchFolderStore.addWatchFolder({
           path: folder.trim(),
           deviceId: device,
           storageType: storage,
           devicePath,
           launch,
-        }),
-      ['folder', 'device', 'storage', 'devicePath']
+          allFileTypes,
+          allFileTypesInArchives,
+        });
+        if (!outcome.rejection) created = outcome.created;
+        return outcome.rejection;
+      },
+      ['folder', 'device', 'storage', 'devicePath'],
+      () => {
+        if (!created && (allFileTypes || allFileTypesInArchives)) {
+          this.notice.set(ALREADY_WATCHED_NOTICE);
+        }
+      }
     );
   }
 
@@ -313,14 +356,18 @@ export class TransferSettingsPanelComponent {
     const { device, storage, devicePath, launch } = this.addDeviceForm.getRawValue();
     if (!folder || this.addDeviceForm.invalid || storage === '') return;
     void this.submitForm(
-      () =>
-        this.watchFolderStore.addWatchFolder({
-          path: folder.path,
-          deviceId: device,
-          storageType: storage,
-          devicePath,
-          launch,
-        }),
+      async () =>
+        (
+          await this.watchFolderStore.addWatchFolder({
+            path: folder.path,
+            deviceId: device,
+            storageType: storage,
+            devicePath,
+            launch,
+            allFileTypes: folder.allFileTypes,
+            allFileTypesInArchives: folder.allFileTypesInArchives,
+          })
+        ).rejection,
       ['device', 'storage', 'devicePath']
     );
   }
@@ -345,11 +392,13 @@ export class TransferSettingsPanelComponent {
   /**
    * Runs a save for the open form. A refusal shows under the field it concerns when the form has
    * that field, otherwise above the buttons, and the form stays open; a save closes the form.
-   * The result is dropped if the user has moved on to another form meanwhile.
+   * The result is dropped if the user has moved on to another form meanwhile. `onSaved` runs only
+   * when the save closed the form as submitted.
    */
   private async submitForm(
     save: () => Promise<WatchFolderRejection | null>,
-    fields: WatchFolderField[]
+    fields: WatchFolderField[],
+    onSaved?: () => void
   ): Promise<void> {
     if (this.submitting()) return;
     const submitted = this.openForm();
@@ -363,6 +412,7 @@ export class TransferSettingsPanelComponent {
         this.formErrors.set({ [key]: rejection.message });
       } else {
         this.closeForm();
+        onSaved?.();
       }
     } finally {
       this.submitting.set(false);
@@ -371,6 +421,7 @@ export class TransferSettingsPanelComponent {
 
   private show(form: OpenForm): void {
     this.formErrors.set({});
+    this.notice.set(null);
     this.openForm.set(form);
   }
 

@@ -10,10 +10,11 @@ import {
 } from '@teensyrom-nx/domain';
 import { DeviceTransferState, TransferStore } from './transfer-store';
 import { isTerminalJobState } from './transfer-helpers';
-import { DropScanner } from './drop-scanner';
+import { DropScanner, DropScanOptions } from './drop-scanner';
 import { UploadPool } from './upload-pool';
 import { TransferHubListener } from './transfer-hub-listener';
 import { StorageStore } from '../storage/storage-store';
+import { SettingsStore } from '../settings/settings-store';
 import { logInfo, logError, LogType } from '@teensyrom-nx/utils';
 import { ITransferContext } from './transfer-context.interface';
 
@@ -52,6 +53,7 @@ function holdUntil(startedAt: number, minMs: number): Promise<void> {
 export class TransferContextService implements ITransferContext {
   private readonly store = inject(TransferStore);
   private readonly storageStore = inject(StorageStore);
+  private readonly settingsStore = inject(SettingsStore);
   private readonly dropScanner = inject(DropScanner);
   private readonly uploadPool = inject(UploadPool);
   private readonly hubListener = inject(TransferHubListener);
@@ -89,10 +91,13 @@ export class TransferContextService implements ITransferContext {
     });
     const scanningEnteredAt = Date.now();
 
+    // The scan must start in this turn (a drop's payload is unreadable after the first await),
+    // so the refreshed options are handed over as a promise rather than awaited here.
     const scanResult = await this.dropScanner.scan(
       input,
       (found) => this.store.reportScanProgress({ deviceId, scanFound: found }),
-      pending.scanAbort.signal
+      pending.scanAbort.signal,
+      this.currentScanOptions()
     );
 
     // Cancel may have already cleared this device's state while the walk was in flight.
@@ -126,6 +131,20 @@ export class TransferContextService implements ITransferContext {
     pending.archiveCount = scanResult.archiveCount;
 
     await this.createAndRun(deviceId, pending);
+  }
+
+  /**
+   * Re-reads the engine's upload settings so a `trom transfer set` made while the app is open
+   * applies; when the refresh fails the cached value is used.
+   */
+  private async currentScanOptions(): Promise<DropScanOptions> {
+    const refreshed = await this.settingsStore.refreshFileTransferSettings();
+    return {
+      allFileTypesInFolders:
+        refreshed?.allFileTypesInFolders ??
+        this.settingsStore.getSettings()()?.fileTransferSettings.allFileTypesInFolders ??
+        false,
+    };
   }
 
   /** Reuses the manifest retained from the original drop — never re-scans. */

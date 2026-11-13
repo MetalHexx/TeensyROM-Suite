@@ -5,6 +5,7 @@ using TeensyRom.Api.Endpoints.Transfers.GetJob;
 using TeensyRom.Api.Endpoints.Transfers.SealJob;
 using TeensyRom.Api.Models;
 using TeensyRom.Api.Services;
+using TeensyRom.Api.Transfers;
 using TeensyRom.Core.Entities.Storage;
 using TeensyRom.Core.Entities.Transfers;
 using TeensyRom.Core.Settings;
@@ -119,6 +120,48 @@ namespace TeensyRom.Api.Tests.Integration.Transfers
                 LaunchesUnder("/launch/off-plain").Should().BeEmpty();
                 requested.LaunchState.Should().Be(TransferLaunchState.Launched);
                 LaunchesUnder("/launch/off-requested").Should().ContainSingle();
+            }
+            finally
+            {
+                Settings.AutoLaunchOnCopyEnabled = original;
+            }
+        }
+
+        private async Task<string> WatchFolderTransferAsync(string destination, bool launch, string file)
+        {
+            var jobs = f.Services.GetRequiredService<ITransferJobService>();
+            var started = jobs.Start(new TransferJobStart(
+                f.DeviceManager.Devices[0].DeviceId, TeensyStorageType.SD, destination, 0,
+                TransferOrigin.FromWatchFolder("launch-wf", "/watched"), launch));
+            started.Started.Should().BeTrue();
+
+            var job = started.Job!;
+            await using var content = new MemoryStream([1, 2, 3]);
+            (await jobs.AddFileAsync(job, content, file, 3, CancellationToken.None)).Accepted.Should().BeTrue();
+            jobs.Seal(job).Sealed.Should().BeTrue();
+            return job.JobId;
+        }
+
+        [Theory]
+        [InlineData(false, true, true)]
+        [InlineData(true, false, false)]
+        [InlineData(true, true, true)]
+        [InlineData(false, false, false)]
+        public async Task Completed_WatchFolderJob_LaunchesExactlyWhenItsDestinationSwitchIsOn(bool autoLaunch, bool destinationLaunch, bool launches)
+        {
+            var original = Settings.AutoLaunchOnCopyEnabled;
+            Settings.AutoLaunchOnCopyEnabled = autoLaunch;
+            var destination = $"/launch/watch-{autoLaunch}-{destinationLaunch}";
+
+            try
+            {
+                var jobId = await WatchFolderTransferAsync(destination, destinationLaunch, "game.prg");
+
+                var job = await WaitForJobAsync(jobId, Settled);
+                await f.WaitForQuiescenceAsync();
+
+                job.LaunchState.Should().Be(launches ? TransferLaunchState.Launched : TransferLaunchState.None);
+                LaunchesUnder(destination).Should().HaveCount(launches ? 1 : 0);
             }
             finally
             {

@@ -48,7 +48,7 @@ public class TransferAutoLauncherTests
     [InlineData(true, true, false, true)]
     [InlineData(false, false, true, false)]
     [InlineData(true, false, true, false)]
-    [InlineData(false, true, true, false)]
+    [InlineData(false, true, true, true)]
     [InlineData(true, true, true, true)]
     public void ShouldLaunch_DecisionTable(bool setting, bool requested, bool watchFolder, bool expected)
     {

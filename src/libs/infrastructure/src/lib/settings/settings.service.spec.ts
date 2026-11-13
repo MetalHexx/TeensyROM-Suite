@@ -1,5 +1,6 @@
 import { describe, it, expect, beforeEach, vi } from 'vitest';
 import { TestBed } from '@angular/core/testing';
+import { firstValueFrom } from 'rxjs';
 import {
   SettingsApiService,
   GetSettingsResponse,
@@ -41,6 +42,8 @@ const createGetSettingsResponseDto = (): GetSettingsResponse => ({
   } as PlayerSettingsDto,
   fileTransferSettings: {
     autoLaunchOnCopyEnabled: true,
+    allFileTypesInFolders: false,
+    allFileTypesInArchives: true,
   } as FileTransferSettingsDto,
   searchSettings: {
     searchWeights: {
@@ -74,6 +77,8 @@ const createDomainSettings = (): Settings => ({
   },
   fileTransferSettings: {
     autoLaunchOnCopyEnabled: true,
+    allFileTypesInFolders: false,
+    allFileTypesInArchives: true,
   },
   searchSettings: {
     weights: {
@@ -106,6 +111,8 @@ describe('SettingsService', () => {
   let mockSettingsApi: {
     getSettings: ReturnType<typeof vi.fn>;
     saveSettings: ReturnType<typeof vi.fn>;
+    getFileTransferSettings: ReturnType<typeof vi.fn>;
+    setFileTransferSettings: ReturnType<typeof vi.fn>;
   };
   let mockAlertService: Partial<IAlertService>;
 
@@ -113,6 +120,8 @@ describe('SettingsService', () => {
     mockSettingsApi = {
       getSettings: vi.fn(),
       saveSettings: vi.fn(),
+      getFileTransferSettings: vi.fn(),
+      setFileTransferSettings: vi.fn(),
     };
 
     mockAlertService = {
@@ -330,6 +339,51 @@ describe('SettingsService', () => {
 
       expect(mockAlertService.error).toHaveBeenCalledTimes(1);
       consoleSpy.mockRestore();
+    });
+  });
+
+  describe('file transfer settings', () => {
+    const dto: FileTransferSettingsDto = {
+      autoLaunchOnCopyEnabled: false,
+      allFileTypesInFolders: true,
+      allFileTypesInArchives: false,
+    };
+    const expected = {
+      autoLaunchOnCopyEnabled: false,
+      allFileTypesInFolders: true,
+      allFileTypesInArchives: false,
+    };
+
+    it('reads the three switches from the narrow endpoint', async () => {
+      mockSettingsApi.getFileTransferSettings.mockResolvedValue({ fileTransferSettings: dto });
+
+      const result = await firstValueFrom(service.getFileTransferSettings());
+
+      expect(result).toEqual(expected);
+    });
+
+    it('sends only the changed switch and returns the saved values', async () => {
+      mockSettingsApi.setFileTransferSettings.mockResolvedValue({ fileTransferSettings: dto });
+
+      const result = await firstValueFrom(
+        service.saveFileTransferSettings({ allFileTypesInFolders: true })
+      );
+
+      expect(mockSettingsApi.setFileTransferSettings).toHaveBeenCalledWith({
+        setFileTransferSettingsBody: { allFileTypesInFolders: true },
+      });
+      expect(mockSettingsApi.saveSettings).not.toHaveBeenCalled();
+      expect(result).toEqual(expected);
+    });
+
+    it('raises an alert and rethrows when the save fails', async () => {
+      const failure = new Error('boom');
+      mockSettingsApi.setFileTransferSettings.mockRejectedValue(failure);
+
+      await expect(
+        firstValueFrom(service.saveFileTransferSettings({ allFileTypesInFolders: true }))
+      ).rejects.toBe(failure);
+      expect(mockAlertService.error).toHaveBeenCalledWith('Failed to save upload settings');
     });
   });
 

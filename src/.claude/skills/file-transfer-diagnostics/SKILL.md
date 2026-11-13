@@ -43,13 +43,15 @@ The first line is `device-transport-probe`'s own setup; TCP probes work without 
 **Test files.** Put these on each board's SD card, in a scratch folder per board (`/tr-fix-TR-1`,
 `/tr-fix-TR-2` below), with `trom file upload <files> --to /tr-fix-TR-1 --device TR-1`:
 
-- an 8 MB file of random bytes, named `.crt` so the CLI accepts it (the endpoint's limit is 10 MB):
+- an 8 MB file of random bytes, named `.crt` so it is a known type (the endpoint's limit is 10 MB):
   `node -e "require('fs').writeFileSync('big.crt', require('crypto').randomBytes(8*1024*1024))"`
 - a ~1 MB cart (the bench used `ABEECS.CRT`) and two SIDs.
 
 **Turn auto-launch off first**, or every upload launches a file, and a random-bytes `.crt` is not one to
-launch: save `GET http://localhost:10213/api/settings`, set `autoLaunchOnCopyEnabled` to false, and POST
-the saved copy back when the session ends. Delete the scratch folders afterwards.
+launch: note `GET http://localhost:10213/api/settings/file-transfer`, then turn it off with
+`PUT http://localhost:10213/api/settings/file-transfer` and `{ "autoLaunchOnCopyEnabled": false }`, or
+`trom transfer set auto-launch false`. Turn it back on the same way when the session ends (`POST /api/settings`
+keeps the stored transfer settings, so it can't restore them). Delete the scratch folders afterwards.
 
 ## Bench rules
 

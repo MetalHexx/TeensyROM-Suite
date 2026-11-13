@@ -6,6 +6,7 @@ import {
   StorageType,
   FileItem,
   DeviceBusyError,
+  isLaunchable,
 } from '@teensyrom-nx/domain';
 import { PlayerState } from '../player-store';
 import { IPlayerStorage } from '../player-storage.interface';
@@ -40,7 +41,13 @@ export function launchFileWithContext(
       files,
       launchMode = LaunchMode.Directory,
     }: LaunchFileWithContextParams): Promise<void> => {
+      if (!isLaunchable(file)) {
+        logInfo(LogType.Info, `PlayerAction: Not launching ${file.name}, file type is not launchable`);
+        return;
+      }
+
       const storageType = file.storageType ?? StorageType.Sd;
+      const launchableFiles = files.filter(isLaunchable);
       
       logInfo(LogType.Start, `PlayerAction: Launching file ${file.name} for device ${deviceId} Storage ${storageType}`);
 
@@ -56,7 +63,7 @@ export function launchFileWithContext(
         );
 
         const resolvedFile = launchedFile ?? file;
-        const contextFiles = [...files];
+        const contextFiles = [...launchableFiles];
         const currentIndex = contextFiles.findIndex((candidate) => candidate.path === file.path);
         const safeIndex = currentIndex >= 0 ? currentIndex : 0;
         const resolvedDirectoryPath = directoryPath ?? '';
@@ -120,13 +127,13 @@ export function launchFileWithContext(
         const launchedFile = createLaunchedFile(deviceId, storageType, file, isBusyRefusal);
         const safeIndex = Math.max(
           0,
-          files.findIndex((f) => f.name === file.name)
+          launchableFiles.findIndex((f) => f.name === file.name)
         );
         const fileContext = createPlayerFileContext(
           deviceId,
           storageType,
           directoryPath,
-          files,
+          launchableFiles,
           safeIndex
         );
 

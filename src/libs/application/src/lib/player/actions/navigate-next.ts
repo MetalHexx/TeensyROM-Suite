@@ -1,6 +1,6 @@
 import { updateState } from '../../with-devtools';
 import { firstValueFrom } from 'rxjs';
-import { LaunchMode, PlayerStatus } from '@teensyrom-nx/domain';
+import { LaunchMode, PlayerStatus, isLaunchable } from '@teensyrom-nx/domain';
 import { IPlayerService } from '@teensyrom-nx/domain';
 import { createAction, logInfo, logError, LogType } from '@teensyrom-nx/utils';
 import { PlayerState } from '../player-store';
@@ -98,8 +98,8 @@ export function navigateNext(store: WritableStore<PlayerState>, playerService: I
 
           while (attempts < maxAttempts) {
             const candidate = files[candidateIndex];
-            if (candidate.isCompatible !== false) {
-              // Found compatible file - use candidateIndex
+            if (candidate.isCompatible !== false && isLaunchable(candidate)) {
+              // Found launchable, compatible file - use candidateIndex
               break;
             }
             candidateIndex = (candidateIndex + 1) % files.length;

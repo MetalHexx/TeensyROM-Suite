@@ -12,5 +12,8 @@ namespace TeensyRom.Core.Settings
     public AppSettings AppSettings { get; set; } = new();
     public List<DeviceSettings> KnownDevices { get; set; } = [];
     public List<WatchFolder> WatchFolders { get; set; } = [];
+
+    /// <summary>Which settings upgrades have run. 0 means written before upgrades existed.</summary>
+    public int SettingsVersion { get; set; }
   }
 }

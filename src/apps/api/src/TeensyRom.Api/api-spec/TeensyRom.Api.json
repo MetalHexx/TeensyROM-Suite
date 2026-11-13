@@ -1,10 +1,72 @@
 {
   "openapi": "3.0.1",
   "info": {
-    "title": "TeensyRom.Api | v1.0.0-beta.1",
-    "version": "1.0.0-beta.1"
+    "title": "TeensyRom.Api | v1.0.0-beta.2",
+    "version": "1.0.0-beta.2"
   },
   "paths": {
+    "/api/watch-folders/{watchFolderId}/file-types": {
+      "put": {
+        "tags": [
+          "WatchFolders"
+        ],
+        "summary": "Set Watch Folder File Types",
+        "description": "Changes which files a watch folder sends, without changing its destinations.\n\n- Send only the switches to change; a missing or null value stays as it is.\n- At least one switch is required.\n- Applies to files that land after the change.",
+        "operationId": "SetWatchFolderFileTypes",
+        "parameters": [
+          {
+            "name": "watchFolderId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/SetWatchFolderFileTypesBody"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/SetWatchFolderFileTypesResponse"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Bad Request",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Not Found",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/api/watch-folders/{watchFolderId}/enabled": {
       "put": {
         "tags": [
@@ -273,7 +335,7 @@
           "WatchFolders"
         ],
         "summary": "Add Watch Folder",
-        "description": "Sends the files of a folder on the engine's machine to a device storage.\n\n- Adding a folder that is already watched adds a destination for another device to it.\n- A device receives a folder through one destination only; a second one is refused with 409.\n- A folder nested inside a watched folder, or containing one, is refused with 400.\n- The device must be connected and report its chip id, and the storage must be available.",
+        "description": "Sends the files of a folder on the engine's machine to a device storage.\n\n- Adding a folder that is already watched adds a destination for another device to it.\n- The file-type switches apply only when the add creates the folder; a destination joining a watched folder leaves them as they are.\n- A device receives a folder through one destination only; a second one is refused with 409.\n- A folder nested inside a watched folder, or containing one, is refused with 400.\n- The device must be connected and report its chip id, and the storage must be available.",
         "operationId": "AddWatchFolder",
         "requestBody": {
           "content": {
@@ -1107,13 +1169,95 @@
         }
       }
     },
+    "/api/settings/file-transfer": {
+      "put": {
+        "tags": [
+          "Settings"
+        ],
+        "summary": "Set File Transfer Settings",
+        "description": "Changes the file transfer settings and leaves every other section of the settings alone.\n\n- Send only the settings to change; a missing or null value stays as it is.\n- At least one setting is required.\n- Returns all three settings as they are after the change.",
+        "operationId": "SetFileTransferSettings",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/SetFileTransferSettingsBody"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/SetFileTransferSettingsResponse"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Bad Request",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HttpValidationProblemDetails"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Internal Server Error",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          }
+        }
+      },
+      "get": {
+        "tags": [
+          "Settings"
+        ],
+        "summary": "Get File Transfer Settings",
+        "description": "Retrieves the file transfer settings alone.\n\n- **Auto-launch**: launch a file after an upload finishes. Watch folders launch by their destination's own switch instead.\n- **All file types in folders**: send every file in a folder upload, not only known types.\n- **All file types in archives**: send everything inside archives, not only known types.",
+        "operationId": "GetFileTransferSettings",
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/GetFileTransferSettingsResponse"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Internal Server Error",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/api/settings": {
       "post": {
         "tags": [
           "Settings"
         ],
         "summary": "Save User Settings",
-        "description": "Saves all user settings for the TeensyROM application to persistent storage.\n\n**Settings Categories:**\n- **Connection Settings**: Device connectivity preferences (Serial/TCP)\n  - Serial: Port name (empty for auto-detect) and baud rate (typically 115200)\n  - TCP: Host address, port (1-65535), and timeout values (milliseconds)\n- **Player Settings**: Playback behavior and startup preferences\n  - Repeat mode, play timer, mute settings, startup filter and launch options\n- **File Transfer Settings**: Auto-launch configuration\n  - Auto-launch flag\n- **Search Settings**: Search weights, stop words, and content exclusions\n  - Search weights must be >= 0 with at least one > 0\n  - Stop words, banned directories, and banned files lists\n- **App Settings**: Application lifecycle state\n  - First-time setup flag\n\n**Validation:**\n- All nested settings objects are required\n- Baud rate must be positive (typically 9600, 19200, 38400, 57600, or 115200)\n- TCP port must be between 1 and 65535\n- Timeout values must be positive integers (milliseconds)\n- Search weights must be non-negative with at least one > 0\n\nSettings are persisted to Settings.json and immediately available in memory.",
+        "description": "Saves all user settings for the TeensyROM application to persistent storage.\n\n**Settings Categories:**\n- **Connection Settings**: Device connectivity preferences (Serial/TCP)\n  - Serial: Port name (empty for auto-detect) and baud rate (typically 115200)\n  - TCP: Host address, port (1-65535), and timeout values (milliseconds)\n- **Player Settings**: Playback behavior and startup preferences\n  - Repeat mode, play timer, mute settings, startup filter and launch options\n- **File Transfer Settings**: Accepted but not saved here\n  - The stored transfer settings are kept; change them with `PUT /api/settings/file-transfer`\n- **Search Settings**: Search weights, stop words, and content exclusions\n  - Search weights must be >= 0 with at least one > 0\n  - Stop words, banned directories, and banned files lists\n- **App Settings**: Application lifecycle state\n  - First-time setup flag\n\n**Validation:**\n- All nested settings objects are required\n- Baud rate must be positive (typically 9600, 19200, 38400, 57600, or 115200)\n- TCP port must be between 1 and 65535\n- Timeout values must be positive integers (milliseconds)\n- Search weights must be non-negative with at least one > 0\n\nThe stored watch folders and transfer settings are kept as they are. Transfer settings change only through `PUT /api/settings/file-transfer`.\n\nSettings are persisted to Settings.json and immediately available in memory.",
         "operationId": "SaveSettings",
         "requestBody": {
           "content": {
@@ -2643,6 +2787,94 @@
         }
       }
     },
+    "/api/devices/{deviceId}/storage/{storageType}/files": {
+      "delete": {
+        "tags": [
+          "Files"
+        ],
+        "summary": "Delete File",
+        "description": "Deletes one file from the device's storage and drops it from the storage cache.\n\n- Folders can't be deleted, because the firmware removes files only. A folder is refused (400) when the engine's cached listing of its parent knows it. A folder made on the cart outside the engine since that listing was cached isn't known, so the delete reaches the device, the firmware refuses it, and this answers 502 with the device's message.\n- Favorite copies, playlists and bans that name the file are left as they are. A path under /favorites/ is refused (400); untag a favorite with unfavorite instead.\n- Answers 409 (code deviceBusyWithTransfer) when the device is busy with a transfer.",
+        "operationId": "DeleteFile",
+        "parameters": [
+          {
+            "name": "deviceId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "storageType",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "$ref": "#/components/schemas/TeensyStorageType"
+            }
+          },
+          {
+            "name": "FilePath",
+            "in": "query",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/DeleteFileResponse"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Bad Request",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Not Found",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "Conflict",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          },
+          "502": {
+            "description": "Bad Gateway",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/api/devices/{deviceId}/storage/{storageType}/ban": {
       "post": {
         "tags": [
@@ -3358,6 +3590,12 @@
           },
           "launch": {
             "type": "boolean"
+          },
+          "allFileTypes": {
+            "type": "boolean"
+          },
+          "allFileTypesInArchives": {
+            "type": "boolean"
           }
         }
       },
@@ -3684,6 +3922,10 @@
           },
           "launch": {
             "type": "boolean"
+          },
+          "allFileTypesInArchives": {
+            "type": "boolean",
+            "nullable": true
           }
         }
       },
@@ -3742,6 +3984,17 @@
         }
       },
       "DeleteDjSetResponse": {
+        "required": [
+          "message"
+        ],
+        "type": "object",
+        "properties": {
+          "message": {
+            "type": "string"
+          }
+        }
+      },
+      "DeleteFileResponse": {
         "required": [
           "message"
         ],
@@ -4464,11 +4717,19 @@
       },
       "FileTransferSettingsDto": {
         "required": [
-          "autoLaunchOnCopyEnabled"
+          "autoLaunchOnCopyEnabled",
+          "allFileTypesInFolders",
+          "allFileTypesInArchives"
         ],
         "type": "object",
         "properties": {
           "autoLaunchOnCopyEnabled": {
+            "type": "boolean"
+          },
+          "allFileTypesInFolders": {
+            "type": "boolean"
+          },
+          "allFileTypesInArchives": {
             "type": "boolean"
           }
         }
@@ -4550,6 +4811,17 @@
         "properties": {
           "set": {
             "$ref": "#/components/schemas/DjSetDto2"
+          }
+        }
+      },
+      "GetFileTransferSettingsResponse": {
+        "required": [
+          "fileTransferSettings"
+        ],
+        "type": "object",
+        "properties": {
+          "fileTransferSettings": {
+            "$ref": "#/components/schemas/FileTransferSettingsDto"
           }
         }
       },
@@ -5549,6 +5821,34 @@
         },
         "nullable": true
       },
+      "SetFileTransferSettingsBody": {
+        "type": "object",
+        "properties": {
+          "autoLaunchOnCopyEnabled": {
+            "type": "boolean",
+            "nullable": true
+          },
+          "allFileTypesInFolders": {
+            "type": "boolean",
+            "nullable": true
+          },
+          "allFileTypesInArchives": {
+            "type": "boolean",
+            "nullable": true
+          }
+        }
+      },
+      "SetFileTransferSettingsResponse": {
+        "required": [
+          "fileTransferSettings"
+        ],
+        "type": "object",
+        "properties": {
+          "fileTransferSettings": {
+            "$ref": "#/components/schemas/FileTransferSettingsDto"
+          }
+        }
+      },
       "SetWatchFolderDeviceBody": {
         "type": "object",
         "properties": {
@@ -5582,6 +5882,30 @@
         }
       },
       "SetWatchFolderEnabledResponse": {
+        "required": [
+          "watchFolder"
+        ],
+        "type": "object",
+        "properties": {
+          "watchFolder": {
+            "$ref": "#/components/schemas/WatchFolderDto"
+          }
+        }
+      },
+      "SetWatchFolderFileTypesBody": {
+        "type": "object",
+        "properties": {
+          "allFileTypes": {
+            "type": "boolean",
+            "nullable": true
+          },
+          "allFileTypesInArchives": {
+            "type": "boolean",
+            "nullable": true
+          }
+        }
+      },
+      "SetWatchFolderFileTypesResponse": {
         "required": [
           "watchFolder"
         ],
@@ -6136,6 +6460,8 @@
           "id",
           "path",
           "enabled",
+          "allFileTypes",
+          "allFileTypesInArchives",
           "state",
           "destinations"
         ],
@@ -6148,6 +6474,12 @@
             "type": "string"
           },
           "enabled": {
+            "type": "boolean"
+          },
+          "allFileTypes": {
+            "type": "boolean"
+          },
+          "allFileTypesInArchives": {
             "type": "boolean"
           },
           "state": {
@@ -6166,6 +6498,8 @@
           "id",
           "path",
           "enabled",
+          "allFileTypes",
+          "allFileTypesInArchives",
           "state",
           "destinations"
         ],
@@ -6178,6 +6512,12 @@
             "type": "string"
           },
           "enabled": {
+            "type": "boolean"
+          },
+          "allFileTypes": {
+            "type": "boolean"
+          },
+          "allFileTypesInArchives": {
             "type": "boolean"
           },
           "state": {

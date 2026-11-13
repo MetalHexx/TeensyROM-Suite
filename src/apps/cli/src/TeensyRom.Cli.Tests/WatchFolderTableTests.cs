@@ -9,19 +9,19 @@ public sealed class WatchFolderTableTests
         new($"d-{deviceId}", deviceId, name, storage, path, launch);
 
     private static WatchFolderJson Folder(string path, string state, params WatchFolderDestinationJson[] destinations) =>
-        new("wf-" + path, path, state == "watching", state, destinations);
+        new("wf-" + path, path, state == "watching", state, false, false, destinations);
 
     [Fact]
     public void AFolderWithTwoDestinations_ShowsItsPathAndStateOnTheFirstRowOnly()
     {
         var rows = WatchFolderTable.Rows(
         [
-            Folder("/roms", "watching", Destination("a-1", "Alpha", "sd", "/auto-transfer", true), Destination("b-1", null, "usb", "/games", false))
+            Folder("/roms", "watching", Destination("a-1", "Alpha", "sd", "/auto-transfer", true), Destination("b-1", null, "usb", "/games", false)) with { AllTypes = true }
         ]);
 
         rows.Should().Equal(
-            new WatchFolderRow("/roms", "Watching", "Alpha", "SD", "/auto-transfer", "Yes"),
-            new WatchFolderRow(string.Empty, string.Empty, "b-1", "USB", "/games", "No"));
+            new WatchFolderRow("/roms", "Watching", "Yes", "No", "Alpha", "SD", "/auto-transfer", "Yes"),
+            new WatchFolderRow(string.Empty, string.Empty, string.Empty, string.Empty, "b-1", "USB", "/games", "No"));
     }
 
     [Fact]
@@ -29,7 +29,7 @@ public sealed class WatchFolderTableTests
     {
         var rows = WatchFolderTable.Rows([Folder("/roms", "unavailable")]);
 
-        rows.Should().Equal(new WatchFolderRow("/roms", "Unavailable", string.Empty, string.Empty, string.Empty, string.Empty));
+        rows.Should().Equal(new WatchFolderRow("/roms", "Unavailable", "No", "No", string.Empty, string.Empty, string.Empty, string.Empty));
     }
 
     [Fact]

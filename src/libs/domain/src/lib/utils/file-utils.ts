@@ -1,4 +1,5 @@
 import { FileItemType } from '../models/file-item-type.enum';
+import { FileItem } from '../models/file-item.model';
 
 /**
  * Utility functions for working with files and file metadata
@@ -28,6 +29,11 @@ export function getFileIcon(type: FileItemType): string {
     default:
       return 'insert_drive_file';
   }
+}
+
+/** Whether tr-web can launch this file. A file the engine types Unknown is listed but never launched. */
+export function isLaunchable(file: Pick<FileItem, 'type'>): boolean {
+  return file.type !== FileItemType.Unknown;
 }
 
 /**

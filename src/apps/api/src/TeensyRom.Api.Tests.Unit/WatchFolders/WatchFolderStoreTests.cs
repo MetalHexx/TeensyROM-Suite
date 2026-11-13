@@ -425,6 +425,78 @@ public class WatchFolderStoreTests : IDisposable
     }
 
     [Fact]
+    public void Add_NewFolder_AppliesTheFileTypeSwitches()
+    {
+        GivenDevice(DeviceA);
+
+        var result = NewStore().Add(new WatchFolderAdd(Dir("games"), DeviceA, TeensyStorageType.SD, null, false, AllFileTypes: true, AllFileTypesInArchives: true));
+
+        result.Folder!.AllFileTypes.Should().BeTrue();
+        result.Folder.AllFileTypesInArchives.Should().BeTrue();
+        _current.WatchFolders.Single().Should().Match<WatchFolder>(f => f.AllFileTypes && f.AllFileTypesInArchives);
+    }
+
+    [Fact]
+    public void Add_DestinationJoiningAnExistingFolder_LeavesItsFileTypeSwitches()
+    {
+        GivenDevice(DeviceA);
+        GivenDevice(DeviceB);
+        var store = NewStore();
+        var folder = Dir("games");
+        store.Add(new WatchFolderAdd(folder, DeviceA, TeensyStorageType.SD, null, false, AllFileTypes: true, AllFileTypesInArchives: true));
+
+        var joined = store.Add(Request(folder, DeviceB));
+
+        joined.Created.Should().BeFalse();
+        joined.Folder!.AllFileTypes.Should().BeTrue();
+        joined.Folder.AllFileTypesInArchives.Should().BeTrue();
+
+        var plain = Dir("music");
+        store.Add(Request(plain, DeviceA));
+        store.Add(new WatchFolderAdd(plain, DeviceB, TeensyStorageType.SD, null, false, AllFileTypes: true, AllFileTypesInArchives: true));
+        store.GetAll().Single(f => f.Path == WatchFolderPaths.Normalize(plain)).Should()
+            .Match<WatchFolder>(f => !f.AllFileTypes && !f.AllFileTypesInArchives);
+    }
+
+    [Fact]
+    public void SetFileTypes_ChangesOnlyTheNamedSwitchesAndEmits()
+    {
+        GivenDevice(DeviceA);
+        var store = NewStore();
+        var id = store.Add(Request(Dir("games"))).Folder!.Id;
+        var emissions = 0;
+        using var subscription = store.Changed.Subscribe(_ => emissions++);
+
+        var updated = store.SetFileTypes(id, true, null)!;
+
+        updated.AllFileTypes.Should().BeTrue();
+        updated.AllFileTypesInArchives.Should().BeFalse();
+        store.Get(id).Should().Be(updated);
+        emissions.Should().Be(2);
+    }
+
+    [Fact]
+    public void SetFileTypes_ValuesAlreadySet_ReturnsTheFolderWithoutSaving()
+    {
+        GivenDevice(DeviceA);
+        var store = NewStore();
+        var id = store.Add(Request(Dir("games"))).Folder!.Id;
+        var emissions = 0;
+        using var subscription = store.Changed.Subscribe(_ => emissions++);
+
+        var result = store.SetFileTypes(id, false, false);
+
+        result.Should().NotBeNull();
+        emissions.Should().Be(1);
+    }
+
+    [Fact]
+    public void SetFileTypes_UnknownFolder_ReturnsNull()
+    {
+        NewStore().SetFileTypes("missing", true, true).Should().BeNull();
+    }
+
+    [Fact]
     public void Changed_EmitsOnEveryChangeIncludingOnesMadeOutsideTheStore()
     {
         GivenDevice(DeviceA);

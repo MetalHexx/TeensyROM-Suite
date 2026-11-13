@@ -37,6 +37,12 @@ namespace TeensyRom.Api.WatchFolders
         WatchFolder? SetEnabled(string watchFolderId, bool enabled);
 
         /// <summary>
+        /// Changes the folder's file-type switches; a null argument leaves that switch as it is.
+        /// Returns the updated folder, or null when there is no such folder.
+        /// </summary>
+        WatchFolder? SetFileTypes(string watchFolderId, bool? allFileTypes, bool? allFileTypesInArchives);
+
+        /// <summary>
         /// Emits the list after any change, including one made by a whole-settings save, and the current list on subscribe.
         /// </summary>
         IObservable<IReadOnlyList<WatchFolder>> Changed { get; }
@@ -47,7 +53,11 @@ namespace TeensyRom.Api.WatchFolders
     /// <param name="StorageType">The storage on that TeensyROM the files go to.</param>
     /// <param name="DevicePath">Directory on the device storage; null means <c>/auto-transfer</c>.</param>
     /// <param name="Launch">True to launch one file after each completed transfer, even when the auto-launch setting is off.</param>
-    public sealed record WatchFolderAdd(string FolderPath, string DeviceId, TeensyStorageType StorageType, string? DevicePath, bool Launch);
+    /// <param name="AllFileTypes">Send every file that lands in the folder, not only known types. Applies only when the add creates the folder.</param>
+    /// <param name="AllFileTypesInArchives">Send everything inside archives that land in the folder. Applies only when the add creates the folder.</param>
+    public sealed record WatchFolderAdd(
+        string FolderPath, string DeviceId, TeensyStorageType StorageType, string? DevicePath, bool Launch,
+        bool AllFileTypes = false, bool AllFileTypesInArchives = false);
 
     public enum WatchFolderAddError
     {

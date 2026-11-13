@@ -1,5 +1,4 @@
 ﻿using System.ComponentModel.DataAnnotations;
-using TeensyRom.Core.Entities.Storage;
 using TeensyRom.Core.Storage;
 
 namespace TeensyRom.Api.Models
@@ -38,9 +37,7 @@ namespace TeensyRom.Api.Models
                         Name = d.Name,
                         Path = d.Path.Value
                     })],
-                Files = [.. cache.Files
-                    .OfType<LaunchableItem>()
-                    .Select(FileItemDto.FromLaunchable)]
+                Files = [.. cache.Files.Select(FileItemDto.FromFile)]
             };
         }
     }

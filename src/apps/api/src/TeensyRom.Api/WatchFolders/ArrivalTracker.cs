@@ -10,10 +10,14 @@ namespace TeensyRom.Api.WatchFolders
     /// <summary>The files that arrived in one watch folder close together, to go out as one transfer job.</summary>
     public sealed record ArrivalSet(string WatchFolderId, IReadOnlyList<ArrivedFile> Files);
 
+    /// <summary>The folder's file-type switches: send every file type, and send everything inside arriving archives.</summary>
+    public sealed record ArrivalRules(bool AllFileTypes, bool AllFileTypesInArchives);
+
     /// <summary>
     /// Turns the file-system events of one watch folder into sets of settled, transferable arrivals. Only what is new
-    /// in the folder counts. It owns no timers and no threads: the caller passes the time in, so a single loop drives
-    /// it and tests drive it with explicit times. Not thread-safe.
+    /// in the folder counts. <c>rules</c> is read each time a switch matters, so a switch flipped while the folder is
+    /// watched applies to the next arrival. It owns no timers and no threads: the caller passes the time in, so a
+    /// single loop drives it and tests drive it with explicit times. Not thread-safe.
     /// </summary>
     public sealed class ArrivalTracker(
         string watchFolderId,
@@ -21,7 +25,8 @@ namespace TeensyRom.Api.WatchFolders
         WatchFolderOptions options,
         IWatchedFileSystem fileSystem,
         IArchiveReader archives,
-        ILoggingService log)
+        ILoggingService log,
+        Func<ArrivalRules> rules)
     {
         private const string SafariPackageSuffix = ".download";
 
@@ -85,8 +90,16 @@ namespace TeensyRom.Api.WatchFolders
             var probe = fileSystem.Probe(e.FullPath);
             if (probe.Exists && probe.IsDirectory) return;
 
-            var leftSafariPackage = TryGetRelative(e.OldFullPath, out var oldRelative) && IsInsideDownloadPackage(oldRelative, includeLeaf: false);
-            var wasPartialName = !TransferableFileTypes.IsTransferable(e.OldFullPath) && !archives.IsArchiveExtension(e.OldFullPath);
+            var hasOldRelative = TryGetRelative(e.OldFullPath, out var oldRelative);
+            var leftSafariPackage = hasOldRelative && IsInsideDownloadPackage(oldRelative, includeLeaf: false);
+
+            // Judged by the old name. With every type allowed a file's old name says little (a.doc to b.doc is a rename of
+            // a file sent long ago), so only a partial or excluded name, or one still settling under a temp name, counts.
+            var wasPartialName = rules().AllFileTypes
+                ? TransferExclusions.IsPartialDownload(e.OldFullPath)
+                    || (hasOldRelative && TransferExclusions.IsExcluded(oldRelative))
+                    || _pending.ContainsKey(e.OldFullPath)
+                : !TransferableFileTypes.IsTransferable(e.OldFullPath) && !archives.IsArchiveExtension(e.OldFullPath);
 
             if (leftSafariPackage || wasPartialName) Start(e.FullPath, fromCreated: false);
         }
@@ -138,7 +151,7 @@ namespace TeensyRom.Api.WatchFolders
                 if (probe.Size == 0 || now - pending.SizeSince < options.SettleTime || !probe.Readable) continue;
 
                 _pending.Remove(pending.FullPath);
-                Admit(pending.FullPath, probe.Size, now);
+                Admit(pending.FullPath, probe, now);
             }
         }
 
@@ -167,23 +180,40 @@ namespace TeensyRom.Api.WatchFolders
             }
         }
 
-        private void Admit(string path, long size, DateTimeOffset now)
+        private void Admit(string path, FileProbe probe, DateTimeOffset now)
         {
-            var isArchive = archives.IsArchiveExtension(path);
-            if (!isArchive && !TransferableFileTypes.IsTransferable(path)) return;
             if (!TryGetRelative(path, out var relative)) return;
-            if (isArchive && !HasUsefulEntries(path, relative)) return;
+
+            // Also covers a file created directly inside a copied folder, which never went through the walk's attribute skip.
+            if (TransferExclusions.IsExcluded(relative) || TransferExclusions.IsPartialDownload(path) || probe.IsHidden) return;
+
+            var r = rules();
+            var isArchive = archives.IsArchiveExtension(path);
+            if (!isArchive && !r.AllFileTypes && !TransferableFileTypes.IsTransferable(path)) return;
+            if (isArchive && !HasUsefulEntries(path, relative, r.AllFileTypesInArchives)) return;
 
             _open ??= new OpenSet(now);
-            _open.Add(new ArrivedFile(path, relative, size, isArchive), now);
+            _open.Add(new ArrivedFile(path, relative, probe.Size, isArchive), now);
         }
 
-        private bool HasUsefulEntries(string archivePath, string relative)
+        private bool HasUsefulEntries(string archivePath, string relative, bool allFileTypesInArchives)
         {
             try
             {
                 return archives.ReadIndex(archivePath).Entries.Any(entry =>
-                    !entry.IsDirectory && (TransferableFileTypes.IsTransferable(entry.Path) || archives.IsArchiveExtension(entry.Path)));
+                {
+                    if (entry.IsDirectory) return false;
+
+                    // An entry the resolver refuses is not judged for exclusion: the archive is admitted as before and expansion fails that entry visibly.
+                    var path = entry.Path;
+                    if (ArchiveEntryPathResolver.TryResolve(entry.Path, out var resolved, out _))
+                    {
+                        if (TransferExclusions.IsExcluded(resolved)) return false;
+                        path = resolved;
+                    }
+
+                    return allFileTypesInArchives || TransferableFileTypes.IsTransferable(path) || archives.IsArchiveExtension(path);
+                });
             }
             catch (Exception ex) when (ex is ArchiveReadException or IOException or UnauthorizedAccessException)
             {

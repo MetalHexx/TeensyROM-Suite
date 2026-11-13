@@ -12,14 +12,17 @@ Confirm each of these with the user before you run anything:
 - The TeensyROM (`--device`) and its storage (`--storage sd|usb`).
 - The folder on the TeensyROM the files land in (`--path`, default `/auto-transfer`).
 - Whether the TeensyROM launches each file that lands (`--launch`).
+- Whether the folder sends files of every type (`--all-types`) and everything inside its archives (`--all-in-archives`), only when `init`'s `capabilities` list `transfer set`. Both are off by default; ask only when the person wants files outside the known types.
 
-Then run `trom watch-folder add "<folder>" --device <name> --storage <sd|usb> --path "<device folder>" [--launch] --json`. The result is `{created, folder}`. `created` is false when the folder was already watched, and then this TeensyROM was added to it as another destination.
+Then run `trom watch-folder add "<folder>" --device <name> --storage <sd|usb> --path "<device folder>" [--launch] [--all-types] [--all-in-archives] --json`. The result is `{created, folder}`. `created` is false when the folder was already watched, and then this TeensyROM was added to it as another destination.
+
+`--all-types` and `--all-in-archives` apply only when this add creates the folder. If `created` is false they were not applied, and the command says so on stderr: change them with `trom watch-folder set "<folder>" --all-types` (or `--all-in-archives`), and read `allTypes` and `allInArchives` back from the result.
 
 A folder can't sit inside another watched folder, or contain one.
 
 ## Listing
 
-`trom watch-folder list --json` returns one entry per folder: `id`, `path`, `enabled`, `state` and `destinations`. Each destination has `id`, `deviceId`, `deviceName`, `storage`, `path` and `launch`.
+`trom watch-folder list --json` returns one entry per folder: `id`, `path`, `enabled`, `state`, `allTypes`, `allInArchives` and `destinations`. Each destination has `id`, `deviceId`, `deviceName`, `storage`, `path` and `launch`.
 
 `state` means:
 
@@ -29,7 +32,15 @@ A folder can't sit inside another watched folder, or contain one.
 
 ## Changing a destination
 
-Confirm first. `trom watch-folder set "<folder>" --device <name> [--path "<device folder>"] [--launch | --no-launch] --json` changes the device folder and the launch flag of an existing destination. It needs `--device` unless the folder has just one destination. It changes nothing else: the device and storage stay, and a different storage is a remove and add. Give at least one of `--path`, `--launch` and `--no-launch`. It exits 5 when the folder or that destination isn't there. The change applies to the next files that land.
+Confirm first. `trom watch-folder set "<folder>" --device <name> [--path "<device folder>"] [--launch | --no-launch] --json` changes the device folder and the launch flag of an existing destination. It needs `--device` unless the folder has just one destination. It changes nothing else except the file-type flags below: the device and storage stay, and a different storage is a remove and add. Give at least one change flag. It exits 5 when the folder or that destination isn't there. The change applies to the next files that land.
+
+`--all-types` and `--no-all-types`, and `--all-in-archives` and `--no-all-in-archives`, change which files the folder sends. They can be given alone, and then need no `--device`, because they apply to the whole folder.
+
+## Upload settings
+
+`trom transfer settings --json` shows the engine's upload settings as `{autoLaunch, allTypes, allInArchives}`, and `trom transfer set <KEY> <VALUE>` changes one (`auto-launch`, `all-types` or `all-in-archives`, set to `true` or `false`). Neither takes `--device`. They apply to uploads from every app, not to watch folders. Confirm before `transfer set`.
+
+Offer `transfer settings` and `transfer set`, and the watch-folder `--all-types`, `--all-in-archives` and `--no-` flags, only when `init`'s `capabilities` list `transfer set`.
 
 ## Pausing, resuming and removing
 
@@ -47,7 +58,7 @@ A folder sends to each TeensyROM once. To change a destination's device folder o
 
 ## What lands
 
-- Only files of the types the TeensyROM takes are sent. Archives (`.zip`, `.7z`, `.rar`) are expanded on the TeensyROM, as with an upload.
+- A watch folder sends the known types unless it was added with `--all-types` or later changed with `set --all-types`. Its archives (`.zip`, `.7z`, `.rar`) are expanded on the TeensyROM, as with an upload, and what comes out follows `--all-in-archives`. Excluded names (hidden and system files, `__MACOSX`) are never sent, and neither are browser partial downloads that land in the folder (not those inside an archive).
 - Only files that arrive after the folder is watched count. Files already there are not sent.
 - Files that arrive close together go as one transfer. The batch waits up to two minutes for any file still being written, so a normal download or copy goes as one transfer.
 - The engine copies each file and never deletes or moves it from the folder.
@@ -77,4 +88,4 @@ If the user asks what has been sent, say which transfers came from a watch folde
 
 ## Launching
 
-A watch-folder file launches only when the folder was added with `--launch` and the "Auto-launch after copy" setting is on. An upload launches when that setting is on. Either way, the engine launches one file from the transfer, games first. It never launches `.trh` files.
+A watch-folder file launches when its destination has `--launch`. The `auto-launch` upload setting doesn't apply to watch folders. An upload launches when that setting is on or it was started with `--launch`. Either way, the engine launches one file from the transfer, games first. It never launches `.trh` files.

@@ -38,6 +38,14 @@ lib-icon-button {
   flex: 0 0 auto;
 }
 
+.type-switches {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  margin-left: 4px; // structural - indents the switches under the folder path, as in the wireframe
+  --mat-switch-label-text-size: 0.8125rem;
+}
+
 .folder-note {
   margin: 2px 0 0;
   color: var(--color-dimmed-light);
