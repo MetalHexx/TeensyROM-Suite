@@ -16,7 +16,7 @@ namespace TeensyRom.Cli.Commands.File;
 internal sealed class FileUploadSettings : StorageSettings
 {
     [CommandArgument(0, "[LOCAL_PATHS]")]
-    [Description("Files or folders on this computer; none sends the current folder's contents. Use - to read them from stdin.")]
+    [Description("Files or folders on this computer; a file you name is always sent, whatever its type; none sends the current folder's contents. Use - to read them from stdin.")]
     public string[] LocalPaths { get; set; } = [];
 
     [CommandOption("--to <DEVICE_FOLDER>")]

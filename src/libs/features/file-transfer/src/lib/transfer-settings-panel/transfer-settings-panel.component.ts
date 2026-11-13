@@ -54,15 +54,15 @@ type OpenForm =
   | { kind: 'add-device'; watchFolderId: string }
   | { kind: 'edit-device'; watchFolderId: string; deviceId: string };
 
+const ALREADY_WATCHED_NOTICE =
+  "That folder is already watched, so its file types stay as they are. Use the folder's own switches to change them.";
+
 /**
  * The File Transfer view side panel: the Uploads switches and the list of watch folders with their
  * devices. It reloads the list and re-reads the Uploads switches every time it opens, since the
  * engine can change them while the panel is closed. Rows and forms are presentational; this container owns the
  * store calls, the form groups, which single form is open, and where the engine's refusals show.
  */
-const ALREADY_WATCHED_NOTICE =
-  "That folder is already watched, so its file types stay as they are. Use the folder's own switches to change them.";
-
 @Component({
   selector: 'lib-transfer-settings-panel',
   imports: [
@@ -186,7 +186,11 @@ export class TransferSettingsPanelComponent {
         untracked(() => {
           this.notice.set(null);
           void this.watchFolderStore.loadWatchFolders();
-          void this.settingsStore.refreshFileTransferSettings();
+          if (this.settings() === null) {
+            void this.settingsStore.loadSettings();
+          } else {
+            void this.settingsStore.refreshFileTransferSettings();
+          }
         });
       }
     });

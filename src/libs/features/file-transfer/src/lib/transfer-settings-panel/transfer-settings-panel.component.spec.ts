@@ -114,11 +114,15 @@ describe('TransferSettingsPanelComponent', () => {
 
   const added = (watchFolder: WatchFolder, created = true) => ({ watchFolder, created });
 
-  const setup = async (options: { folders?: WatchFolder[]; withSettings?: boolean } = {}) => {
+  const setup = async (options: { folders?: WatchFolder[]; failedLoads?: number } = {}) => {
     initialFolders = options.folders ?? [];
     engineUploads = uploadSettings();
     settingsService = {
-      getSettings: vi.fn().mockReturnValue(of(settings())),
+      getSettings: vi.fn().mockImplementation(() =>
+        settingsService.getSettings.mock.calls.length <= (options.failedLoads ?? 0)
+          ? timer(0).pipe(switchMap(() => throwError(() => new Error('Engine offline'))))
+          : of(settings())
+      ),
       saveSettings: vi.fn().mockReturnValue(of(undefined)),
       getFileTransferSettings: vi.fn().mockImplementation(() => of({ ...engineUploads })),
       saveFileTransferSettings: vi
@@ -149,9 +153,7 @@ describe('TransferSettingsPanelComponent', () => {
     }).compileComponents();
 
     settingsStore = TestBed.inject(SettingsStore);
-    if (options.withSettings !== false) {
-      await settingsStore.loadSettings();
-    }
+    await settingsStore.loadSettings();
 
     fixture = TestBed.createComponent(TransferSettingsPanelComponent);
     fixture.componentRef.setInput('open', true);
@@ -228,12 +230,32 @@ describe('TransferSettingsPanelComponent', () => {
       expect(isOn('all-types-in-archives-switch')).toBe('true');
     });
 
-    it('is disabled while settings have not loaded', async () => {
-      await setup({ withSettings: false });
+    it('stays disabled and shows the error while the settings still fail to load', async () => {
+      await setup({ failedLoads: 2 });
 
+      expect(settingsService.getSettings).toHaveBeenCalledTimes(2);
       for (const { testId } of switches) {
         expect(query(testId)?.querySelector('button')?.disabled).toBe(true);
       }
+      expect(query('settings-error')?.textContent).toContain('Engine offline');
+    });
+
+    it('loads the full settings on open after a failed startup load, which enables the switches', async () => {
+      await setup({ failedLoads: 1 });
+
+      expect(settingsService.getSettings).toHaveBeenCalledTimes(2);
+      expect(settingsService.getFileTransferSettings).not.toHaveBeenCalled();
+      for (const { testId } of switches) {
+        expect(query(testId)?.querySelector('button')?.disabled).toBe(false);
+      }
+      expect(query('settings-error')).toBeNull();
+    });
+
+    it('only refreshes the Uploads settings on open once the settings have loaded', async () => {
+      await setup();
+
+      expect(settingsService.getSettings).toHaveBeenCalledTimes(1);
+      expect(settingsService.getFileTransferSettings).toHaveBeenCalledTimes(1);
     });
   });
 
