@@ -33,6 +33,7 @@ models/CreateJobResponse.ts
 models/DeckDeviceBindingDto.ts
 models/DeckSettingsDto.ts
 models/DeleteDjSetResponse.ts
+models/DeleteFileResponse.ts
 models/DeleteThemeResponse.ts
 models/DeviceSettingsDto.ts
 models/DeviceState.ts

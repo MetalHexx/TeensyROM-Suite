@@ -439,6 +439,56 @@ namespace TeensyRom.Core.Storage
             return true;
         }
 
+        /// <summary>
+        /// Deletes one file from the device and drops it from the cache. Folders are refused from the unfiltered
+        /// cached parent listing, so a banned subfolder is still seen as a folder; nothing is sent for one.
+        /// A missing or banned parent folder reads as not found, so a file inside a banned folder answers
+        /// not found until the folder is unbanned. The delete is sent even when the cache doesn't list the file,
+        /// because the cache can be stale.
+        /// </summary>
+        public async Task<FileDeleteResult> DeleteFile(FilePath path, CancellationToken ct)
+        {
+            var parent = await ReadDirectory(path.Directory);
+
+            if (parent.Failure is not null) return FileDeleteResult.Failed(parent.Failure);
+            if (parent.IsNotFound) return FileDeleteResult.NotFound();
+
+            var listing = cache.GetByDirPath(path.Directory);
+
+            if (listing is not null && listing.Directories.Any(d => d.Path.Equals(path.Value)))
+            {
+                return FileDeleteResult.IsDirectory();
+            }
+
+            var result = await mediator.Send(new DeleteFileCommand
+            {
+                StorageType = settings.CartStorage.Type,
+                Path = path,
+                DeviceId = settings.CartStorage.DeviceId,
+                CommunicationPort = _communicationPort
+            }, ct);
+
+            if (result.IsSuccess)
+            {
+                cache.DeleteFile(path);
+                cache.WriteToDisk();
+                return FileDeleteResult.Deleted();
+            }
+
+            if (result.Error?.Contains("File not found", StringComparison.OrdinalIgnoreCase) == true)
+            {
+                cache.DeleteFile(path);
+                cache.WriteToDisk();
+                return FileDeleteResult.NotFound();
+            }
+
+            var failure = string.IsNullOrWhiteSpace(result.Error?.Trim('\0'))
+                ? "The TeensyROM could not delete the file."
+                : result.Error;
+            log.InternalError($"The file {path} could not be deleted: {failure}", settings.CartStorage.DeviceId);
+            return FileDeleteResult.Failed(failure);
+        }
+
         private List<DirectoryPath> GetExcludePaths()
         {
             var excludePaths = StorageHelper.FavoritePaths;

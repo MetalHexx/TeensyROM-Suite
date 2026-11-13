@@ -17,6 +17,7 @@ import * as runtime from '../runtime';
 import type {
   BanFileResponse,
   BanKind,
+  DeleteFileResponse,
   GetDirectoryResponse,
   IndexAllResponse,
   IndexResponse,
@@ -33,6 +34,8 @@ import {
     BanFileResponseToJSON,
     BanKindFromJSON,
     BanKindToJSON,
+    DeleteFileResponseFromJSON,
+    DeleteFileResponseToJSON,
     GetDirectoryResponseFromJSON,
     GetDirectoryResponseToJSON,
     IndexAllResponseFromJSON,
@@ -56,6 +59,12 @@ import {
 } from '../models/index';
 
 export interface BanFileRequest {
+    deviceId: string;
+    storageType: TeensyStorageType;
+    filePath: string;
+}
+
+export interface DeleteFileRequest {
     deviceId: string;
     storageType: TeensyStorageType;
     filePath: string;
@@ -159,6 +168,59 @@ export class FilesApiService extends runtime.BaseAPI {
      */
     async banFile(requestParameters: BanFileRequest, initOverrides?: RequestInit | runtime.InitOverrideFunction): Promise<BanFileResponse> {
         const response = await this.banFileRaw(requestParameters, initOverrides);
+        return await response.value();
+    }
+
+    /**
+     * Deletes one file from the device\'s storage and drops it from the storage cache.  - Folders can\'t be deleted, because the firmware removes files only. A folder is refused (400) when the engine\'s cached listing of its parent knows it. A folder made on the cart outside the engine since that listing was cached isn\'t known, so the delete reaches the device, the firmware refuses it, and this answers 502 with the device\'s message. - Favorite copies, playlists and bans that name the file are left as they are. A path under /favorites/ is refused (400); untag a favorite with unfavorite instead. - Answers 409 (code deviceBusyWithTransfer) when the device is busy with a transfer.
+     * Delete File
+     */
+    async deleteFileRaw(requestParameters: DeleteFileRequest, initOverrides?: RequestInit | runtime.InitOverrideFunction): Promise<runtime.ApiResponse<DeleteFileResponse>> {
+        if (requestParameters['deviceId'] == null) {
+            throw new runtime.RequiredError(
+                'deviceId',
+                'Required parameter "deviceId" was null or undefined when calling deleteFile().'
+            );
+        }
+
+        if (requestParameters['storageType'] == null) {
+            throw new runtime.RequiredError(
+                'storageType',
+                'Required parameter "storageType" was null or undefined when calling deleteFile().'
+            );
+        }
+
+        if (requestParameters['filePath'] == null) {
+            throw new runtime.RequiredError(
+                'filePath',
+                'Required parameter "filePath" was null or undefined when calling deleteFile().'
+            );
+        }
+
+        const queryParameters: any = {};
+
+        if (requestParameters['filePath'] != null) {
+            queryParameters['FilePath'] = requestParameters['filePath'];
+        }
+
+        const headerParameters: runtime.HTTPHeaders = {};
+
+        const response = await this.request({
+            path: `/api/devices/{deviceId}/storage/{storageType}/files`.replace(`{${"deviceId"}}`, encodeURIComponent(String(requestParameters['deviceId']))).replace(`{${"storageType"}}`, encodeURIComponent(String(requestParameters['storageType']))),
+            method: 'DELETE',
+            headers: headerParameters,
+            query: queryParameters,
+        }, initOverrides);
+
+        return new runtime.JSONApiResponse(response, (jsonValue) => DeleteFileResponseFromJSON(jsonValue));
+    }
+
+    /**
+     * Deletes one file from the device\'s storage and drops it from the storage cache.  - Folders can\'t be deleted, because the firmware removes files only. A folder is refused (400) when the engine\'s cached listing of its parent knows it. A folder made on the cart outside the engine since that listing was cached isn\'t known, so the delete reaches the device, the firmware refuses it, and this answers 502 with the device\'s message. - Favorite copies, playlists and bans that name the file are left as they are. A path under /favorites/ is refused (400); untag a favorite with unfavorite instead. - Answers 409 (code deviceBusyWithTransfer) when the device is busy with a transfer.
+     * Delete File
+     */
+    async deleteFile(requestParameters: DeleteFileRequest, initOverrides?: RequestInit | runtime.InitOverrideFunction): Promise<DeleteFileResponse> {
+        const response = await this.deleteFileRaw(requestParameters, initOverrides);
         return await response.value();
     }
 

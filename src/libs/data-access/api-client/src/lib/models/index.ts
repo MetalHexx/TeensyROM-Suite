@@ -20,6 +20,7 @@ export * from './CreateJobResponse';
 export * from './DeckDeviceBindingDto';
 export * from './DeckSettingsDto';
 export * from './DeleteDjSetResponse';
+export * from './DeleteFileResponse';
 export * from './DeleteThemeResponse';
 export * from './DeviceSettingsDto';
 export * from './DeviceState';
