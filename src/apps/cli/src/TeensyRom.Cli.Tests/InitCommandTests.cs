@@ -283,7 +283,7 @@ public sealed class InitCommandTests
         var capabilities = report.GetProperty("capabilities").EnumerateArray().Select(c => c.GetString()).ToArray();
         capabilities.Should().Equal(
             [.. CliHost.PublicTree.SelectMany(noun => noun.Verbs.Select(verb => $"{noun.Name} {verb.Name}")), .. CliHost.PublicCommands.Select(c => c.Name)]);
-        capabilities.Should().Contain(["file launch", "init"]);
+        capabilities.Should().Contain(["file launch", "file delete", "init"]);
         var commands = report.GetProperty("commands").EnumerateArray().Select(c => c.GetProperty("name").GetString()).ToArray();
         commands.Should().Equal([.. CliHost.PublicTree.Select(noun => noun.Name), .. CliHost.PublicCommands.Select(c => c.Name)]);
     }

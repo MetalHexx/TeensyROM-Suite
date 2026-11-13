@@ -139,6 +139,9 @@ internal static class CliHost
             PublicVerb.Of<FileDownloadCommand, FileDownloadSettings>("download", "Copy files and folders from the TeensyROM to this computer, into the current folder unless --to names another. Folders keep their layout; files over 10 MB are skipped and reported.", ["file", "download", "/games"]),
             PublicVerb.Of<FileFavoriteCommand, FilePathsSettings>("favorite", "Tag files as favorites; give paths, or - to read them from stdin.", ["file", "favorite", "/music/Commando.sid", "/music/Delta.sid"]),
             PublicVerb.Of<FileUnfavoriteCommand, FilePathsSettings>("unfavorite", "Untag favorites; give paths, or - to read them from stdin.", ["file", "unfavorite", "/favorites/music/Commando.sid"]),
+            PublicVerb.Of<FileDeleteCommand, FileDeleteSettings>("delete",
+                "Delete files from the TeensyROM's storage; give paths, or - to read them from stdin. Folders can't be deleted. Asks first unless --yes, which is required without a terminal or when paths come from stdin. Favorite copies, playlists and bans that name a deleted file are left as they are.",
+                ["file", "delete", "/games/old.prg"]),
             PublicVerb.Of<FileBanCommand, FilePathsSettings>("ban", "Ban files so they no longer show up; give paths, or - to read them from stdin.", ["file", "ban", "/music/Commando.sid"]),
             PublicVerb.Of<FileBannedCommand, FileBannedSettings>("banned", "List every ban: banned file names and banned folders. Needs no device; bans apply to every TeensyROM. Piped output is entries only, so `trom file banned | trom file unban -` works; --json and the table carry the kind.", ["file", "banned"]),
             PublicVerb.Of<FileUnbanCommand, FileUnbanSettings>("unban", "Lift bans: file names or folders as `trom file banned` prints them, or device file paths; give entries, or - to read them from stdin. Needs no device.", ["file", "unban", "Commando.sid"])

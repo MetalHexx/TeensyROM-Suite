@@ -14,7 +14,7 @@ using TeensyStorageType = TeensyRom.Cli.Storage.Entities.TeensyStorageType;
 namespace TeensyRom.Cli.Tests;
 
 /// <summary>
-/// <c>trom file favorite|unfavorite|ban</c> through the real tree over a substituted storage service.
+/// <c>trom file favorite|unfavorite|ban|delete</c> through the real tree over a substituted storage service.
 /// </summary>
 [Collection(ConsoleCollection.Name)]
 public sealed class FilePathsCommandTests : IDisposable
@@ -39,9 +39,9 @@ public sealed class FilePathsCommandTests : IDisposable
         foreach (var host in _hosts) host.Dispose();
     }
 
-    private TestHost NewHost(string stdin = "")
+    private TestHost NewHost(string stdin = "", bool terminal = false)
     {
-        var host = new TestHost(false, services =>
+        var host = new TestHost(terminal, services =>
         {
             services.AddSingleton<IDeviceChooser, DeviceChooser>();
             services.Replace(ServiceDescriptor.Singleton(_storage));
@@ -247,5 +247,142 @@ public sealed class FilePathsCommandTests : IDisposable
         var exitCode = await host.RunAsync("file", "unfavorite", "/favorites/music/a.sid");
 
         exitCode.Should().Be((int)CliExitCode.Failed);
+    }
+
+    // ---- delete ------------------------------------------------------------------------------------------------------
+
+    [Fact]
+    public async Task Delete_InATerminal_AsksOnceNamingTheDeviceStorageAndPaths_ThenDeletesEachOnYes()
+    {
+        var host = NewHost(terminal: true);
+        host.Consoles.Err.Input.PushTextWithEnter("y");
+
+        var exitCode = await host.RunAsync("file", "delete", "/a.prg", "/games/b.prg");
+
+        exitCode.Should().Be(0, host.Consoles.StdErr);
+        host.Consoles.StdErr.Should().Contain("Alpha").And.Contain("SD").And.Contain("/a.prg").And.Contain("/games/b.prg");
+        await _storage.Received(1).DeleteFile("/a.prg");
+        await _storage.Received(1).DeleteFile("/games/b.prg");
+    }
+
+    [Fact]
+    public async Task Delete_InATerminal_DecliningExitsFailed_AndDeletesNothing()
+    {
+        var host = NewHost(terminal: true);
+        host.Consoles.Err.Input.PushTextWithEnter("n");
+
+        var exitCode = await host.RunAsync("file", "delete", "/a.prg");
+
+        exitCode.Should().Be((int)CliExitCode.Failed);
+        host.Consoles.StdErr.Should().Contain("Cancelled; nothing was deleted.");
+        await _storage.DidNotReceiveWithAnyArgs().DeleteFile(default!);
+    }
+
+    [Fact]
+    public async Task Delete_ManyPaths_ListsTenAndCountsTheRest()
+    {
+        var host = NewHost(terminal: true);
+        host.Consoles.Err.Input.PushTextWithEnter("n");
+        var paths = Enumerable.Range(1, 12).Select(i => $"/f{i:00}.prg").ToArray();
+
+        await host.RunAsync(["file", "delete", .. paths]);
+
+        host.Consoles.StdErr.Should().Contain("/f10.prg").And.NotContain("/f11.prg").And.Contain("and 2 more");
+    }
+
+    [Fact]
+    public async Task Delete_WithoutATerminal_IsAUsageError_AndDeletesNothing()
+    {
+        var host = NewHost();
+
+        var exitCode = await host.RunAsync("file", "delete", "/a.prg");
+
+        exitCode.Should().Be((int)CliExitCode.Usage);
+        host.Consoles.StdErr.Should().Contain("Pass --yes to delete files without a terminal to confirm it.");
+        await _storage.DidNotReceiveWithAnyArgs().DeleteFile(default!);
+    }
+
+    [Fact]
+    public async Task Delete_PathsFromStdin_WithoutYes_IsAUsageError_AndDeletesNothing()
+    {
+        var host = NewHost(stdin: "/a.prg\n/b.prg\n");
+
+        var exitCode = await host.RunAsync("file", "delete", "-");
+
+        exitCode.Should().Be((int)CliExitCode.Usage);
+        await _storage.DidNotReceiveWithAnyArgs().DeleteFile(default!);
+    }
+
+    [Fact]
+    public async Task Delete_Yes_DeletesWithoutAsking_EvenFromStdin()
+    {
+        var host = NewHost(stdin: "/a.prg\n/b.prg\n");
+
+        var exitCode = await host.RunAsync("file", "delete", "-", "--yes", "--storage", "usb");
+
+        exitCode.Should().Be(0, host.Consoles.StdErr);
+        await _storage.Received(1).DeleteFile("/a.prg");
+        await _storage.Received(1).DeleteFile("/b.prg");
+        _storageType.Should().Be(TeensyStorageType.USB);
+    }
+
+    [Fact]
+    public async Task Delete_ABadPath_IsAUsageError_BeforeAskingOrDeleting()
+    {
+        var host = NewHost(terminal: true);
+
+        var exitCode = await host.RunAsync("file", "delete", "a.prg", "-y");
+
+        exitCode.Should().Be((int)CliExitCode.Usage);
+        await _storage.DidNotReceiveWithAnyArgs().DeleteFile(default!);
+    }
+
+    [Fact]
+    public async Task Delete_Json_IsAnArrayOfPerPathResults()
+    {
+        var host = NewHost();
+
+        var exitCode = await host.RunAsync("file", "delete", "/a.prg", "-y", "--json");
+
+        exitCode.Should().Be(0, host.Consoles.StdErr);
+        var results = Parse(host.Consoles.StdOut).EnumerateArray().ToArray();
+        results.Should().ContainSingle();
+        results[0].EnumerateObject().Select(p => p.Name).Should().Equal("path", "ok", "message");
+        results[0].GetProperty("path").GetString().Should().Be("/a.prg");
+        results[0].GetProperty("ok").GetBoolean().Should().BeTrue();
+        results[0].GetProperty("message").GetString().Should().Be("/a.prg was deleted.");
+    }
+
+    [Fact]
+    public async Task Delete_ANotFoundAmongSuccesses_DeletesTheRest_AndExitsNotFound()
+    {
+        _storage.DeleteFile("/gone.prg").Returns<Task>(_ => throw new TeensyApiException("No such file.", 404));
+        var host = NewHost();
+
+        var exitCode = await host.RunAsync("file", "delete", "/gone.prg", "/a.prg", "-y", "--json");
+
+        exitCode.Should().Be((int)CliExitCode.NotFound);
+        await _storage.Received(1).DeleteFile("/a.prg");
+        var results = Parse(host.Consoles.StdOut).EnumerateArray().ToArray();
+        results[0].GetProperty("ok").GetBoolean().Should().BeFalse();
+        results[0].GetProperty("message").GetString().Should().Be("No such file.");
+        results[1].GetProperty("ok").GetBoolean().Should().BeTrue();
+    }
+
+    [Fact]
+    public async Task Delete_AFolderAnswering400_OrABusy409_ExitsFailed_WithEachMessagePerPath()
+    {
+        _storage.DeleteFile("/games").Returns<Task>(_ => throw new TeensyApiException("Only files can be deleted.", 400));
+        _storage.DeleteFile("/busy.prg").Returns<Task>(_ => throw new TeensyApiException("The device is busy.", 409));
+        _storage.DeleteFile("/gone.prg").Returns<Task>(_ => throw new TeensyApiException("No such file.", 404));
+        var host = NewHost();
+
+        var exitCode = await host.RunAsync("file", "delete", "/gone.prg", "/games", "/busy.prg", "/a.prg", "-y");
+
+        exitCode.Should().Be((int)CliExitCode.Failed);
+        await _storage.Received(1).DeleteFile("/a.prg");
+        host.Consoles.StdErr.Should().Contain("/games: Only files can be deleted.").And.Contain("/busy.prg: The device is busy.")
+            .And.Contain("3 of 4 paths failed.");
+        host.Consoles.StdOut.Should().Contain("/a.prg");
     }
 }
