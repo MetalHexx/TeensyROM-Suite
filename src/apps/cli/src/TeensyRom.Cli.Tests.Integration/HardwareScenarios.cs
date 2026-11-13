@@ -10,7 +10,7 @@ namespace TeensyRom.Cli.Tests.Integration;
 /// </summary>
 [Collection(RealApiCollection.Name)]
 [Trait("Category", "Hardware")]
-public sealed class HardwareScenarios(SharedApiFixture api)
+public sealed partial class HardwareScenarios(SharedApiFixture api)
 {
     /// <summary>
     /// Launches the file named by CLI_BENCH_FILE (for example /music/MUSICIANS/T/Tjelta_Geir/Artillery.sid)
