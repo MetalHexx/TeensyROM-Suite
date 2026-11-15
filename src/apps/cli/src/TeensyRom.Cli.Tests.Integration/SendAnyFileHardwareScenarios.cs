@@ -122,7 +122,8 @@ public sealed partial class HardwareScenarios
                 var plain = await RunJsonAsync("file", "upload", Path.Combine(local, "walk"), "--to", $"{run}/plain", "--device", device.DeviceId, "--storage", storage, "--json");
 
                 plain.ExitCode.Should().Be(0, plain.Error);
-                plain.Error.Should().Contain("2 files were left out");
+                plain.Error.Should().Contain("2 files left out (.bin, .xyz): not a file type the TeensyROM takes.");
+                plain.Json.GetProperty("skipped")[0].GetProperty("count").GetInt32().Should().Be(2);
                 Names((await ListAsync($"{run}/plain/walk", device.DeviceId, storage)).Json).Should().Equal("game.prg", "readme.txt");
 
                 var all = await RunJsonAsync("file", "upload", Path.Combine(local, "walk"), "--all-types", "--to", $"{run}/all", "--device", device.DeviceId, "--storage", storage, "--json");
@@ -143,7 +144,7 @@ public sealed partial class HardwareScenarios
 
     /// <summary>
     /// Naming a dot-named folder sends its contents, with a <c>.cache/</c> below it skipped; a browser's unfinished
-    /// downloads are skipped without being counted among the files left out.
+    /// downloads are counted in the skip report with the hidden folder's file and the unknown type.
     /// </summary>
     [SkippableFact]
     public async Task FileUpload_ADotNamedFolder_SendsItsContents_SkippingHiddenFoldersAndPartialDownloads()
@@ -166,7 +167,9 @@ public sealed partial class HardwareScenarios
 
                 upload.ExitCode.Should().Be(0, upload.Error);
                 upload.Json.GetProperty("totals").GetProperty("copied").GetInt32().Should().Be(1);
-                upload.Error.Should().Contain("1 file was left out", "only notes.xyz is counted; the hidden folder and the partial downloads are skipped silently");
+                upload.Error.Should().Contain("1 file left out (.xyz): not a file type the TeensyROM takes; 1 hidden or system file left out; 2 unfinished downloads left out.");
+                upload.Json.GetProperty("skipped").EnumerateArray().Select(skip => skip.GetProperty("reason").GetString())
+                    .Should().Equal("unsupportedType", "hiddenOrSystem", "partialDownload");
                 var listing = await ListAsync($"{run}/.stash", device.DeviceId, storage);
                 Names(listing.Json).Should().Equal("game.prg");
                 listing.Json.GetProperty("directories").EnumerateArray().Should().BeEmpty();

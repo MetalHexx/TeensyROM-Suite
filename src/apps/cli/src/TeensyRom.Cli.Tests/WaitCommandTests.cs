@@ -265,5 +265,25 @@ public sealed class WaitCommandTests
         exitCode.Should().Be(0);
         using var document = JsonDocument.Parse(host.Consoles.StdOut);
         document.RootElement.GetProperty("waited").GetString().Should().Be("00:00:01");
+        document.RootElement.GetProperty("held").GetBoolean().Should().BeTrue();
+    }
+
+    [Fact]
+    public async Task Wait_WithADeviceThatHasNoRecordUnderJson_SaysItCouldNotHold_AndWithoutADeviceSaysNothingOfHolding()
+    {
+        RunClockForward();
+        var store = Substitute.For<ILastLaunchStore>();
+        store.Find("Bench").Returns((LastLaunchRecord?)null);
+        using var host = NewHost(store);
+
+        (await host.RunAsync("wait", "1s", "--device", "Bench", "--json")).Should().Be(0);
+
+        using var document = JsonDocument.Parse(host.Consoles.StdOut);
+        document.RootElement.GetProperty("held").GetBoolean().Should().BeFalse();
+
+        using var plain = NewHost();
+        (await plain.RunAsync("wait", "1s", "--json")).Should().Be(0);
+        using var bare = JsonDocument.Parse(plain.Consoles.StdOut);
+        bare.RootElement.TryGetProperty("held", out _).Should().BeFalse();
     }
 }

@@ -60,7 +60,7 @@ trom file delete /games/old.prg
 
 - **Launch:** `file launch` starts one file. A file that is there but isn't launchable exits 7. `file random` launches a random one, and is how you shuffle: narrow it with `--filter` and `--directory`.
 - **Move along:** `file next` and `file previous` step through what you were playing. `file pause` pauses or resumes a song, and `file stop` stops whatever is running.
-- **Find:** `file ls` lists a folder, including files the TeensyROM can't launch (marked `launchable: false` in `--json`), and `file search` searches the files you have indexed. Run `trom index build` first so search covers everything; [getting started](getting-started.md#index-your-storage) explains why.
+- **Find:** `file ls` lists a folder, including files the TeensyROM can't launch (marked `launchable: false` in `--json`), and `file search` searches the files you have indexed. `file ls --refresh` re-reads the folder and everything below it from the cart into the index before it lists, so a folder you just changed shows what is really there (it can take minutes for a large folder; the indexing lines go to stderr, so `--json` output stays the listing). Run `trom index build` first so search covers everything; [getting started](getting-started.md#index-your-storage) explains why.
 - **Curate:** `file favorite` and `file unfavorite` tag files. `file ban`, `file banned` and `file unban` hide files and folders from browsing, search and shuffle. See [bans](getting-started.md#bans).
 - **Delete:** `file delete` removes files from the TeensyROM's storage. It asks once, naming the files, unless you pass `--yes`, which a script or piped paths need. Saying no cancels cleanly: nothing is deleted and the command exits 0. Files only: a folder can't be deleted. Favorite copies, playlists and bans that name a deleted file are left as they are, and like other commands that touch the device, a delete resets a C64 that is running a program.
 
@@ -75,6 +75,10 @@ trom file download /music/Artillery.sid --to ./backup
 ```
 
 Files you name are always sent, whatever their type. Folders and archives send only the types a TeensyROM recognizes, unless the upload settings or `--all-types` and `--all-in-archives` say otherwise. Hidden and system files found in a folder or an archive are never sent, and neither are unfinished browser downloads (`.crdownload`, `.part`) found in a folder; a file or folder you name is sent even if its name starts with a dot, and dot-named items inside a folder still stay home. A copy can reset the cart, which stops what is running.
+
+Every file an upload leaves out is counted by reason. A sentence on stderr says what was left out, for example "3 files left out (.bin, .xyz): not a file type the TeensyROM takes; 2 hidden or system files left out.", and with `--json` the report carries `skipped`, always present: a list of `{reason, count, types}` where the reason is `unsupportedType` (with the file types), `hiddenOrSystem` or `partialDownload`, and empty when nothing was left out. A folder with nothing to send, because it is empty or everything in it was left out, is not an error: the upload exits 0 with no files and says why. Naming only paths that don't exist still exits 5.
+
+When the cart launched a file after the upload, with `--launch` or the `auto-launch` setting, the `--json` report of a plain upload carries `launched` with its `status` (`launched`, `incompatible` or `failed`), the `path`, and the cart's `message` when it didn't launch. `upload --launch` writes the launched file's record, as `file launch` does.
 
 The upload settings are shared with Trom UI. `trom transfer settings` shows them, and `trom transfer set` changes one:
 

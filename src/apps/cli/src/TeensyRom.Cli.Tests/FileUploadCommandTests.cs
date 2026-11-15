@@ -52,6 +52,7 @@ public sealed class FileUploadCommandTests : IDisposable
     private string? _launchedPath;
     private string? _launchError;
     private int _pendingPolls;
+    private List<TransferSkipDto> _jobSkips = [];
 
     public FileUploadCommandTests()
     {
@@ -163,7 +164,8 @@ public sealed class FileUploadCommandTests : IDisposable
                 Failures = _failures.ToList(),
                 LaunchState = state == _endState && _sealed && Interlocked.Decrement(ref _pendingPolls) >= 0 ? TransferLaunchState.Pending : _launchState,
                 LaunchedPath = _launchedPath,
-                LaunchError = _launchError
+                LaunchError = _launchError,
+                Skipped = _jobSkips
             };
         }
     }
@@ -351,7 +353,7 @@ public sealed class FileUploadCommandTests : IDisposable
 
         exitCode.Should().Be(0, host.Consoles.StdErr);
         Uploaded().Should().Equal("mixed/B.PRG", "mixed/a.sid", "mixed/deep/c.d64", "mixed/deep/pack.ZIP");
-        host.Consoles.StdErr.Should().Contain("2 files were left out");
+        host.Consoles.StdErr.Should().Contain("2 files left out (.doc): not a file type the TeensyROM takes; 1 hidden or system file left out.");
         host.Consoles.StdOut.Should().NotContain("left out");
     }
 
@@ -378,7 +380,7 @@ public sealed class FileUploadCommandTests : IDisposable
     }
 
     [Fact]
-    public async Task TheLeftOutNotice_IsNotPartOfTheJsonDocument_AndASingleFileReadsInTheSingular()
+    public async Task TheLeftOutSentence_IsOnStderrOnly_AndTheJsonCarriesTheCounts_AndASingleFileReadsInTheSingular()
     {
         Write("mixed/a.sid", 10);
         Write("mixed/notes.doc", 10);
@@ -388,21 +390,23 @@ public sealed class FileUploadCommandTests : IDisposable
         var exitCode = await host.RunAsync("file", "upload", "mixed", "--to", "/x", "--json");
 
         exitCode.Should().Be(0, host.Consoles.StdErr);
-        Parse(host.Consoles.StdOut).GetProperty("totals").GetProperty("failed").GetInt32().Should().Be(0);
+        var report = Parse(host.Consoles.StdOut);
+        report.GetProperty("totals").GetProperty("failed").GetInt32().Should().Be(0);
         host.Consoles.StdOut.Should().NotContain("left out");
-        host.Consoles.StdErr.Should().Contain("1 file was left out");
+        host.Consoles.StdErr.Should().Contain("1 file left out (.doc): not a file type the TeensyROM takes; 1 hidden or system file left out.");
+        report.GetProperty("skipped").GetArrayLength().Should().Be(2);
     }
 
     [Fact]
-    public async Task AFolderHoldingNothingSupported_HasNothingToUpload_AfterTheEngineStartsToReadTheSwitch()
+    public async Task AFolderHoldingNothingSupported_ExitsZeroWithNoFiles_AfterTheEngineStartsToReadTheSwitch()
     {
         Write("docs/notes.doc", 10);
         var host = NewHost();
 
         var exitCode = await host.RunAsync("file", "upload", "docs", "--to", "/x");
 
-        exitCode.Should().Be((int)CliExitCode.NotFound);
-        host.Consoles.StdErr.Should().Contain("nothing to upload").And.Contain("file type");
+        exitCode.Should().Be(0, host.Consoles.StdErr);
+        host.Consoles.StdErr.Should().Contain("nothing to upload").And.Contain("1 file left out (.doc): not a file type the TeensyROM takes.");
         await host.Engine.ReceivedWithAnyArgs(1).EnsureRunningAsync(default);
         await _transferSettings.ReceivedWithAnyArgs(1).GetAsync(default);
         _calls.Should().BeEmpty();
@@ -457,7 +461,7 @@ public sealed class FileUploadCommandTests : IDisposable
 
         exitCode.Should().Be(0, host.Consoles.StdErr);
         Uploaded().Should().Equal("mixed/a.prg");
-        host.Consoles.StdErr.Should().Contain("1 file was left out");
+        host.Consoles.StdErr.Should().Contain("1 file left out (.bin): not a file type the TeensyROM takes; 5 hidden or system files left out.");
         await _transferSettings.ReceivedWithAnyArgs(1).GetAsync(default);
     }
 
@@ -472,7 +476,7 @@ public sealed class FileUploadCommandTests : IDisposable
 
         exitCode.Should().Be(0, host.Consoles.StdErr);
         Uploaded().Should().Equal("mixed/a.prg", "mixed/notes.bin");
-        host.Consoles.StdErr.Should().NotContain("left out");
+        host.Consoles.StdErr.Should().Contain("5 hidden or system files left out.").And.NotContain("not a file type");
     }
 
     private void WritePartialFolder()
@@ -494,11 +498,11 @@ public sealed class FileUploadCommandTests : IDisposable
 
         exitCode.Should().Be(0, host.Consoles.StdErr);
         Uploaded().Should().Equal("partial/a.prg", "partial/notes.bin");
-        host.Consoles.StdErr.Should().NotContain("left out");
+        host.Consoles.StdErr.Should().Contain("2 unfinished downloads left out.").And.NotContain("not a file type");
     }
 
     [Fact]
-    public async Task AFolder_WithTheSwitchOff_LeavesPartialDownloadsHome_WithoutCountingThem()
+    public async Task AFolder_WithTheSwitchOff_LeavesPartialDownloadsHome_AndCountsThem()
     {
         WritePartialFolder();
         var host = NewHost();
@@ -507,7 +511,7 @@ public sealed class FileUploadCommandTests : IDisposable
 
         exitCode.Should().Be(0, host.Consoles.StdErr);
         Uploaded().Should().Equal("partial/a.prg");
-        host.Consoles.StdErr.Should().Contain("1 file was left out");
+        host.Consoles.StdErr.Should().Contain("1 file left out (.bin): not a file type the TeensyROM takes; 2 unfinished downloads left out.");
     }
 
     [Fact]
@@ -743,7 +747,7 @@ public sealed class FileUploadCommandTests : IDisposable
     }
 
     [Fact]
-    public async Task AnEmptyCurrentFolder_IsNotAskedAbout_AndIsNothingToUpload()
+    public async Task AnEmptyCurrentFolder_IsNotAskedAbout_AndIsNothingToUpload_WithoutAnError()
     {
         var empty = Path.Combine(_root, "empty");
         Directory.CreateDirectory(empty);
@@ -752,7 +756,7 @@ public sealed class FileUploadCommandTests : IDisposable
 
         var exitCode = await host.RunAsync("file", "upload", "--to", "/x");
 
-        exitCode.Should().Be((int)CliExitCode.NotFound);
+        exitCode.Should().Be(0, host.Consoles.StdErr);
         host.Consoles.StdErr.Should().Contain($"There's nothing to upload in {empty}.").And.NotContain("TeensyROM?");
         await AssertEngineNeverStarted(host);
     }
@@ -988,6 +992,150 @@ public sealed class FileUploadCommandTests : IDisposable
         _player.Received(1).RecordLaunched(item, LaunchStatus.Launched);
     }
 
+    // ---- the skip report and the launch result in the JSON ------------------------------------------------------------
+
+    private static string[] Reasons(JsonElement report) =>
+        report.GetProperty("skipped").EnumerateArray().Select(skip => skip.GetProperty("reason").GetString()!).ToArray();
+
+    [Fact]
+    public async Task AFolderWalk_CountsEveryFileItLeavesOut_ByReason_AndSendsTheRest()
+    {
+        Write("walk/a.prg", 10);
+        Write("walk/b.xyz", 10);
+        Write("walk/c.bin", 10);
+        Write("walk/.DS_Store", 10);
+        Write("walk/x.crdownload", 10);
+        var host = NewHost();
+
+        var exitCode = await host.RunAsync("file", "upload", "walk", "--to", "/x", "--json");
+
+        exitCode.Should().Be(0, host.Consoles.StdErr);
+        Uploaded().Should().Equal("walk/a.prg");
+        var skipped = Parse(host.Consoles.StdOut).GetProperty("skipped").EnumerateArray().ToArray();
+        skipped.Select(skip => skip.GetProperty("reason").GetString()).Should().Equal("unsupportedType", "hiddenOrSystem", "partialDownload");
+        skipped.Select(skip => skip.GetProperty("count").GetInt32()).Should().Equal(2, 1, 1);
+        skipped[0].GetProperty("types").EnumerateArray().Select(type => type.GetString()).Should().Equal(".bin", ".xyz");
+        skipped[1].TryGetProperty("types", out _).Should().BeFalse();
+        host.Consoles.StdErr.Should().Contain("2 files left out (.bin, .xyz): not a file type the TeensyROM takes; 1 hidden or system file left out; 1 unfinished download left out.");
+    }
+
+    [Fact]
+    public async Task AFolderWalk_LeavesOutHiddenAndSystemFiles_AndEverythingUnderAHiddenFolder_WithoutADotInItsName()
+    {
+        var hiddenFolder = OperatingSystem.IsWindows() ? "plainhidden" : ".plainhidden";
+        Write("walk/a.prg", 10);
+        Write("walk/sys.prg", 10);
+        File.SetAttributes(Path.Combine(_root, "walk", "sys.prg"), OperatingSystem.IsWindows() ? FileAttributes.System : FileAttributes.Normal);
+        Write($"walk/{hiddenFolder}/inner.prg", 10, hiddenFolder: $"walk/{hiddenFolder}");
+        Write($"walk/{hiddenFolder}/deeper/more.prg", 10);
+        var host = NewHost();
+
+        var exitCode = await host.RunAsync("file", "upload", "walk", "--to", "/x", "--json");
+
+        exitCode.Should().Be(0, host.Consoles.StdErr);
+        var report = Parse(host.Consoles.StdOut);
+        Reasons(report).Should().Equal("hiddenOrSystem");
+        report.GetProperty("skipped")[0].GetProperty("count").GetInt32().Should().Be(OperatingSystem.IsWindows() ? 3 : 2);
+        Uploaded().Should().NotContain(upload => upload.Contains("inner") || upload.Contains("more"));
+    }
+
+    [Fact]
+    public async Task ANamedFolderThatIsItselfHidden_StillSendsItsContents()
+    {
+        Write("walk/a.prg", 10, hiddenFolder: "walk");
+        var host = NewHost();
+
+        var exitCode = await host.RunAsync("file", "upload", "walk", "--to", "/x", "--json");
+
+        exitCode.Should().Be(0, host.Consoles.StdErr);
+        Uploaded().Should().Equal("walk/a.prg");
+        Parse(host.Consoles.StdOut).GetProperty("skipped").GetArrayLength().Should().Be(0);
+    }
+
+    [Fact]
+    public async Task ANamedFile_IsNeverCountedAsLeftOut()
+    {
+        Write(".hidden.bin", 10, hidden: true);
+        var host = NewHost();
+
+        var exitCode = await host.RunAsync("file", "upload", ".hidden.bin", "--to", "/x", "--json");
+
+        exitCode.Should().Be(0, host.Consoles.StdErr);
+        Parse(host.Consoles.StdOut).GetProperty("skipped").GetArrayLength().Should().Be(0);
+        host.Consoles.StdErr.Should().NotContain("left out");
+    }
+
+    [Fact]
+    public async Task TheJobsOwnSkips_AreMergedWithTheWalks_ByReason()
+    {
+        Write("mix/pack.zip", 10);
+        Write("mix/a.prg", 10);
+        Write("mix/b.bin", 10);
+        Write("mix/.DS_Store", 10);
+        _jobSkips =
+        [
+            new TransferSkipDto { Reason = TransferSkipReason.UnsupportedType, Count = 3, Types = [".bin", ".nfo2"] },
+            new TransferSkipDto { Reason = TransferSkipReason.HiddenOrSystem, Count = 2, Types = [] },
+            new TransferSkipDto { Reason = TransferSkipReason.PartialDownload, Count = 1, Types = [] }
+        ];
+        var host = NewHost();
+
+        var exitCode = await host.RunAsync("file", "upload", "mix", "--to", "/x", "--json");
+
+        exitCode.Should().Be(0, host.Consoles.StdErr);
+        var skipped = Parse(host.Consoles.StdOut).GetProperty("skipped").EnumerateArray().ToArray();
+        skipped.Select(skip => skip.GetProperty("count").GetInt32()).Should().Equal(4, 3, 1);
+        skipped[0].GetProperty("types").EnumerateArray().Select(type => type.GetString()).Should().Equal(".bin", ".nfo2");
+        host.Consoles.StdErr.Should().Contain("4 files left out (.bin, .nfo2): not a file type the TeensyROM takes; 3 hidden or system files left out; 1 unfinished download left out.");
+    }
+
+    [Theory]
+    [InlineData(TransferLaunchState.Launched, "launched", null)]
+    [InlineData(TransferLaunchState.Incompatible, "incompatible", "The TeensyROM can't run this file.")]
+    [InlineData(TransferLaunchState.Failed, "failed", "The launch timed out.")]
+    public async Task AnUploadTheApiLaunched_CarriesTheLaunchResultInItsJson(TransferLaunchState state, string status, string? message)
+    {
+        Write("x.prg", 10);
+        _storage.GetFile("/games/x.prg").Returns(new GameItem { Name = "x.prg", Path = "/games/x.prg", Size = 10 });
+        (_launchState, _launchedPath, _launchError) = (state, "/games/x.prg", message);
+        var host = NewHost();
+
+        var exitCode = await host.RunAsync("file", "upload", "x.prg", "--to", "/games", "--json");
+
+        exitCode.Should().Be(0, host.Consoles.StdErr);
+        var launched = Parse(host.Consoles.StdOut).GetProperty("launched");
+        launched.GetProperty("status").GetString().Should().Be(status);
+        launched.GetProperty("path").GetString().Should().Be("/games/x.prg");
+        (launched.TryGetProperty("message", out var said) ? said.GetString() : null).Should().Be(message);
+        host.Consoles.StdErr.Should().Contain(state == TransferLaunchState.Launched ? "Launched /games/x.prg." : message!);
+    }
+
+    [Fact]
+    public async Task AnUploadTheApiDidNotLaunch_HasNoLaunchedInItsJson()
+    {
+        var host = NewHost();
+
+        await host.RunAsync("file", "upload", "loose.sid", "--to", "/music", "--json");
+
+        Parse(host.Consoles.StdOut).TryGetProperty("launched", out _).Should().BeFalse();
+    }
+
+    [Fact]
+    public async Task Launch_WhenTheCopyFailed_CarriesLaunchedInTheCopyReport_IfTheApiTriedToLaunch()
+    {
+        Write("x.prg", 10);
+        _uploadErrors["x.prg"] = new TeensyApiException("The path is not usable.", 400);
+        (_launchState, _launchedPath, _launchError) = (TransferLaunchState.Failed, "/games/x.prg", "Nothing to launch.");
+        var host = NewHost();
+
+        var exitCode = await host.RunAsync("file", "upload", "--launch", "x.prg", "--to", "/games", "--json");
+
+        exitCode.Should().Be((int)CliExitCode.Failed);
+        var report = Parse(host.Consoles.StdOut);
+        report.GetProperty("launched").GetProperty("status").GetString().Should().Be("failed");
+        report.GetProperty("launched").GetProperty("message").GetString().Should().Be("Nothing to launch.");
+    }
+
     // ---- the run -----------------------------------------------------------------------------------------------------
 
     [Fact]
@@ -1111,17 +1259,37 @@ public sealed class FileUploadCommandTests : IDisposable
     }
 
     [Fact]
-    public async Task AFolderWithNothingToSend_IsExitFive_WithOneSentence()
+    public async Task AnEmptyFolder_IsNothingToSend_NotAnError_AndTheJsonIsAnEmptyReport()
     {
         var empty = Path.Combine(_root, "empty");
         Directory.CreateDirectory(empty);
         var host = NewHost();
 
-        var exitCode = await host.RunAsync("file", "upload", "empty", "--to", "/x");
+        var exitCode = await host.RunAsync("file", "upload", "empty", "--to", "/x", "--json");
+
+        exitCode.Should().Be(0, host.Consoles.StdErr);
+        host.Consoles.StdErr.Should().Contain($"There's nothing to upload in {empty}.");
+        var report = Parse(host.Consoles.StdOut);
+        report.GetProperty("files").GetArrayLength().Should().Be(0);
+        report.GetProperty("totals").GetProperty("copied").GetInt32().Should().Be(0);
+        report.GetProperty("totals").GetProperty("failed").GetInt32().Should().Be(0);
+        report.GetProperty("skipped").GetArrayLength().Should().Be(0);
+        await AssertEngineNeverStarted(host);
+    }
+
+    [Fact]
+    public async Task AFolderWithNothingToSend_AndAMissingNamedPath_IsStillExitFive()
+    {
+        Directory.CreateDirectory(Path.Combine(_root, "empty"));
+        var host = NewHost();
+
+        var exitCode = await host.RunAsync("file", "upload", "empty", "missing.sid", "--to", "/x", "--json");
 
         exitCode.Should().Be((int)CliExitCode.NotFound);
-        host.Consoles.StdErr.Should().Contain($"There's nothing to upload in {empty}.");
-        await AssertEngineNeverStarted(host);
+        var report = Parse(host.Consoles.StdOut);
+        report.GetProperty("files").GetArrayLength().Should().Be(1);
+        report.GetProperty("totals").GetProperty("failed").GetInt32().Should().Be(1);
+        report.GetProperty("skipped").GetArrayLength().Should().Be(0);
     }
 
     [Fact]
@@ -1133,7 +1301,7 @@ public sealed class FileUploadCommandTests : IDisposable
 
         exitCode.Should().Be(0, host.Consoles.StdErr);
         var report = Parse(host.Consoles.StdOut);
-        report.EnumerateObject().Select(p => p.Name).Should().BeEquivalentTo("files", "totals");
+        report.EnumerateObject().Select(p => p.Name).Should().BeEquivalentTo("files", "totals", "skipped");
         var file = report.GetProperty("files")[0];
         file.EnumerateObject().Select(p => p.Name).Should().BeEquivalentTo("localPath", "devicePath", "ok", "message");
         file.GetProperty("localPath").GetString().Should().Be(Path.Combine(_root, "loose.sid"));
@@ -1685,7 +1853,7 @@ public sealed class UploadSourcesTests
     private static UploadFile Found(string name, bool known) => new(name, name, 1, false, FoundInFolder: true, IsKnownType: known);
 
     [Fact]
-    public void WithFolderTypes_Off_DropsOnlyUnknownTypesFoundInFolders_AndCountsThem()
+    public void WithFolderTypes_Off_DropsOnlyUnknownTypesFoundInFolders_AndRecordsThem()
     {
         var named = new UploadFile("n.bin", "n.bin", 1, false);
         var plan = PlanOf(named, Found("a.prg", known: true), Found("b.bin", known: false), Found("c.bin", known: false));
@@ -1693,7 +1861,9 @@ public sealed class UploadSourcesTests
         var narrowed = plan.WithFolderTypes(allTypes: false);
 
         narrowed.Files.Select(file => file.RelativePath).Should().Equal("n.bin", "a.prg");
-        narrowed.SkippedByType.Should().Be(2);
+        narrowed.SkippedFiles.Should().Equal(
+            new SkippedFile(TransferSkipReason.UnsupportedType, "b.bin"),
+            new SkippedFile(TransferSkipReason.UnsupportedType, "c.bin"));
     }
 
     [Fact]

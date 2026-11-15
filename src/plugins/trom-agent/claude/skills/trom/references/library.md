@@ -21,18 +21,20 @@ Copy between this computer and the TeensyROM with `trom file upload` and `trom f
   - Files the person names are always sent, whatever their type.
   - A folder sends the known types (`.sid`, `.crt`, `.prg`, `.p00`, `.hex`, `.kla`, `.koa`, `.art`, `.aas`, `.hpi`, `.seq`, `.txt`, `.d64`, `.nfo`, `.md`, `.ocp`, `.pic`, `.d71`, `.d81`, `.reu`, `.trh`, `.zip`, `.7z`, `.rar`), unless the upload setting `all-types` or `--all-types` is on.
   - An archive's contents send the known types, unless `all-in-archives` or `--all-in-archives` is on.
-  - Hidden and system files, `__MACOSX` and `._` files found in a folder or an archive are never sent, and neither are unfinished browser downloads (`.crdownload`, `.part`) found in a folder; a file or folder the person names is sent even if its name starts with a dot.
+  - Hidden and system files, `__MACOSX` and `._` files found in a folder or an archive are never sent, and neither are unfinished browser downloads (`.crdownload`, `.part`) found in a folder; a file or folder the person names is sent even if its name starts with a dot. Every file left out is counted in `skipped`.
   - Use `--all-types` and `--all-in-archives` only when the person asks for files outside the known types, and confirm such an upload first.
   - Offer these flags, and the promise that a named file of any type is sent, only when `init`'s `capabilities` list `transfer set`, which ships in the same release. An older `trom` rejects an unknown flag with exit 2, and refuses a named unknown-type file.
-- A folder walk that leaves files out prints a notice on stderr with the count, in `--json` too. Read the count from it and say it in plain words, for example "Two files weren't sent: the TeensyROM doesn't take their file types."
+- Read what an upload left out from `skipped` in the JSON, not from stderr. It is always there, a list of `{reason, count, types}` (empty when nothing was left out). `unsupportedType` lists the file types (`types`), `hiddenOrSystem` counts hidden and system files, and `partialDownload` counts unfinished browser downloads. Say it in plain words, for example "Two files weren't sent: the TeensyROM doesn't take .bin and .xyz files."
+- A folder with nothing to send, empty or with every file left out, is not a failure: the upload exits 0 with `files: []` and `skipped` says why. Report it as "nothing was sent" and why, not as an error. Only naming paths that don't exist exits 5.
 - An empty device folder is "nothing to download", exit 5, not success. Its folder is still created on the computer.
+- After you change a folder on the TeensyROM (an upload, a delete), `trom file ls "<dir>" --refresh --json` re-reads the folder and everything below it before it lists, so the listing is true. It can take minutes for a large folder, and the device is busy meanwhile (a command to it meanwhile exits 6).
 - A saved file's `localPath` is a full path under the chosen folder.
 - `totals.copied` counts the files an archive expands to, so it can exceed the number of rows in `files`.
 - Ask where files go when the user hasn't said: the device folder for an upload, the folder on the computer for a download. Your own working folder is wherever this session started, which is rarely where the user wants files.
 - Before any copy, confirm what goes where. A copy replaces a same-named file at the destination.
 - Never pass `--yes` to `file upload`. It sends the whole current folder, which is rarely what the user means; ask for the files instead.
 - An upload resets the TeensyROM unless the engine believes it is idle with nothing launched on it, and a reset stops whatever is playing. Say so when you confirm, and don't copy during a timed set unless the user wants the set to end.
-- When the `auto-launch` upload setting is on, an upload also launches one file once it lands: games first, never `.trh`. Say so when you confirm a copy.
+- When the `auto-launch` upload setting is on, an upload also launches one file once it lands: games first, never `.trh`. Say so when you confirm a copy. The upload's JSON then carries `launched`: `{status, path, message?}` with `status` `launched`, `incompatible` or `failed` (`message` is the reason when it didn't launch). Read what was launched, and whether it worked, from it.
 - Report the summary, and each failure in plain words.
 - A busy device (exit 6, code `deviceBusy`) is in the middle of a transfer: wait for it to finish, then try again, or use another TeensyROM.
 - To copy and launch one file, see `dj.md` (Launching). `--launch` asks the engine to launch that file once it lands, whatever the setting says.

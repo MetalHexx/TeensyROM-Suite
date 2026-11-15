@@ -84,6 +84,7 @@ public sealed class FileCommandTests : IDisposable
             services.AddSingleton(_launches);
             services.AddSingleton(_player);
             services.AddSingleton(_resolver);
+            services.AddSingleton(Substitute.For<IDeviceLogStream>());
             services.AddSingleton<IStdinPaths>(new StdinPaths(new StringReader(stdin), inputIsTerminal: false));
             extra?.Invoke(services);
         });
@@ -227,6 +228,104 @@ public sealed class FileCommandTests : IDisposable
 
         (await missing.RunAsync("file", "launch", "/nothing.bin")).Should().Be((int)CliExitCode.NotFound);
         missing.Consoles.StdErr.Should().Contain("There is no file at /nothing.bin.");
+    }
+
+    private (TestHost Host, ISettingsService Settings) RefreshHost()
+    {
+        var log = Substitute.For<IDeviceLogStream>();
+        Action<string> onLine = _ => { };
+
+        log.FollowAsync(Arg.Any<Action<string>>(), Arg.Any<CancellationToken>()).Returns(call =>
+        {
+            onLine = call.Arg<Action<string>>();
+            return Task.FromResult<IAsyncDisposable>(Substitute.For<IAsyncDisposable>());
+        });
+        _storage.Index(Arg.Any<string>()).Returns(_ =>
+        {
+            _calls.Add("index");
+            onLine("=> Indexing (SD): /games");
+            onLine("Resetting TeensyROM");
+            return Task.CompletedTask;
+        });
+        _storage.GetDirectory(Arg.Any<string>()).Returns(call =>
+        {
+            _calls.Add("list");
+            return new DirectoryListing { Path = call.Arg<string>(), Files = [Song($"{call.Arg<string>().TrimEnd('/')}/a.sid")] };
+        });
+        var host = NewHost(extra: services => services.AddSingleton(log));
+        var settings = host.Services.BuildServiceProvider().GetRequiredService<ISettingsService>();
+        var saved = settings.GetSettings();
+
+        saved.HasIndexed = false;
+        settings.SaveSettings(saved);
+
+        return (host, settings);
+    }
+
+    [Fact]
+    public async Task Ls_Refresh_IndexesTheFolderFirst_ThenWritesOnlyTheListingToStdout_AndTheIndexingLinesToStderr()
+    {
+        var (host, settings) = RefreshHost();
+
+        var exitCode = await host.RunAsync("file", "ls", "/games", "--refresh", "--json");
+
+        exitCode.Should().Be(0, host.Consoles.StdErr);
+        _calls.Should().Equal("index", "list");
+        await _storage.Received(1).Index("/games");
+        Parse(host.Consoles.StdOut).GetProperty("files")[0].GetProperty("path").GetString().Should().Be("/games/a.sid");
+        host.Consoles.StdOut.Should().NotContain("Indexing").And.NotContain("Indexed");
+        host.Consoles.StdErr.Should().Contain("=> Indexing (SD): /games").And.NotContain("Resetting TeensyROM").And.NotContain("Indexed");
+        settings.GetSettings().HasIndexed.Should().BeFalse();
+    }
+
+    [Fact]
+    public async Task Ls_Refresh_OfTheRoot_IsAFullIndex_SoItMarksTheStorageIndexed()
+    {
+        var (host, settings) = RefreshHost();
+
+        var exitCode = await host.RunAsync("file", "ls", "--refresh");
+
+        exitCode.Should().Be(0, host.Consoles.StdErr);
+        await _storage.Received(1).Index("/");
+        settings.GetSettings().HasIndexed.Should().BeTrue();
+    }
+
+    [Fact]
+    public async Task Ls_WithoutRefresh_NeverIndexes()
+    {
+        var (host, _) = RefreshHost();
+
+        await host.RunAsync("file", "ls", "/games");
+
+        await _storage.DidNotReceiveWithAnyArgs().Index(default!);
+    }
+
+    [Fact]
+    public async Task Ls_Refresh_OfABusyDevice_IsExitSix_AndListsNothing()
+    {
+        var (host, settings) = RefreshHost();
+        _storage.Index(Arg.Any<string>()).Returns(Task.FromException(new TeensyApiException("Alpha is busy with a transfer.", 409, problemCode: TeensyApiException.DeviceBusyProblemCode)));
+
+        var exitCode = await host.RunAsync("file", "ls", "/", "--refresh", "--json");
+
+        exitCode.Should().Be((int)CliExitCode.DeviceBusy);
+        host.Consoles.StdOut.Should().BeEmpty();
+        await _storage.DidNotReceiveWithAnyArgs().GetDirectory(default!);
+        settings.GetSettings().HasIndexed.Should().BeFalse();
+    }
+
+    [Fact]
+    public async Task Ls_Refresh_WhenIndexingFails_IsExitOne_WithTheApisMessage()
+    {
+        var (host, settings) = RefreshHost();
+        _storage.Index(Arg.Any<string>()).Returns(Task.FromException(new TeensyApiException("There was an error indexing.")));
+
+        var exitCode = await host.RunAsync("file", "ls", "/", "--refresh");
+
+        exitCode.Should().Be((int)CliExitCode.Failed);
+        host.Consoles.StdErr.Should().Contain("There was an error indexing.");
+        host.Consoles.StdOut.Should().BeEmpty();
+        settings.GetSettings().HasIndexed.Should().BeFalse();
     }
 
     [Fact]

@@ -1,4 +1,6 @@
 using System.Globalization;
+using System.IO.Enumeration;
+using TeensyRom.Cli.Api.Generated;
 
 namespace TeensyRom.Cli.Commands.File;
 
@@ -11,14 +13,17 @@ internal sealed record UploadFile(string LocalPath, string RelativePath, long Si
 
 /// <summary>
 /// What the named sources come to: the files to send, the named paths that don't exist, the folders that were walked,
-/// and how many walked files were left out for their type.
+/// and the walked files that were left out, with the reason for each.
 /// </summary>
 internal sealed record UploadPlan(
     IReadOnlyList<UploadFile> Files,
     IReadOnlyList<string> NotFound,
     IReadOnlyList<string> Folders,
-    int SkippedByType = 0)
+    IReadOnlyList<SkippedFile>? Skipped = null)
 {
+    /// <summary>The walked files left out, hidden and partial ones from the walk, unsupported types once <see cref="WithFolderTypes"/> has run.</summary>
+    public IReadOnlyList<SkippedFile> SkippedFiles => Skipped ?? [];
+
     public long TotalSize => Files.Sum(file => file.Size);
 
     /// <summary>True when a folder walk found files of types the TeensyROM doesn't recognize.</summary>
@@ -26,15 +31,16 @@ internal sealed record UploadPlan(
 
     /// <summary>
     /// <paramref name="allTypes"/> keeps everything; otherwise drops the files found in folders of a type the TeensyROM
-    /// doesn't recognize and counts them in <see cref="SkippedByType"/>.
+    /// doesn't recognize and records them in <see cref="SkippedFiles"/>.
     /// </summary>
     public UploadPlan WithFolderTypes(bool allTypes)
     {
         if (allTypes) return this;
 
         var kept = Files.Where(file => !file.FoundInFolder || file.IsKnownType).ToList();
+        var dropped = Files.Except(kept).Select(file => new SkippedFile(TransferSkipReason.UnsupportedType, file.LocalPath));
 
-        return this with { Files = kept, SkippedByType = SkippedByType + Files.Count - kept.Count };
+        return this with { Files = kept, Skipped = [.. SkippedFiles, .. dropped] };
     }
 }
 
@@ -56,13 +62,16 @@ internal static class UploadSources
         ".crdownload", ".part"
     };
 
-    // Links are never followed, so a walk can't leave the named folder or loop; hidden and system files stay home.
+    // Links are never followed, so a walk can't leave the named folder or loop. Hidden and system entries are not skipped
+    // here: the walk judges them itself so it can count what it leaves out.
     private static readonly EnumerationOptions WalkOptions = new()
     {
         RecurseSubdirectories = true,
         IgnoreInaccessible = true,
-        AttributesToSkip = FileAttributes.Hidden | FileAttributes.System | FileAttributes.ReparsePoint
+        AttributesToSkip = FileAttributes.ReparsePoint
     };
+
+    private const FileAttributes HiddenOrSystem = FileAttributes.Hidden | FileAttributes.System;
 
     /// <summary>Whether tr-web expands the file instead of storing it.</summary>
     public static bool IsArchive(string fileName) =>
@@ -96,8 +105,9 @@ internal static class UploadSources
     /// Walks what <paramref name="named"/> names. A file arrives as its name; a folder arrives as a folder of its own name
     /// with its layout kept, except <c>.</c> (and a folder with no name, a drive root), whose contents arrive directly.
     /// No names at all means the contents of <paramref name="currentFolder"/>. A named file is
-    /// always kept, whatever its type. Walked files are kept with their type tagged, except hidden, system, linked,
-    /// <see cref="IsExcluded"/> and <see cref="IsPartialDownload"/> ones, which are skipped without being counted. The
+    /// always kept, whatever its type. Walked files are kept with their type tagged, except linked ones, which are never
+    /// followed, and hidden, system (a file, or anything under a hidden or system folder), <see cref="IsExcluded"/> and
+    /// <see cref="IsPartialDownload"/> ones, which are left out and recorded in <see cref="UploadPlan.SkippedFiles"/>. The
     /// exclusions are judged below the named folder, so a folder named <c>.stash</c> still sends its contents; the rule
     /// mirrors <c>TransferExclusions</c>.
     /// </summary>
@@ -107,6 +117,7 @@ internal static class UploadSources
         var files = new List<UploadFile>();
         var notFound = new List<string>();
         var folders = new List<string>();
+        var skipped = new List<SkippedFile>();
 
         foreach (var path in named.Count == 0 ? new[] { "." } : named)
         {
@@ -120,14 +131,14 @@ internal static class UploadSources
             {
                 folders.Add(Path.TrimEndingDirectorySeparator(full));
 
-                files.AddRange(Walk(full, ContentsOnly(path, full) ? string.Empty : Path.GetFileName(Path.TrimEndingDirectorySeparator(full))));
+                files.AddRange(Walk(full, ContentsOnly(path, full) ? string.Empty : Path.GetFileName(Path.TrimEndingDirectorySeparator(full)), skipped));
             }
             else
             {
                 notFound.Add(path);
             }
         }
-        return new UploadPlan(files, notFound, folders);
+        return new UploadPlan(files, notFound, folders, skipped);
     }
 
     /// <summary>The size as the confirmation shows it: KB below a megabyte, otherwise MB.</summary>
@@ -138,13 +149,54 @@ internal static class UploadSources
     private static bool ContentsOnly(string named, string full) =>
         Path.TrimEndingDirectorySeparator(named) == "." || Path.GetFileName(Path.TrimEndingDirectorySeparator(full)).Length == 0;
 
-    private static List<UploadFile> Walk(string root, string prefix) =>
-        Directory.EnumerateFiles(root, "*", WalkOptions)
-            .Select(file => (File: file, Relative: Path.GetRelativePath(root, file).Replace(Path.DirectorySeparatorChar, '/')))
-            .Where(entry => !IsExcluded(entry.Relative) && !IsPartialDownload(entry.Relative))
-            .OrderBy(entry => entry.Relative, StringComparer.Ordinal)
-            .Select(entry => Describe(entry.File, prefix.Length == 0 ? entry.Relative : $"{prefix}/{entry.Relative}", foundInFolder: true))
-            .ToList();
+    private static List<UploadFile> Walk(string root, string prefix, List<SkippedFile> skipped)
+    {
+        var hiddenFolders = new Dictionary<string, bool>(StringComparer.Ordinal);
+        var kept = new List<UploadFile>();
+        var entries = new FileSystemEnumerable<(string Path, FileAttributes Attributes)>(
+            root, (ref FileSystemEntry entry) => (entry.ToFullPath(), entry.Attributes), WalkOptions)
+        {
+            ShouldIncludePredicate = (ref FileSystemEntry entry) => !entry.IsDirectory
+        };
+
+        var found = entries
+            .Select(entry => (entry.Path, entry.Attributes, Relative: Path.GetRelativePath(root, entry.Path).Replace(Path.DirectorySeparatorChar, '/')))
+            .OrderBy(entry => entry.Relative, StringComparer.Ordinal);
+
+        foreach (var (file, attributes, relative) in found)
+        {
+            if ((attributes & HiddenOrSystem) != 0 || IsExcluded(relative) || InHiddenFolder(root, file, hiddenFolders))
+            {
+                skipped.Add(new SkippedFile(TransferSkipReason.HiddenOrSystem, file));
+            }
+            else if (IsPartialDownload(relative))
+            {
+                skipped.Add(new SkippedFile(TransferSkipReason.PartialDownload, file));
+            }
+            else
+            {
+                kept.Add(Describe(file, prefix.Length == 0 ? relative : $"{prefix}/{relative}", foundInFolder: true));
+            }
+        }
+        return kept;
+    }
+
+    /// <summary>Whether a folder between <paramref name="root"/> (not included) and <paramref name="file"/> is hidden or system.</summary>
+    private static bool InHiddenFolder(string root, string file, Dictionary<string, bool> cache)
+    {
+        var rootFolder = Path.TrimEndingDirectorySeparator(root);
+
+        for (var folder = Path.GetDirectoryName(file); folder is not null && !string.Equals(Path.TrimEndingDirectorySeparator(folder), rootFolder, StringComparison.Ordinal); folder = Path.GetDirectoryName(folder))
+        {
+            if (!cache.TryGetValue(folder, out var hidden))
+            {
+                hidden = (new DirectoryInfo(folder).Attributes & HiddenOrSystem) != 0;
+                cache[folder] = hidden;
+            }
+            if (hidden) return true;
+        }
+        return false;
+    }
 
     private static UploadFile Describe(string localPath, string relativePath, bool foundInFolder = false)
     {

@@ -71,7 +71,7 @@ internal sealed class IndexBuildCommand(
         var path = FileCommandOptions.ReadPath(stdin, settings.Path);
         var storages = StoragesToIndex(settings, devices.SelectedDevice);
 
-        await using var progress = await FollowIndexingAsync(token => deviceLog.FollowAsync(ShowIndexingLine, token), ct);
+        await using var progress = await IndexProgress.FollowAsync(Output, token => deviceLog.FollowAsync(line => IndexProgress.ShowLine(Output, line), token), ct);
 
         foreach (var storageType in storages)
         {
@@ -79,7 +79,7 @@ internal sealed class IndexBuildCommand(
             await storage.Index(path);
         }
 
-        MarkIndexed();
+        IndexProgress.MarkIndexed(settingsService);
 
         var names = storages.Select(Name).ToList();
 
@@ -92,8 +92,8 @@ internal sealed class IndexBuildCommand(
     /// <exception cref="CliException"><see cref="CliExitCode.NoDevice"/> when tr-web finds no connected device.</exception>
     private async Task<int> IndexEveryDeviceAsync(CancellationToken ct)
     {
-        await using var progress = await FollowIndexingAsync(
-            token => deviceLog.FollowEveryDeviceAsync(ShowIndexingLine, token), ct);
+        await using var progress = await IndexProgress.FollowAsync(
+            Output, token => deviceLog.FollowEveryDeviceAsync((deviceId, line) => IndexProgress.ShowLine(Output, deviceId, line), token), ct);
 
         try
         {
@@ -104,7 +104,7 @@ internal sealed class IndexBuildCommand(
             throw new CliException(CliExitCode.NoDevice, "No TeensyROM is online. Connect one, then run `trom device discover`.");
         }
 
-        MarkIndexed();
+        IndexProgress.MarkIndexed(settingsService);
 
         if (Output.Mode == OutputMode.Json) Output.Json(new IndexBuildResult(await IndexedStoragesAsync(ct), "/") { AllDevices = true });
         else Output.Lines(["Indexed every storage on every connected TeensyROM."]);
@@ -136,13 +136,6 @@ internal sealed class IndexBuildCommand(
         return names;
     }
 
-    private void MarkIndexed()
-    {
-        var saved = settingsService.GetSettings();
-        saved.HasIndexed = true;
-        settingsService.SaveSettings(saved);
-    }
-
     private static List<TeensyStorageType> StoragesToIndex(IndexBuildSettings settings, DeviceSummary? device)
     {
         if (!string.IsNullOrWhiteSpace(settings.Storage))
@@ -160,38 +153,4 @@ internal sealed class IndexBuildCommand(
     }
 
     private static string Name(TeensyStorageType storageType) => storageType == TeensyStorageType.USB ? "usb" : "sd";
-
-    /// <summary>
-    /// Shows tr-web's indexing lines on stderr while indexing runs. When the log can't be followed it says so and
-    /// returns a handle that does nothing: indexing still runs.
-    /// </summary>
-    private async Task<IAsyncDisposable> FollowIndexingAsync(Func<CancellationToken, Task<IAsyncDisposable>> follow, CancellationToken ct)
-    {
-        try
-        {
-            return await follow(ct);
-        }
-        catch (TeensyApiException ex)
-        {
-            Output.Notice($"Indexing will run without showing its progress. {ex.Message}");
-            return NoProgress.Instance;
-        }
-    }
-
-    private void ShowIndexingLine(string line)
-    {
-        if (line.Contains("Indexing", StringComparison.Ordinal)) Output.Notice(line);
-    }
-
-    private void ShowIndexingLine(string deviceId, string line)
-    {
-        if (line.Contains("Indexing", StringComparison.Ordinal)) Output.Notice($"{deviceId}: {line}");
-    }
-
-    private sealed class NoProgress : IAsyncDisposable
-    {
-        public static readonly NoProgress Instance = new();
-
-        public ValueTask DisposeAsync() => ValueTask.CompletedTask;
-    }
 }

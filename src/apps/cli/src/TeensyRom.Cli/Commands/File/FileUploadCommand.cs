@@ -116,11 +116,6 @@ internal sealed class FileUploadCommand(
         }
         _plan = _plan.WithFolderTypes(allTypes);
 
-        if (_plan.SkippedByType > 0)
-        {
-            Output.Notice($"{_plan.SkippedByType} {(_plan.SkippedByType == 1 ? "file was" : "files were")} left out: not a file type the TeensyROM takes.");
-        }
-
         if (ask && _plan.Files.Count > 0) ConfirmCurrentFolder(current, settings.To!);
 
         // With nothing to send there is nothing for the engine to do.
@@ -136,6 +131,9 @@ internal sealed class FileUploadCommand(
         var run = await CommandRun.CancellableAsync(token => TransferAsync(to, settings.Launch, settings.AllInArchives, token));
         var job = run.Job;
         var report = BuildReport(to, run);
+
+        NoticeSkips(report.Skipped!);
+
         var succeeded = report.Totals.Failed == 0 && job.State == TransferJobState.Completed;
 
         var launched = await RecordLaunchAsync(job);
@@ -144,7 +142,7 @@ internal sealed class FileUploadCommand(
 
         CopyResults.Show(Output, report);
 
-        if (!settings.Launch && job.LaunchState == TransferLaunchState.Launched) Output.Notice($"Launched {job.LaunchedPath}.");
+        NoticeLaunch(job);
 
         if (job.State is TransferJobState.Aborted or TransferJobState.Abandoned && !string.IsNullOrWhiteSpace(job.Error)) Output.Notice(job.Error);
 
@@ -199,23 +197,54 @@ internal sealed class FileUploadCommand(
     }
 
     /// <summary>
-    /// Nothing is left to send: the named paths that don't exist are the results, or the folders held nothing to send.
+    /// Nothing is left to send. Named paths that don't exist are the results (exit 5); a walked folder that was empty or
+    /// had every file left out is not an error: the report has no files, and a notice says why.
     /// </summary>
     private int NothingToSend()
     {
+        var skipped = SkipTally.Of(_plan.SkippedFiles, []).ToSkips();
+
         if (_plan.NotFound.Count == 0)
         {
             var where = string.Join(", ", _plan.Folders);
+            var why = SkipTally.Describe(skipped);
 
-            throw new CliException(
-                CliExitCode.NotFound,
-                _plan.SkippedByType > 0 ? $"There's nothing to upload in {where}: none of its files are a file type the TeensyROM takes." : $"There's nothing to upload in {where}.");
+            Output.Notice(why.Length > 0 ? $"There's nothing to upload in {where}: {why}" : $"There's nothing to upload in {where}.");
+            CopyResults.Show(Output, new CopyReportJson([], new CopyTotalsJson(0, 0), skipped));
+
+            return 0;
         }
+        NoticeSkips(skipped);
+
         var results = _plan.NotFound.Select(path => CopyResults.Failed(path, string.Empty, CopyResults.NotFoundMessage)).ToList();
 
-        CopyResults.Show(Output, new CopyReportJson(results, new CopyTotalsJson(0, results.Count)));
+        CopyResults.Show(Output, new CopyReportJson(results, new CopyTotalsJson(0, results.Count), skipped));
 
         return BatchOutcome.Finish(Output, results.Count, results.Count, anyFailedForOtherReasons: false, "files");
+    }
+
+    private void NoticeSkips(IReadOnlyList<CopySkipJson> skipped)
+    {
+        if (skipped.Count > 0) Output.Notice(SkipTally.Describe(skipped));
+    }
+
+    /// <summary>Says on stderr how a launch tr-web made came out; a launch that wasn't tried says nothing.</summary>
+    private void NoticeLaunch(TransferJobDto job)
+    {
+        var path = job.LaunchedPath ?? "the file";
+
+        switch (job.LaunchState)
+        {
+            case TransferLaunchState.Launched:
+                Output.Notice($"Launched {path}.");
+                break;
+            case TransferLaunchState.Incompatible:
+                Output.Notice(string.IsNullOrWhiteSpace(job.LaunchError) ? $"{path} can't run on the TeensyROM." : job.LaunchError);
+                break;
+            case TransferLaunchState.Failed:
+                Output.Notice(string.IsNullOrWhiteSpace(job.LaunchError) ? $"The TeensyROM didn't launch {path}." : job.LaunchError);
+                break;
+        }
     }
 
     /// <summary>Runs the job, with a live progress line on stderr when a person is watching one.</summary>
@@ -228,7 +257,7 @@ internal sealed class FileUploadCommand(
 
     /// <summary>
     /// One result per local file, then one per failure the job recorded that matches none (a file inside an archive),
-    /// then one per named path that doesn't exist. A job failure is matched to a file by its path under the destination.
+    /// then one per named path that doesn't exist. The left-out files are the walk's and the job's merged by reason. A job failure is matched to a file by its path under the destination.
     /// </summary>
     private CopyReportJson BuildReport(string to, UploadRunResult run)
     {
@@ -253,8 +282,21 @@ internal sealed class FileUploadCommand(
         }
         results.AddRange(_plan.NotFound.Select(path => CopyResults.Failed(path, string.Empty, CopyResults.NotFoundMessage)));
 
-        return new CopyReportJson(results, new CopyTotalsJson(job.FilesSent, job.FilesFailed + run.Rejected.Count + _plan.NotFound.Count));
+        return new CopyReportJson(
+            results,
+            new CopyTotalsJson(job.FilesSent, job.FilesFailed + run.Rejected.Count + _plan.NotFound.Count),
+            SkipTally.Of(_plan.SkippedFiles, job.Skipped).ToSkips(),
+            LaunchResult(job));
     }
+
+    /// <summary>The launch tr-web attempted for the job; null when it made none.</summary>
+    private static CopyLaunchJson? LaunchResult(TransferJobDto job) => job.LaunchState switch
+    {
+        TransferLaunchState.Launched => new CopyLaunchJson(LaunchStatus.Launched, job.LaunchedPath),
+        TransferLaunchState.Incompatible => new CopyLaunchJson(LaunchStatus.Incompatible, job.LaunchedPath, job.LaunchError),
+        TransferLaunchState.Failed => new CopyLaunchJson(LaunchStatus.Failed, job.LaunchedPath, job.LaunchError),
+        _ => null
+    };
 
     private static string FailureMessage(TransferFileCompleted failure) =>
         string.IsNullOrWhiteSpace(failure.Error) ? "The TeensyROM couldn't take the file." : failure.Error;
