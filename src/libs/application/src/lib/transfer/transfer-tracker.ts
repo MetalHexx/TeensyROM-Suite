@@ -10,6 +10,7 @@ import {
 } from '@teensyrom-nx/domain';
 import { logError, logInfo, logWarn, LogType } from '@teensyrom-nx/utils';
 import { DeviceStore } from '../device/device-store';
+import { StorageStore } from '../storage/storage-store';
 import { TransferStore } from './transfer-store';
 import { TransferContextService } from './transfer-context.service';
 import { isTerminalJobState } from './transfer-helpers';
@@ -27,7 +28,8 @@ function describe(error: unknown): string {
  * Follows every transfer on every device — this tab's own, other tabs', and watch folders' —
  * through the hub's all-transfers group. It is the one subscriber to the hub's snapshot stream:
  * each snapshot is folded into `TransferStore` under a single set of rules, and each transfer
- * raises one start alert and one end alert.
+ * raises one start alert and one end alert. A transfer that ended having sent files also has the
+ * file listings that show its destination refetched, and a reconnect refetches every shown folder.
  *
  * Pushes and lists are handled one at a time, in arrival order.
  */
@@ -38,6 +40,7 @@ export class TransferTracker {
   private readonly store = inject(TransferStore);
   private readonly deviceStore = inject(DeviceStore);
   private readonly transferContext = inject(TransferContextService);
+  private readonly storageStore = inject(StorageStore);
 
   private readonly startAnnounced = new Set<string>();
   private readonly endAnnounced = new Set<string>();
@@ -165,6 +168,9 @@ export class TransferTracker {
         await this.dropEntry(entry.deviceId);
       }
     }
+
+    // Jobs may have ended while the connection was down.
+    void this.storageStore.refetchShownFolders();
   }
 
   private async handle(snapshot: TransferJobSnapshot): Promise<void> {
@@ -195,6 +201,14 @@ export class TransferTracker {
     this.endAnnounced.add(jobId);
     const { severity, message } = buildEndAnnouncement(snapshot, this.deviceName(deviceId));
     this.alertService[severity](message);
+
+    if (snapshot.filesSent > 0) {
+      void this.storageStore.refetchAfterTransfer({
+        deviceId,
+        storageType: snapshot.storageType,
+        destinationDirectory: snapshot.destinationDirectory,
+      });
+    }
 
     // Not the entry of a newer job on the device, and not one the dialog is showing: that one
     // goes when the dialog is closed or hidden.

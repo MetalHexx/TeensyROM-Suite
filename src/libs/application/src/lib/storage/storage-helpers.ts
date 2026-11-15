@@ -3,7 +3,7 @@ import { firstValueFrom } from 'rxjs';
 import { StorageState, StorageDirectoryState, NavigationHistory } from './storage-store';
 import { StorageKey, StorageKeyUtil } from './storage-key.util';
 import { StorageType, IStorageService } from '@teensyrom-nx/domain';
-import { LogType, logInfo, logError } from '@teensyrom-nx/utils';
+import { LogType, logInfo, logError, logWarn } from '@teensyrom-nx/utils';
 import { updateState } from '../with-devtools';
 
 export type WritableStore<T extends object> = StateSignals<T> & WritableStateSource<T>;
@@ -241,6 +241,51 @@ export function dropListingsBelowPath(
   if (Object.keys(kept).length === Object.keys(listings).length) return;
 
   updateStorage(store, key, { directoryListings: kept }, actionMessage);
+}
+
+/**
+ * Refetches the folder at `path` for one storage entry without touching `isLoading`, so views keep
+ * showing the list they have. The result always refreshes that path's tree listing; it replaces the
+ * entry's current directory only when the entry still shows `path` once the result arrives, so a
+ * refetch never pulls the view back after the user moved on. A failure keeps what is shown.
+ */
+export async function refetchDirectoryQuietly(
+  store: WritableStore<StorageState>,
+  storageService: IStorageService,
+  key: StorageKey,
+  path: string,
+  actionMessage: string
+): Promise<void> {
+  const requested = getStorage(store, key);
+  if (!requested) return;
+
+  let directory;
+  try {
+    directory = await firstValueFrom(
+      storageService.getDirectory(requested.deviceId, requested.storageType, path)
+    );
+  } catch (error) {
+    logWarn(
+      `Quiet refetch of ${path} failed for ${key}; keeping the listing - ${error instanceof Error ? error.message : String(error)}`
+    );
+    return;
+  }
+
+  const entry = getStorage(store, key);
+  if (!entry) return;
+
+  const directoryListings = { ...entry.directoryListings, [path]: directory.directories };
+  const stillShown =
+    entry.isLoaded && normalizePathForCompare(entry.currentPath) === normalizePathForCompare(path);
+
+  updateStorage(
+    store,
+    key,
+    stillShown
+      ? { directory, directoryListings, lastLoadTime: Date.now() }
+      : { directoryListings },
+    actionMessage
+  );
 }
 
 /**

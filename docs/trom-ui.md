@@ -84,6 +84,7 @@ Video is optional but recommended.
 - **Several carts:** browse multiple connected carts at the same time.
 - **Every file listed:** files the TeensyROM can't launch are listed too, but they can't be played.
 - **Re-index a folder:** the refresh button re-reads the shown folder and every folder below it from the TeensyROM, so the list matches what's on the card. On the top folder it re-reads the whole storage, and a large folder can take a few minutes. The button asks you to confirm first; switch on "Don't ask again" in that dialog to skip the question from then on in this browser.
+- **Listings stay current:** when a transfer into the shown folder finishes, whether from this tab, another tab, `trom` or a watch folder, the file list, folder tree, search results and DJ list update by themselves, without a loading flicker. They also catch up after the connection to the API drops and comes back.
 
 ## Mobile and responsive
 
