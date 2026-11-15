@@ -8,7 +8,13 @@ export const TRANSFER_SKIP_REASONS: readonly TransferSkipReason[] = [
   'partialDownload',
 ];
 
-/** A count of files left out for one reason; `types` are the extensions involved (e.g. `.xyz`). */
+/** The type a skipped file with no extension contributes, as the API and `trom` name it. */
+export const TRANSFER_SKIP_NO_EXTENSION = '(no extension)';
+
+/**
+ * A count of files left out for one reason; `types` are the extensions involved (e.g. `.xyz`, or
+ * `TRANSFER_SKIP_NO_EXTENSION` for a name with none), only for `unsupportedType`.
+ */
 export interface TransferSkip {
   reason: TransferSkipReason;
   count: number;

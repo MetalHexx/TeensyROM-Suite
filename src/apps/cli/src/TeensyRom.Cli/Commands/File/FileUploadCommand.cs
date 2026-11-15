@@ -89,9 +89,9 @@ internal sealed class FileUploadCommand(
 
     /// <exception cref="CliException">
     /// <see cref="CliExitCode.Usage"/> for a refused <c>--launch</c> or no names where nothing can be asked;
-    /// <see cref="CliExitCode.Failed"/> when the confirmation is declined;
     /// <see cref="CliExitCode.EngineUnavailable"/> when the all-types switch had to be read and no engine could be made ready.
     /// </exception>
+    /// <exception cref="CliCancelledException">The user declined the confirmation.</exception>
     protected override async Task PrepareAsync(FileUploadSettings settings, CancellationToken ct)
     {
         var named = stdin.Expand(settings.LocalPaths);

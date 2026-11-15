@@ -183,10 +183,11 @@ describe('buildEndAnnouncement', () => {
       { reason: 'hiddenOrSystem', count: 3, types: [] },
     ];
 
-    it('appends how many files were left out, keeping the severity', () => {
+    it('appends the shared left-out sentence, keeping the severity', () => {
       expect(buildEndAnnouncement(completed({ skipped }), 'TR')).toEqual({
         severity: 'success',
-        message: 'Sent 4 files to TR · 5 left out',
+        message:
+          'Sent 4 files to TR. 2 files left out (.xyz): not a file type the TeensyROM takes; 3 hidden or system files left out.',
       });
     });
 
@@ -197,14 +198,28 @@ describe('buildEndAnnouncement', () => {
         launchedPath: '/games/a.prg',
       });
       expect(buildEndAnnouncement(launched, 'TR').message).toBe(
-        'Sent 4 files to TR · launched a.prg · 5 left out'
+        'Sent 4 files to TR · launched a.prg. 2 files left out (.xyz): not a file type the TeensyROM takes; 3 hidden or system files left out.'
       );
       expect(
         buildEndAnnouncement(
           createSnapshot({ state: TransferJobState.Cancelled, filesSent: 2, skipped }),
           'TR'
         ).message
-      ).toBe('Transfer to TR cancelled · 2 files sent · 5 left out');
+      ).toBe(
+        'Transfer to TR cancelled · 2 files sent. 2 files left out (.xyz): not a file type the TeensyROM takes; 3 hidden or system files left out.'
+      );
+    });
+
+    it('does not double the full stop when the outcome already ends with one', () => {
+      const failedLaunch = completed({
+        skipped: [{ reason: 'partialDownload', count: 1, types: [] }],
+        launchState: TransferLaunchState.Failed,
+        launchedPath: '/games/a.prg',
+        launchError: 'device did not answer.',
+      });
+      expect(buildEndAnnouncement(failedLaunch, 'TR').message).toBe(
+        "Sent 4 files to TR · couldn't launch a.prg: device did not answer. 1 unfinished download left out."
+      );
     });
 
     it('adds nothing when no skip has a count', () => {

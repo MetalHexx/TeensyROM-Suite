@@ -1,5 +1,10 @@
 import { Injectable } from '@angular/core';
-import { TransferManifestEntry, TransferSkip, TransferSkipReason } from '@teensyrom-nx/domain';
+import {
+  TRANSFER_SKIP_NO_EXTENSION,
+  TransferManifestEntry,
+  TransferSkip,
+  TransferSkipReason,
+} from '@teensyrom-nx/domain';
 import {
   TRANSFER_SUPPORTED_EXTENSIONS,
   TRANSFER_ARCHIVE_EXTENSIONS,
@@ -211,20 +216,23 @@ function isArchiveExtension(relativePath: string): boolean {
 
 /**
  * Why a path below a folder is one the engine never sends, or `null` when it is not excluded.
- * Excluded means: a file whose extension is in `TRANSFER_PARTIAL_DOWNLOAD_EXTENSIONS`
- * (`partialDownload`), or any `/`-separated segment that starts with `.` or is `__MACOSX`, or a
- * file name in `TRANSFER_EXCLUDED_FILE_NAMES` (`hiddenOrSystem`).
+ * Excluded means: any `/`-separated segment that starts with `.` or is `__MACOSX`, or a file name
+ * in `TRANSFER_EXCLUDED_FILE_NAMES` (`hiddenOrSystem`), or a file whose extension is in
+ * `TRANSFER_PARTIAL_DOWNLOAD_EXTENSIONS` (`partialDownload`). Hidden is judged first, as the API
+ * and `trom` do, so an unfinished download in a hidden folder counts as hidden.
  */
 function excludedReason(pathBelowRoot: string): TransferSkipReason | null {
   const segments = pathBelowRoot.split('/');
-  const extension = extensionOf(pathBelowRoot);
-  if (extension !== null && TRANSFER_PARTIAL_DOWNLOAD_EXTENSIONS.has(extension)) {
-    return 'partialDownload';
-  }
   const hiddenOrSystem =
     segments.some((segment) => segment.startsWith('.') || segment.toLowerCase() === '__macosx') ||
     TRANSFER_EXCLUDED_FILE_NAMES.has(segments[segments.length - 1].toLowerCase());
-  return hiddenOrSystem ? 'hiddenOrSystem' : null;
+  if (hiddenOrSystem) {
+    return 'hiddenOrSystem';
+  }
+  const extension = extensionOf(pathBelowRoot);
+  return extension !== null && TRANSFER_PARTIAL_DOWNLOAD_EXTENSIONS.has(extension)
+    ? 'partialDownload'
+    : null;
 }
 
 interface ScanAccumulator {
@@ -267,7 +275,7 @@ function addFolderFile(
     return;
   }
   if (!options.allFileTypesInFolders && !hasSupportedExtension(relativePath)) {
-    recordSkip(acc, 'unsupportedType', extensionOf(relativePath));
+    recordSkip(acc, 'unsupportedType', extensionOf(relativePath) ?? TRANSFER_SKIP_NO_EXTENSION);
     return;
   }
 

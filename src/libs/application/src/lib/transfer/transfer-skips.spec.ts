@@ -1,5 +1,5 @@
 import { TransferSkip } from '@teensyrom-nx/domain';
-import { countSkips, describeSkips, mergeSkips } from './transfer-skips';
+import { describeSkips, mergeSkips } from './transfer-skips';
 
 describe('describeSkips', () => {
   it('returns null when nothing was left out', () => {
@@ -49,19 +49,18 @@ describe('mergeSkips', () => {
     ]);
   });
 
+  it('keeps the no-extension type ahead of the dotted ones, as the API and trom word it', () => {
+    const merged = mergeSkips(
+      [{ reason: 'unsupportedType', count: 2, types: ['.xyz', '(no extension)'] }],
+      [{ reason: 'unsupportedType', count: 1, types: ['.bin'] }]
+    );
+    expect(describeSkips(merged)).toBe(
+      '3 files left out ((no extension), .bin, .xyz): not a file type the TeensyROM takes.'
+    );
+  });
+
   it('returns an empty list for no input', () => {
     expect(mergeSkips()).toEqual([]);
     expect(mergeSkips([], [])).toEqual([]);
-  });
-});
-
-describe('countSkips', () => {
-  it('totals counts across reasons', () => {
-    expect(
-      countSkips([
-        { reason: 'unsupportedType', count: 2, types: ['.a'] },
-        { reason: 'hiddenOrSystem', count: 3, types: [] },
-      ])
-    ).toBe(5);
   });
 });

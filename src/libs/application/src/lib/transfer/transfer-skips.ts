@@ -40,8 +40,3 @@ export function mergeSkips(...lists: TransferSkip[][]): TransferSkip[] {
     return { reason, count, types: [...types].sort() };
   });
 }
-
-/** The total number of files the skips cover. */
-export function countSkips(skips: TransferSkip[]): number {
-  return skips.reduce((sum, skip) => sum + skip.count, 0);
-}

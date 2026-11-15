@@ -463,6 +463,49 @@ describe('DropScanner', () => {
       ]);
     });
 
+    it('names a file with no extension as "(no extension)", ordered ahead of the dotted types', async () => {
+      const tree = directoryEntry('Pack', [
+        fileEntry('a.prg'),
+        fileEntry('data.bin'),
+        directoryEntry('docs', [fileEntry('README')]),
+      ]);
+
+      const result = await scanTree(tree);
+
+      expect(paths(result)).toEqual(['Pack/a.prg']);
+      expect(result.skipped).toEqual([
+        { reason: 'unsupportedType', count: 2, types: ['(no extension)', '.bin'] },
+      ]);
+    });
+
+    it('names "(no extension)" for a directory-picker file with no extension too', async () => {
+      const result = await new DropScanner().scan(
+        asFileList([withRelativePath(createFile('Makefile'), 'Pack/v1.2/Makefile')]),
+        noopProgress,
+        signal(),
+        { allFileTypesInFolders: false }
+      );
+
+      expect(result.skipped).toEqual([
+        { reason: 'unsupportedType', count: 1, types: ['(no extension)'] },
+      ]);
+    });
+
+    it('counts an unfinished download inside a hidden folder as hidden, not as a partial download', async () => {
+      const tree = directoryEntry('Pack', [
+        directoryEntry('.cache', [fileEntry('x.part')]),
+        directoryEntry('__MACOSX', [fileEntry('y.crdownload')]),
+        fileEntry('z.part'),
+      ]);
+
+      const result = await scanTree(tree, true);
+
+      expect(result.skipped).toEqual([
+        { reason: 'hiddenOrSystem', count: 2, types: [] },
+        { reason: 'partialDownload', count: 1, types: [] },
+      ]);
+    });
+
     it('counts no unsupported files when every type is sent, and never counts loose files', async () => {
       const tree = directoryEntry('Pack', [fileEntry('b.xyz'), fileEntry('x.part')]);
       const result = await scanTree(tree, true);
