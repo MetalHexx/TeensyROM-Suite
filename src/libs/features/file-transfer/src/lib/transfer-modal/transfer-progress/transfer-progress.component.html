@@ -37,7 +37,11 @@
       @case ('nothing-to-transfer') {
         <div class="reason-banner neutral" data-testid="transfer-progress-banner">
           <lib-styled-icon icon="folder_off" size="medium"></lib-styled-icon>
-          <span>No files valid for TeensyROM were found in what you dropped.</span>
+          @if (vm().skippedSummary; as skippedSummary) {
+            <span>Nothing was sent. {{ skippedSummary }}</span>
+          } @else {
+            <span>No files valid for TeensyROM were found in what you dropped.</span>
+          }
         </div>
       }
 
@@ -165,6 +169,12 @@
             <dd class="metric-value">{{ vm().failed | number }}</dd>
           </div>
         </dl>
+
+        @if (vm().skippedSummary; as skippedSummary) {
+          <p class="skipped-summary" data-testid="transfer-progress-skipped">
+            <span class="skipped-label">Left out:</span> {{ skippedSummary }}
+          </p>
+        }
 
         <div class="write-bars">
           <div class="write-bar">

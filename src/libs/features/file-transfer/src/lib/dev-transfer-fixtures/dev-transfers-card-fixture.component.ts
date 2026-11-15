@@ -73,6 +73,7 @@ function snapshot(overrides: Partial<TransferJobSnapshot>): TransferJobSnapshot 
     launchState: TransferLaunchState.None,
     launchedPath: null,
     launchError: null,
+    skipped: [],
     ...overrides,
   };
 }

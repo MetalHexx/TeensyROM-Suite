@@ -441,6 +441,58 @@ describe('DropScanner', () => {
       expect(paths(await scanTree(tree, true)).sort()).toEqual(['Pack/keep.dat', 'Pack/sub/d.prg']);
     });
 
+    it('counts what a folder leaves out by reason, with the unsupported extensions', async () => {
+      const tree = directoryEntry('Pack', [
+        fileEntry('a.prg'),
+        fileEntry('b.xyz'),
+        fileEntry('c.XYZ'),
+        fileEntry('d.abc'),
+        fileEntry('.DS_Store'),
+        fileEntry('Thumbs.db'),
+        directoryEntry('.git', [fileEntry('x.prg')]),
+        fileEntry('x.part'),
+      ]);
+
+      const result = await scanTree(tree);
+
+      expect(paths(result)).toEqual(['Pack/a.prg']);
+      expect(result.skipped).toEqual([
+        { reason: 'unsupportedType', count: 3, types: ['.abc', '.xyz'] },
+        { reason: 'hiddenOrSystem', count: 3, types: [] },
+        { reason: 'partialDownload', count: 1, types: [] },
+      ]);
+    });
+
+    it('counts no unsupported files when every type is sent, and never counts loose files', async () => {
+      const tree = directoryEntry('Pack', [fileEntry('b.xyz'), fileEntry('x.part')]);
+      const result = await scanTree(tree, true);
+      expect(result.skipped).toEqual([{ reason: 'partialDownload', count: 1, types: [] }]);
+
+      const loose = await new DropScanner().scan(
+        asItemList([dropItem(fileEntry('notes.doc')), dropItem(fileEntry('.DS_Store'))]),
+        noopProgress,
+        signal()
+      );
+      expect(loose.skipped).toEqual([]);
+    });
+
+    it('counts the same skips for a directory-picker FileList', async () => {
+      const result = await new DropScanner().scan(
+        asFileList([
+          withRelativePath(createFile('a.prg'), 'Pack/a.prg'),
+          withRelativePath(createFile('b.xyz'), 'Pack/b.xyz'),
+          withRelativePath(createFile('.DS_Store'), 'Pack/.DS_Store'),
+        ]),
+        noopProgress,
+        signal(),
+        { allFileTypesInFolders: false }
+      );
+      expect(result.skipped).toEqual([
+        { reason: 'unsupportedType', count: 1, types: ['.xyz'] },
+        { reason: 'hiddenOrSystem', count: 1, types: [] },
+      ]);
+    });
+
     it('sends the contents of a dropped dot-named root folder but skips a dot-folder inside it', async () => {
       const tree = directoryEntry('.roms', [
         fileEntry('a.prg'),

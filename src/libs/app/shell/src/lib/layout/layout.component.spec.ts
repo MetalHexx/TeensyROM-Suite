@@ -62,6 +62,7 @@ const createSnapshot = (overrides: Partial<TransferJobSnapshot> = {}): TransferJ
   launchState: TransferLaunchState.None,
   launchedPath: null,
   launchError: null,
+  skipped: [],
   ...overrides,
 });
 

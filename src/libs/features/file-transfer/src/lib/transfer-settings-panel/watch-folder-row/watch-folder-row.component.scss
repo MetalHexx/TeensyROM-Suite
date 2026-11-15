@@ -12,6 +12,7 @@
   align-items: center;
   gap: var(--spacing-sm);
   min-width: 0;
+  min-height: 40px;
 }
 
 // Clipped from the left: the rtl inner span puts the ellipsis at the start, so the folder name
@@ -22,7 +23,7 @@
   overflow: hidden;
   white-space: nowrap;
   text-overflow: ellipsis;
-  font-size: var(--font-size-sm);
+  font-size: 0.8125rem;
 }
 
 .folder-path-text {
@@ -44,6 +45,10 @@ lib-icon-button {
   align-items: flex-start;
   margin-left: 4px; // structural - indents the switches under the folder path, as in the wireframe
   --mat-switch-label-text-size: 0.8125rem;
+
+  mat-slide-toggle {
+    min-height: 38px;
+  }
 }
 
 .folder-note {

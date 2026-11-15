@@ -119,6 +119,7 @@ export class TransferContextService implements ITransferContext {
       scanTotal: scanResult.entries.length,
       archivesSent: scanResult.archiveCount,
       scanTotalBytes,
+      scanSkipped: scanResult.skipped,
     });
 
     if (scanResult.entries.length === 0) {

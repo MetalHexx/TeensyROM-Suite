@@ -1,11 +1,12 @@
 import { Injectable } from '@angular/core';
-import { TransferManifestEntry } from '@teensyrom-nx/domain';
+import { TransferManifestEntry, TransferSkip, TransferSkipReason } from '@teensyrom-nx/domain';
 import {
   TRANSFER_SUPPORTED_EXTENSIONS,
   TRANSFER_ARCHIVE_EXTENSIONS,
   TRANSFER_EXCLUDED_FILE_NAMES,
   TRANSFER_PARTIAL_DOWNLOAD_EXTENSIONS,
 } from './transfer.constants';
+import { mergeSkips } from './transfer-skips';
 
 /** How many matches accumulate between `onProgress` ticks, so a large walk stays visibly live. */
 const PROGRESS_BATCH_SIZE = 25;
@@ -15,6 +16,8 @@ export interface DropScanResult {
   rootName: string | null;
   /** Number of entries admitted as archives — one per archive file, regardless of its contents. */
   archiveCount: number;
+  /** What a folder walk left out, by reason. Loose files are never filtered, so never counted. */
+  skipped: TransferSkip[];
 }
 
 export interface DropScanOptions {
@@ -90,7 +93,12 @@ export class DropScanner {
     }
 
     progress.flush(acc.entries.length);
-    return { entries: sortArchivesFirst(acc.entries), rootName, archiveCount: acc.archiveCount };
+    return {
+      entries: sortArchivesFirst(acc.entries),
+      rootName,
+      archiveCount: acc.archiveCount,
+      skipped: mergeSkips(acc.skipped),
+    };
   }
 
   private async scanFileList(
@@ -120,7 +128,12 @@ export class DropScanner {
     }
 
     progress.flush(acc.entries.length);
-    return { entries: sortArchivesFirst(acc.entries), rootName, archiveCount: acc.archiveCount };
+    return {
+      entries: sortArchivesFirst(acc.entries),
+      rootName,
+      archiveCount: acc.archiveCount,
+      skipped: mergeSkips(acc.skipped),
+    };
   }
 
   private async walkDirectory(
@@ -197,27 +210,43 @@ function isArchiveExtension(relativePath: string): boolean {
 }
 
 /**
- * Whether a path below a folder is one the engine never sends: any `/`-separated segment that
- * starts with `.` or is `__MACOSX`, a file name in `TRANSFER_EXCLUDED_FILE_NAMES`, or a file
- * whose extension is in `TRANSFER_PARTIAL_DOWNLOAD_EXTENSIONS`.
+ * Why a path below a folder is one the engine never sends, or `null` when it is not excluded.
+ * Excluded means: a file whose extension is in `TRANSFER_PARTIAL_DOWNLOAD_EXTENSIONS`
+ * (`partialDownload`), or any `/`-separated segment that starts with `.` or is `__MACOSX`, or a
+ * file name in `TRANSFER_EXCLUDED_FILE_NAMES` (`hiddenOrSystem`).
  */
-function isExcludedTransferPath(pathBelowRoot: string): boolean {
+function excludedReason(pathBelowRoot: string): TransferSkipReason | null {
   const segments = pathBelowRoot.split('/');
   const extension = extensionOf(pathBelowRoot);
-  return (
+  if (extension !== null && TRANSFER_PARTIAL_DOWNLOAD_EXTENSIONS.has(extension)) {
+    return 'partialDownload';
+  }
+  const hiddenOrSystem =
     segments.some((segment) => segment.startsWith('.') || segment.toLowerCase() === '__macosx') ||
-    TRANSFER_EXCLUDED_FILE_NAMES.has(segments[segments.length - 1].toLowerCase()) ||
-    (extension !== null && TRANSFER_PARTIAL_DOWNLOAD_EXTENSIONS.has(extension))
-  );
+    TRANSFER_EXCLUDED_FILE_NAMES.has(segments[segments.length - 1].toLowerCase());
+  return hiddenOrSystem ? 'hiddenOrSystem' : null;
 }
 
 interface ScanAccumulator {
   entries: TransferManifestEntry[];
   archiveCount: number;
+  skipped: TransferSkip[];
 }
 
 function createAccumulator(): ScanAccumulator {
-  return { entries: [], archiveCount: 0 };
+  return { entries: [], archiveCount: 0, skipped: [] };
+}
+
+function recordSkip(acc: ScanAccumulator, reason: TransferSkipReason, type: string | null): void {
+  let skip = acc.skipped.find((existing) => existing.reason === reason);
+  if (!skip) {
+    skip = { reason, count: 0, types: [] };
+    acc.skipped.push(skip);
+  }
+  skip.count++;
+  if (type !== null && !skip.types.includes(type)) {
+    skip.types.push(type);
+  }
 }
 
 /**
@@ -232,8 +261,15 @@ function addFolderFile(
   progress: ProgressReporter
 ): void {
   const pathBelowRoot = relativePath.slice(relativePath.indexOf('/') + 1);
-  if (isExcludedTransferPath(pathBelowRoot)) return;
-  if (!options.allFileTypesInFolders && !hasSupportedExtension(relativePath)) return;
+  const excluded = excludedReason(pathBelowRoot);
+  if (excluded !== null) {
+    recordSkip(acc, excluded, null);
+    return;
+  }
+  if (!options.allFileTypesInFolders && !hasSupportedExtension(relativePath)) {
+    recordSkip(acc, 'unsupportedType', extensionOf(relativePath));
+    return;
+  }
 
   addEntry(acc, file, relativePath, progress);
 }

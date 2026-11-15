@@ -41,6 +41,7 @@ function baseVm(overrides: Partial<TransferProgressVm> = {}): TransferProgressVm
     failureOverflow: 0,
     elapsedLabel: '14:22 elapsed',
     reason: null,
+    skippedSummary: null,
     ...overrides,
   };
 }
@@ -153,6 +154,23 @@ describe('TransferProgressComponent', () => {
       expect(q('transfer-progress-banner')).toBeTruthy();
       expect(buttonByLabel('Close')).toBeTruthy();
       expect(buttonByLabel('Cancel')).toBeFalsy();
+    });
+
+    it('keeps the generic wording when nothing was left out', async () => {
+      await setup(baseVm({ state: 'nothing-to-transfer' }));
+
+      expect(q('transfer-progress-banner')?.textContent).toContain(
+        'No files valid for TeensyROM were found in what you dropped.'
+      );
+    });
+
+    it('says nothing was sent and why when files were left out', async () => {
+      const skippedSummary = '3 files left out (.xyz): not a file type the TeensyROM takes.';
+      await setup(baseVm({ state: 'nothing-to-transfer', skippedSummary }));
+
+      const banner = q('transfer-progress-banner')?.textContent ?? '';
+      expect(banner).toContain(`Nothing was sent. ${skippedSummary}`);
+      expect(banner).not.toContain('No files valid');
     });
   });
 
@@ -527,6 +545,19 @@ describe('TransferProgressComponent', () => {
       expect(q('api-bar')).toBeTruthy();
       expect(q('device-bar')).toBeTruthy();
       expect(q('transfer-progress-elapsed')?.textContent).toContain('14:22 elapsed');
+    });
+
+    it('shows a Left out line under the metrics when files were left out', async () => {
+      await setup(baseVm({ state: 'completed', skippedSummary: '1 hidden or system file left out.' }));
+
+      expect(q('transfer-progress-skipped')?.textContent?.replace(/\s+/g, ' ').trim()).toBe(
+        'Left out: 1 hidden or system file left out.'
+      );
+    });
+
+    it('omits the Left out line when nothing was left out', async () => {
+      await setup(baseVm({ state: 'completed', skippedSummary: null }));
+      expect(q('transfer-progress-skipped')).toBeFalsy();
     });
 
     it('omits the current-file row entirely — there is no current file in a terminal state', async () => {

@@ -4,6 +4,7 @@ import {
   TransferLaunchState,
   TransferOriginKind,
 } from '@teensyrom-nx/domain';
+import { countSkips } from './transfer-skips';
 
 export interface TransferAnnouncement {
   severity: 'info' | 'success' | 'error';
@@ -66,9 +67,21 @@ function completedMessage(snapshot: TransferJobSnapshot, deviceName: string): st
 
 /**
  * The end alert. Only a clean `Completed` — nothing failed to arrive, and any launch worked or
- * was not attempted — is a success; every other ending is an error.
+ * was not attempted — is a success; every other ending is an error. A job that left files out
+ * says how many, whichever way it ended.
  */
 export function buildEndAnnouncement(
+  snapshot: TransferJobSnapshot,
+  deviceName: string
+): TransferAnnouncement {
+  const announcement = buildEndOutcome(snapshot, deviceName);
+  const leftOut = countSkips(snapshot.skipped);
+  return leftOut > 0
+    ? { ...announcement, message: `${announcement.message} · ${leftOut} left out` }
+    : announcement;
+}
+
+function buildEndOutcome(
   snapshot: TransferJobSnapshot,
   deviceName: string
 ): TransferAnnouncement {

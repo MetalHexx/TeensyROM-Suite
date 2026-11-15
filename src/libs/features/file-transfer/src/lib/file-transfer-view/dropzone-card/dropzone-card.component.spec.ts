@@ -76,6 +76,7 @@ function createSnapshot(
     launchState: TransferLaunchState.None,
     launchedPath: null,
     launchError: null,
+    skipped: [],
     ...overrides,
   };
 }

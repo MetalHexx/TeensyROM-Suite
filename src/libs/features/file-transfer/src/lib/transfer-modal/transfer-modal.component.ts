@@ -14,8 +14,10 @@ import { filter } from 'rxjs';
 import { ConfirmationDialogComponent } from '@teensyrom-nx/ui/components';
 import {
   DeviceStore,
+  describeSkips,
   formatElapsedLabel,
   ITransferContext,
+  mergeSkips,
   TRANSFER_CONTEXT,
   TransferModalState,
   TransferStore,
@@ -131,6 +133,7 @@ export class TransferModalComponent {
       failureOverflow: summary.failureOverflow,
       elapsedLabel: this.elapsedLabel(),
       reason: summary.reason,
+      skippedSummary: describeSkips(mergeSkips(transfer?.scanSkipped ?? [], job?.skipped ?? [])),
     };
     return this.lastVm;
   });

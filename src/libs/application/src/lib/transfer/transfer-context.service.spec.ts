@@ -71,6 +71,7 @@ function createSnapshot(overrides: Partial<TransferJobSnapshot> = {}): TransferJ
     launchState: TransferLaunchState.None,
     launchedPath: null,
     launchError: null,
+    skipped: [],
     ...overrides,
   };
 }
@@ -376,6 +377,15 @@ describe('TransferContextService', () => {
 
       expect(mockTransferService.createJob).not.toHaveBeenCalled();
       expect(store.transfers()['device-1'].phase).toBe('nothing-to-transfer');
+    });
+
+    it('keeps what the scan left out so the modal can say why nothing was sent', async () => {
+      const scanSkipped = [{ reason: 'unsupportedType' as const, count: 3, types: ['.xyz'] }];
+      mockDropScanner.scan.mockResolvedValue({ ...emptyScan, skipped: scanSkipped });
+
+      await runStartTransfer('device-1', asFileList([]));
+
+      expect(store.transfers()['device-1'].scanSkipped).toEqual(scanSkipped);
     });
   });
 

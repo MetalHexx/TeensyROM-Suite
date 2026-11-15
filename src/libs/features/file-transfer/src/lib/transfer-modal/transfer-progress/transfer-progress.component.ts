@@ -32,6 +32,8 @@ export interface TransferProgressVm {
   failureOverflow: number;
   elapsedLabel: string | null;
   reason: string | null;
+  /** What the drop scan and the job left out, worded for display; null when nothing was. */
+  skippedSummary: string | null;
 }
 
 /** Which family of frame a state renders — several states share the same layout shape. */

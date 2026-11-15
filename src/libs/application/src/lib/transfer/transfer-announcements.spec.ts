@@ -35,6 +35,7 @@ const createSnapshot = (overrides: Partial<TransferJobSnapshot> = {}): TransferJ
   launchState: TransferLaunchState.None,
   launchedPath: null,
   launchError: null,
+  skipped: [],
   ...overrides,
 });
 
@@ -173,6 +174,46 @@ describe('buildEndAnnouncement', () => {
         severity: 'error',
         message: "Sent 2 of 3 files to TR · 1 didn't arrive · launched a.prg",
       });
+    });
+  });
+
+  describe('left out', () => {
+    const skipped: TransferJobSnapshot['skipped'] = [
+      { reason: 'unsupportedType', count: 2, types: ['.xyz'] },
+      { reason: 'hiddenOrSystem', count: 3, types: [] },
+    ];
+
+    it('appends how many files were left out, keeping the severity', () => {
+      expect(buildEndAnnouncement(completed({ skipped }), 'TR')).toEqual({
+        severity: 'success',
+        message: 'Sent 4 files to TR · 5 left out',
+      });
+    });
+
+    it('appends it after the launch suffix and to a stopped transfer', () => {
+      const launched = completed({
+        skipped,
+        launchState: TransferLaunchState.Launched,
+        launchedPath: '/games/a.prg',
+      });
+      expect(buildEndAnnouncement(launched, 'TR').message).toBe(
+        'Sent 4 files to TR · launched a.prg · 5 left out'
+      );
+      expect(
+        buildEndAnnouncement(
+          createSnapshot({ state: TransferJobState.Cancelled, filesSent: 2, skipped }),
+          'TR'
+        ).message
+      ).toBe('Transfer to TR cancelled · 2 files sent · 5 left out');
+    });
+
+    it('adds nothing when no skip has a count', () => {
+      expect(
+        buildEndAnnouncement(
+          completed({ skipped: [{ reason: 'hiddenOrSystem', count: 0, types: [] }] }),
+          'TR'
+        ).message
+      ).toBe('Sent 4 files to TR');
     });
   });
 

@@ -215,6 +215,16 @@
 
 /* ── Elapsed readout ─────────────────────────────────────── */
 
+.skipped-summary {
+  margin: 0;
+  font-size: 0.875rem;
+  color: var(--color-dimmed-light);
+}
+
+.skipped-label {
+  font-weight: 600;
+}
+
 .elapsed-readout {
   display: flex;
   align-items: center;
