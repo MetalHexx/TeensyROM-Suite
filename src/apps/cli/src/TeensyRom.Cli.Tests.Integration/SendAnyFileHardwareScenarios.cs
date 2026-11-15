@@ -8,8 +8,8 @@ namespace TeensyRom.Cli.Tests.Integration;
 
 /// <summary>
 /// Sending any file type, delete, the transfer switches and watch folders on a real TeensyROM. Each scenario writes only
-/// under its own <c>/bench-send-any-file/a/&lt;run-id&gt;</c> folder and deletes its files afterwards; the empty folders
-/// stay, because the firmware can't remove them.
+/// under its own <c>/bench-send-any-file/a/&lt;run-id&gt;</c> (or <c>a03/&lt;run-id&gt;</c>) folder and deletes its files
+/// afterwards; the empty folders stay, because the firmware can't remove them.
 /// </summary>
 public sealed partial class HardwareScenarios
 {
@@ -430,6 +430,283 @@ public sealed partial class HardwareScenarios
 
             delete.ExitCode.Should().Be((int)CliExitCode.NotFound);
             delete.Json[0].GetProperty("ok").GetBoolean().Should().BeFalse();
+        }
+        finally
+        {
+            if (path.Length > 0) await DeleteQuietlyAsync(device, storage, path);
+        }
+    }
+
+    private const string A03Root = "/bench-send-any-file/a03";
+
+    private static string NewA03Folder() => $"{A03Root}/{Guid.NewGuid().ToString("N")[..12]}";
+
+    /// <summary>Runs <paramref name="body"/> with the engine's auto-launch switch set to <paramref name="on"/>, and puts it back as it was.</summary>
+    private static async Task WithAutoLaunchAsync(bool on, Func<Task> body)
+    {
+        var original = (await RunJsonAsync("transfer", "settings", "--json")).Json.GetProperty("autoLaunch").GetBoolean();
+
+        try
+        {
+            (await RunJsonAsync("transfer", "set", "auto-launch", on.ToString().ToLowerInvariant(), "--json")).ExitCode.Should().Be(0);
+
+            await body();
+        }
+        finally
+        {
+            await RunJsonAsync("transfer", "set", "auto-launch", original.ToString().ToLowerInvariant(), "--json");
+        }
+    }
+
+    /// <summary>Auto-launch off and both type switches off: the settings the skip and archive scenarios assume.</summary>
+    private static Task WithPlainSettingsAsync(Func<Task> body) => WithAutoLaunchAsync(false, () => WithTypeSwitchesOffAsync(body));
+
+    private static JsonElement? SkipOf(JsonElement upload, string reason) =>
+        upload.GetProperty("skipped").EnumerateArray().Where(skip => skip.GetProperty("reason").GetString() == reason).Select(skip => (JsonElement?)skip).SingleOrDefault();
+
+    private static string[] Types(JsonElement skip) => skip.GetProperty("types").EnumerateArray().Select(type => type.GetString()!).ToArray();
+
+    private static string[] DirectoryPaths(JsonElement listing) =>
+        listing.GetProperty("directories").EnumerateArray().Select(directory => directory.GetProperty("path").GetString()!.TrimEnd('/')).ToArray();
+
+    /// <summary>A file the TeensyROM can't launch, once on the cart, exits 7 from <c>file launch</c>; a path that isn't there still exits 5.</summary>
+    [SkippableFact]
+    public async Task FileLaunch_OfABinFile_ExitsNotLaunchable_AndAMissingPathExitsNotFound()
+    {
+        var (device, storage) = BenchDeviceOrSkip();
+        var run = NewA03Folder();
+        var local = NewLocalFolder();
+        var path = $"{run}/notes.bin";
+
+        try
+        {
+            File.WriteAllBytes(Path.Combine(local, "notes.bin"), [1, 2, 3, 4]);
+
+            await WithAutoLaunchAsync(false, async () =>
+            {
+                var upload = await RunJsonAsync("file", "upload", Path.Combine(local, "notes.bin"), "--to", run, "--device", device.DeviceId, "--storage", storage, "--json");
+
+                upload.ExitCode.Should().Be(0, upload.Error);
+
+                var launch = await RunJsonAsync("file", "launch", path, "--device", device.DeviceId, "--storage", storage, "--json");
+
+                launch.ExitCode.Should().Be((int)CliExitCode.NotLaunchable, launch.Error);
+                launch.Error.Should().Contain("notLaunchable");
+
+                var missing = await RunJsonAsync("file", "launch", $"{run}/missing.prg", "--device", device.DeviceId, "--storage", storage, "--json");
+
+                missing.ExitCode.Should().Be((int)CliExitCode.NotFound, missing.Error);
+            });
+        }
+        finally
+        {
+            await DeleteQuietlyAsync(device, storage, path);
+            Directory.Delete(local, recursive: true);
+        }
+    }
+
+    /// <summary>
+    /// A folder walk reports what it left out by reason: without --all-types the unknown types, the hidden file and the
+    /// unfinished download; with it, only the last two.
+    /// </summary>
+    [SkippableFact]
+    public async Task FileUpload_AFolderWalk_ReportsItsSkipsByReason()
+    {
+        var (device, storage) = BenchDeviceOrSkip();
+        var run = NewA03Folder();
+        var local = NewLocalFolder();
+
+        try
+        {
+            WriteProgram(local, "walk/a.prg");
+            WriteProgram(local, "walk/.hidden.prg");
+            File.WriteAllText(Path.Combine(local, "walk", "b.xyz"), "unknown");
+            File.WriteAllBytes(Path.Combine(local, "walk", "c.bin"), [1, 2, 3]);
+            File.WriteAllBytes(Path.Combine(local, "walk", "x.crdownload"), [1]);
+
+            await WithPlainSettingsAsync(async () =>
+            {
+                var plain = await RunJsonAsync("file", "upload", Path.Combine(local, "walk"), "--to", $"{run}/plain", "--device", device.DeviceId, "--storage", storage, "--json");
+
+                plain.ExitCode.Should().Be(0, plain.Error);
+                var unsupported = SkipOf(plain.Json, "unsupportedType");
+                unsupported.Should().NotBeNull();
+                unsupported!.Value.GetProperty("count").GetInt32().Should().Be(2);
+                Types(unsupported.Value).Should().Equal(".bin", ".xyz");
+                SkipOf(plain.Json, "hiddenOrSystem")!.Value.GetProperty("count").GetInt32().Should().Be(1);
+                SkipOf(plain.Json, "partialDownload")!.Value.GetProperty("count").GetInt32().Should().Be(1);
+
+                var all = await RunJsonAsync("file", "upload", Path.Combine(local, "walk"), "--all-types", "--to", $"{run}/all", "--device", device.DeviceId, "--storage", storage, "--json");
+
+                all.ExitCode.Should().Be(0, all.Error);
+                SkipOf(all.Json, "unsupportedType").Should().BeNull();
+                SkipOf(all.Json, "hiddenOrSystem")!.Value.GetProperty("count").GetInt32().Should().Be(1);
+                SkipOf(all.Json, "partialDownload")!.Value.GetProperty("count").GetInt32().Should().Be(1);
+            });
+        }
+        finally
+        {
+            await DeleteQuietlyAsync(device, storage,
+                $"{run}/plain/walk/a.prg",
+                $"{run}/all/walk/a.prg", $"{run}/all/walk/b.xyz", $"{run}/all/walk/c.bin");
+            Directory.Delete(local, recursive: true);
+        }
+    }
+
+    /// <summary>
+    /// A zip lands its <c>x.prg</c> and its <c>./y.prg</c> without --all-in-archives, and the job's own skips (the unknown
+    /// type, the hidden and <c>__MACOSX</c> entries) come back in <c>skipped</c>.
+    /// </summary>
+    [SkippableFact]
+    public async Task FileUpload_AZip_LandsItsProgramsIncludingADotSlashEntry_AndReportsItsSkips()
+    {
+        var (device, storage) = BenchDeviceOrSkip();
+        var run = NewA03Folder();
+        var local = NewLocalFolder();
+
+        try
+        {
+            var archive = Path.Combine(local, "pack.zip");
+
+            using (var zip = ZipFile.Open(archive, ZipArchiveMode.Create))
+            {
+                foreach (var entry in new[] { "x.prg", "./y.prg", "notes.doc", "__MACOSX/a", "._x" })
+                {
+                    await using var stream = zip.CreateEntry(entry).Open();
+                    await stream.WriteAsync(TinyProgram);
+                }
+            }
+
+            await WithPlainSettingsAsync(async () =>
+            {
+                var upload = await RunJsonAsync("file", "upload", archive, "--to", run, "--device", device.DeviceId, "--storage", storage, "--json");
+
+                upload.ExitCode.Should().Be(0, upload.Error);
+                Names((await ListAsync($"{run}/pack", device.DeviceId, storage)).Json).Should().Equal("x.prg", "y.prg");
+                var unsupported = SkipOf(upload.Json, "unsupportedType");
+                unsupported.Should().NotBeNull("the job's skips arrive in the report");
+                Types(unsupported!.Value).Should().Equal(".doc");
+                SkipOf(upload.Json, "hiddenOrSystem").Should().NotBeNull();
+            });
+        }
+        finally
+        {
+            await DeleteQuietlyAsync(device, storage, $"{run}/pack/x.prg", $"{run}/pack/y.prg");
+            Directory.Delete(local, recursive: true);
+        }
+    }
+
+    /// <summary>A folder holding only a file of an unknown type, and an empty folder, are both exit 0 with an empty <c>files</c> list.</summary>
+    [SkippableFact]
+    public async Task FileUpload_NothingToSend_ExitsZero_WithNoFiles()
+    {
+        var (device, storage) = BenchDeviceOrSkip();
+        var run = NewA03Folder();
+        var local = NewLocalFolder();
+
+        try
+        {
+            Directory.CreateDirectory(Path.Combine(local, "unknown-only"));
+            File.WriteAllText(Path.Combine(local, "unknown-only", "b.xyz"), "unknown");
+            Directory.CreateDirectory(Path.Combine(local, "empty"));
+
+            await WithPlainSettingsAsync(async () =>
+            {
+                foreach (var folder in new[] { "unknown-only", "empty" })
+                {
+                    var upload = await RunJsonAsync("file", "upload", Path.Combine(local, folder), "--to", run, "--device", device.DeviceId, "--storage", storage, "--json");
+
+                    upload.ExitCode.Should().Be(0, $"{folder}: {upload.Error}");
+                    upload.Json.GetProperty("files").GetArrayLength().Should().Be(0, folder);
+                }
+            });
+        }
+        finally
+        {
+            Directory.Delete(local, recursive: true);
+        }
+    }
+
+    /// <summary>With auto-launch on, an upload of one program carries <c>launched.status: "launched"</c>.</summary>
+    [SkippableFact]
+    public async Task FileUpload_OneProgramWithAutoLaunchOn_CarriesTheLaunchResult()
+    {
+        var (device, storage) = BenchDeviceOrSkip();
+        var run = NewA03Folder();
+        var local = NewLocalFolder();
+
+        try
+        {
+            var file = WriteProgram(local, "auto.prg");
+
+            await WithAutoLaunchAsync(true, async () =>
+            {
+                var upload = await RunJsonAsync("file", "upload", file, "--to", run, "--device", device.DeviceId, "--storage", storage, "--json");
+
+                await RunJsonAsync("file", "stop", "--device", device.DeviceId, "--json");
+
+                upload.ExitCode.Should().Be(0, upload.Error);
+                upload.Json.GetProperty("launched").GetProperty("status").GetString().Should().Be("launched");
+            });
+        }
+        finally
+        {
+            await DeleteQuietlyAsync(device, storage, $"{run}/auto.prg");
+            Directory.Delete(local, recursive: true);
+        }
+    }
+
+    /// <summary>
+    /// An upload into new nested folders shows up in the listings right away: the chain of folders and the file, and a
+    /// second file beside it.
+    /// </summary>
+    [SkippableFact]
+    public async Task FileUpload_IntoNewNestedFolders_ListsTheChainAndBothFiles()
+    {
+        var (device, storage) = BenchDeviceOrSkip();
+        var run = NewA03Folder();
+        var n2 = $"{run}/n1/n2";
+
+        try
+        {
+            await WithAutoLaunchAsync(false, async () =>
+            {
+                await UploadProgramAsync(device, storage, n2, "x.prg");
+
+                DirectoryPaths((await ListAsync($"{run}/", device.DeviceId, storage)).Json).Should().Contain($"{run}/n1");
+                DirectoryPaths((await ListAsync($"{run}/n1/", device.DeviceId, storage)).Json).Should().Contain(n2);
+                Names((await ListAsync($"{n2}/", device.DeviceId, storage)).Json).Should().Equal("x.prg");
+
+                await UploadProgramAsync(device, storage, n2, "z.prg");
+
+                Names((await ListAsync($"{n2}/", device.DeviceId, storage)).Json).Should().Equal("x.prg", "z.prg");
+            });
+        }
+        finally
+        {
+            await DeleteQuietlyAsync(device, storage, $"{n2}/x.prg", $"{n2}/z.prg");
+        }
+    }
+
+    /// <summary><c>file ls --refresh</c> re-reads the folder from the cart: it exits 0 and lists what the cart holds.</summary>
+    [SkippableFact]
+    public async Task FileLs_WithRefresh_ListsWhatTheCartHolds()
+    {
+        var (device, storage) = BenchDeviceOrSkip();
+        var run = NewA03Folder();
+        var path = string.Empty;
+
+        try
+        {
+            await WithAutoLaunchAsync(false, async () =>
+            {
+                path = await UploadProgramAsync(device, storage, run, "kept.prg");
+
+                var refreshed = await RunJsonAsync("file", "ls", $"{run}/", "--refresh", "--device", device.DeviceId, "--storage", storage, "--json");
+
+                refreshed.ExitCode.Should().Be(0, refreshed.Error);
+                Names(refreshed.Json).Should().Equal("kept.prg");
+            });
         }
         finally
         {
