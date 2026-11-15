@@ -5,12 +5,13 @@ using TeensyRom.Core.ValueObjects;
 
 namespace TeensyRom.Core.Commands
 {
-    public class GetDirectoryRecursiveCommand : ITeensyCommand<GetDirectoryRecursiveResult>, IReadCommand
+    public class GetDirectoryRecursiveCommand : ITeensyCommand<GetDirectoryRecursiveResult>, IReadCommand, ITransferCommand
 	{
         public required TeensyStorageType StorageType { get; init; }
         public required DirectoryPath Path { get; init; }
         public required bool Recursive { get; init; }
 		public string? DeviceId { get; set; }
         public required ICommunicationPort CommunicationPort { get; init; }
+        public string? TransferJobId { get; init; }
     }
 }

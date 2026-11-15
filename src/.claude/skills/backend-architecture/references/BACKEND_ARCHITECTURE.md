@@ -718,6 +718,18 @@ sequenceDiagram
 3. Update siblings (multi-file games) with same favorite status
 4. Persist cache to disk
 
+### Keeping the Index True to the Cart
+
+The index is a copy of what is on the cart, and three paths change it without a full re-index. Each leaves it matching the cart for the folders it touches:
+
+- **An upload** (`StorageService.UpsertTransferredFile`, called by the transfer pump per saved file) upserts the file and creates any folder entries the index did not hold, linking each into its parent's subfolder list. A folder entry that already exists but is missing from its parent's list (an index written before folder reads were linked) is linked by the same call. A created folder holds only the files sent into it so far, so the pump reads each one back from the cart (`RereadFolders`, one non-recursive `GetDirectoryRecursiveCommand` per folder, stamped with the job id so the transfer lockout lets it through) once the batch's files are written and before the job completes. The read replaces the partial entry with the cart's listing. A folder the index already held costs no read. A failed read keeps the partial entry, logs a warning, and never fails the upload. The job cannot complete while a read is outstanding (`TransferJob` holds completion from the moment the file is counted), so the lease is still held and the launch has not started when the read runs.
+- **A cache-miss read** (`ReadDirectory`) stores the folder it fetched and lists it among its parent's subfolders when the parent is held. It never creates the parent's entry.
+- **A partial index** (`Cache(path)` below the root) stores each folder it reads the same way, so the top folder shows up in its parent's listing.
+
+Both read paths go through `SaveDirectoryToCache`, which calls `IStorageCache.LinkToParent` after the folder is stored. `EnsureParents` reports the entries it created (outermost first, empty when the folder was already held), and `UpsertFile` at the root creates the root entry when the index has none.
+
+A folder changed on the cart outside the API (a card swap, files copied on a PC, another tool) is not noticed; a re-index (`Cache` / `IndexEndpoint`) picks it up.
+
 ### Metadata Enrichment
 
 **SID Music Files**:

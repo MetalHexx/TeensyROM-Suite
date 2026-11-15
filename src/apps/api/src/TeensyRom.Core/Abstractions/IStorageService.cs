@@ -38,8 +38,20 @@ namespace TeensyRom.Core.Abstractions
         /// <summary>
         /// Upserts a single freshly-transferred file into the in-memory cache so it is queryable
         /// immediately, without re-indexing. Does not persist to disk - see <see cref="PersistCache"/>.
+        /// Returns the folder entries the index did not hold and this call created, outermost first; those hold
+        /// only what has been sent so far, so the caller re-reads them from the device with
+        /// <see cref="RereadFolders"/>.
         /// </summary>
-        void UpsertTransferredFile(FilePath targetPath, long sizeBytes);
+        IReadOnlyList<DirectoryPath> UpsertTransferredFile(FilePath targetPath, long sizeBytes);
+
+        /// <summary>
+        /// Replaces each folder's cached entry with the device's own non-recursive listing, so a folder the index
+        /// never held lists everything on the device, not only what a transfer has sent into it. Every read is
+        /// stamped with <paramref name="transferJobId"/> so it passes the transfer lockout for the job that holds
+        /// the device. A failed read is logged and leaves the partial entry; nothing is written to disk. Only
+        /// <see cref="OperationCanceledException"/> escapes.
+        /// </summary>
+        Task RereadFolders(IReadOnlyCollection<DirectoryPath> folders, string transferJobId, CancellationToken ct);
 
         /// <summary>Writes the current cache state to disk. Call once per terminal job, not per file.</summary>
         void PersistCache();

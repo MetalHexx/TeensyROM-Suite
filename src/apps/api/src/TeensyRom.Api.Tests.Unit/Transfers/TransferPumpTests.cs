@@ -46,6 +46,8 @@ public class TransferPumpTests : IDisposable
 
     public void Dispose()
     {
+        _provider?.Dispose();
+
         if (Directory.Exists(_scratchRoot))
         {
             Directory.Delete(_scratchRoot, recursive: true);
@@ -314,13 +316,148 @@ public class TransferPumpTests : IDisposable
         await mediator.Received(1).Send(Arg.Is<TransferFilesCommand>(c => c.TransferJobId == job.JobId && c.DeviceId == job.DeviceId), Arg.Any<CancellationToken>());
     }
 
+    private static readonly DirectoryPath NewFolder = new("/transfers/");
+
+    private ServiceProvider? _provider;
+
+    private bool LeaseReleased() =>
+        _leaseCoordinator.ReceivedCalls().Any(call => call.GetMethodInfo().Name == nameof(IDeviceLeaseCoordinator.Release));
+
+    private static IStorageService StorageCreating(params DirectoryPath[] folders)
+    {
+        var storage = Substitute.For<IStorageService>();
+        storage.UpsertTransferredFile(Arg.Any<FilePath>(), Arg.Any<long>()).Returns(folders);
+        storage.RereadFolders(Arg.Any<IReadOnlyCollection<DirectoryPath>>(), Arg.Any<string>(), Arg.Any<CancellationToken>())
+            .Returns(Task.CompletedTask);
+        return storage;
+    }
+
+    /// <summary>
+    /// Runs the drain loop over one staged file for <paramref name="job"/>, which the device "writes" and reports
+    /// saved. <paramref name="afterFileSent"/> runs inside the transfer command, once the file's outcome has been
+    /// handled and before the pump goes on to the folder read: the window another thread's seal or sweep can land in.
+    /// </summary>
+    private async Task RunOneSavedFileAsync(TransferJob job, TransferPump pump, IStorageService storage, Action<TransferPump, TransferJob>? afterFileSent, Func<bool> done)
+    {
+        var stagingPath = Path.Combine(_scratchRoot, $"{Guid.NewGuid():N}.prg");
+        await File.WriteAllBytesAsync(stagingPath, [1, 2, 3]);
+        var staged = new StagedFile(job.JobId, stagingPath, "file.prg", new FilePath("/transfers/file.prg"), TeensyStorageType.SD, 3, 3);
+        var device = new TeensyRomDevice(
+            new Cart { DeviceId = job.DeviceId, SdStorage = new CartStorage(TeensyStorageType.SD, available: true) },
+            Substitute.For<ICommunicationPort>(), storage, storage, new DeviceConnectionRecord(job.DeviceId));
+        var mediator = Substitute.For<IMediator>();
+        mediator.Send(Arg.Any<ResetCommand>(), Arg.Any<CancellationToken>()).Returns(new ResetResult());
+        mediator.Send(Arg.Any<TransferFilesCommand>(), Arg.Any<CancellationToken>()).Returns(async call =>
+        {
+            var command = call.Arg<TransferFilesCommand>();
+
+            foreach (var file in command.Files)
+            {
+                await command.OnFileCompleted(new TransferFileOutcome(file, Saved: true, Error: null, Attempted: true), CancellationToken.None);
+            }
+            afterFileSent?.Invoke(pump, job);
+            return new TransferFilesResult();
+        });
+        _provider = new ServiceCollection().AddSingleton(mediator).BuildServiceProvider();
+        _scopeFactory.CreateScope().Returns(_ => _provider.CreateScope());
+        _queue.ActiveDeviceIds.Returns(new[] { job.DeviceId });
+        _queue.ReadAllAsync(job.DeviceId, Arg.Any<CancellationToken>()).Returns(_ => Once(staged));
+        _registry.Get(job.JobId).Returns(job);
+        _deviceManager.GetAvailableDevice(job.DeviceId).Returns(device);
+
+        await pump.StartAsync(CancellationToken.None);
+
+        try
+        {
+            await WaitUntil(done, "the pump should have finished the batch");
+        }
+        finally
+        {
+            await pump.StopAsync(CancellationToken.None);
+        }
+    }
+
+    [Fact]
+    public async Task Drain_LastFileCreatedAFolder_JobCompletesOnlyAfterTheFolderIsReread()
+    {
+        var job = JobIn(TransferJobState.Sealed, pendingCount: 1);
+        var pump = NewPump();
+        var storage = StorageCreating(NewFolder);
+        var stateBeforeRead = new List<(TransferJobState State, bool LeaseReleased)>();
+
+        // The seal's or the sweeper's TryFinalize, landing after the file is counted and before the read.
+        void FinalizeFromAnotherCaller(TransferPump p, TransferJob j)
+        {
+            p.TryFinalize(j);
+            stateBeforeRead.Add((j.State, LeaseReleased()));
+        }
+        storage.RereadFolders(Arg.Any<IReadOnlyCollection<DirectoryPath>>(), Arg.Any<string>(), Arg.Any<CancellationToken>())
+            .Returns(_ =>
+            {
+                FinalizeFromAnotherCaller(pump, job);
+                return Task.CompletedTask;
+            });
+
+        await RunOneSavedFileAsync(job, pump, storage, FinalizeFromAnotherCaller, () => job.State == TransferJobState.Completed);
+
+        job.PendingCount.Should().Be(0);
+        stateBeforeRead.Should().HaveCount(2).And.OnlyContain(seen => seen.State == TransferJobState.Sealed && !seen.LeaseReleased);
+        await storage.Received(1).RereadFolders(
+            Arg.Is<IReadOnlyCollection<DirectoryPath>>(folders => folders.Single().Equals(NewFolder)), job.JobId, Arg.Any<CancellationToken>());
+        Received.InOrder(() =>
+        {
+            storage.RereadFolders(Arg.Any<IReadOnlyCollection<DirectoryPath>>(), job.JobId, Arg.Any<CancellationToken>());
+            _leaseCoordinator.Release(job.DeviceId, job.JobId);
+            _autoLauncher.StartLaunch(job);
+        });
+    }
+
+    [Fact]
+    public async Task Drain_FolderAlreadyInTheIndex_SendsNoReadAndStillCompletes()
+    {
+        var job = JobIn(TransferJobState.Sealed, pendingCount: 1);
+        var storage = StorageCreating();
+
+        await RunOneSavedFileAsync(job, NewPump(), storage, null, () => job.State == TransferJobState.Completed);
+
+        await storage.DidNotReceiveWithAnyArgs().RereadFolders(default!, default!, default);
+    }
+
+    [Fact]
+    public async Task Drain_ReadThatThrows_ReleasesTheHoldAndTheJobCompletes()
+    {
+        var job = JobIn(TransferJobState.Sealed, pendingCount: 1);
+        var storage = StorageCreating(NewFolder);
+        storage.RereadFolders(Arg.Any<IReadOnlyCollection<DirectoryPath>>(), Arg.Any<string>(), Arg.Any<CancellationToken>())
+            .Returns(Task.FromException(new InvalidOperationException("the read blew up")));
+
+        await RunOneSavedFileAsync(job, NewPump(), storage, null, () => job.State == TransferJobState.Completed);
+
+        job.HasFolderReadsOutstanding.Should().BeFalse();
+        _log.Received().InternalWarning(Arg.Is<string>(message => message.Contains("the read blew up")), job.DeviceId);
+        _leaseCoordinator.Received(1).Release(job.DeviceId, job.JobId);
+    }
+
+    [Fact]
+    public async Task Drain_JobCancelledBeforeTheRead_SendsNoReadAndReleasesTheHold()
+    {
+        var job = JobIn(TransferJobState.Receiving, pendingCount: 1);
+        var storage = StorageCreating(NewFolder);
+
+        // The file is counted, taking the hold, before the pump reaches its read; the hold going again is the batch ending.
+        await RunOneSavedFileAsync(job, NewPump(), storage, (p, j) => p.Cancel(j), () => job.PendingCount == 0 && !job.HasFolderReadsOutstanding);
+
+        job.State.Should().Be(TransferJobState.Cancelled);
+        await storage.DidNotReceiveWithAnyArgs().RereadFolders(default!, default!, default);
+    }
+
     private static async IAsyncEnumerable<StagedFile> Once(StagedFile file)
     {
         await Task.Yield();
         yield return file;
     }
 
-    private static async Task WaitUntil(Func<bool> condition)
+    private static async Task WaitUntil(Func<bool> condition, string because = "the pump should have sent the batch")
     {
         var deadline = DateTime.UtcNow.AddSeconds(10);
 
@@ -329,6 +466,6 @@ public class TransferPumpTests : IDisposable
             await Task.Delay(20);
         }
 
-        condition().Should().BeTrue("the pump should have sent the batch");
+        condition().Should().BeTrue(because);
     }
 }

@@ -49,6 +49,19 @@ namespace TeensyRom.Core.Storage
             }
         }
 
+        private T Mutate<T>(Func<T> change)
+        {
+            _ioLock.EnterWriteLock();
+            try
+            {
+                return change();
+            }
+            finally
+            {
+                _ioLock.ExitWriteLock();
+            }
+        }
+
         public void UpsertDirectory(DirectoryPath path, IStorageCacheItem directory) => Mutate(() =>
         {
             DeleteDirectory(path);
@@ -58,44 +71,44 @@ namespace TeensyRom.Core.Storage
 
         public void UpsertFile(FileItem fileItem) => Mutate(() =>
         {
-            IStorageCacheItem parentStorageItem = null!;
+            EnsureParents(fileItem.Path.Directory);
 
-            if (fileItem.Path.Directory.IsRoot)
-            {
-                parentStorageItem = GetByDirPath(fileItem.Path.Directory)!;
-            }
-            else
-            {
-                EnsureParents(fileItem.Path.Directory);
-                parentStorageItem = GetByDirPath(fileItem.Path.Directory)!;
-            }
-            parentStorageItem!.UpsertFile(fileItem);
+            var parentStorageItem = GetByDirPath(fileItem.Path.Directory)!;
+
+            parentStorageItem.UpsertFile(fileItem);
             UpsertDirectory(parentStorageItem.Path, parentStorageItem);
             InvalidateIdCache();
         });
 
-        public virtual void EnsureParents(DirectoryPath parentPath) => Mutate(() =>
+        /// <inheritdoc />
+        public virtual IReadOnlyList<DirectoryPath> EnsureParents(DirectoryPath path) => Mutate<IReadOnlyList<DirectoryPath>>(() =>
         {
-            var parentDirectory = GetByDirPath(parentPath);
+            var created = new List<DirectoryPath>();
 
-            if (parentDirectory is not null) return;
-
-            parentDirectory = new StorageCacheItem
+            for (DirectoryPath? current = path; current is not null && GetByDirPath(current) is null; current = current.ParentPath)
             {
-                Path = parentPath,
-                Directories = [],
-                Files = []
-            };
-            Insert(parentDirectory.Path, parentDirectory);
+                created.Insert(0, current);
+            }
 
-            if (parentPath.ParentPath is null) return;
+            foreach (var directory in created)
+            {
+                Insert(directory, new StorageCacheItem { Path = directory, Directories = [], Files = [] });
+                LinkToParent(directory);
+            }
+            return created;
+        });
 
-            EnsureParents(parentPath.ParentPath);
+        /// <inheritdoc />
+        public void LinkToParent(DirectoryPath path) => Mutate(() =>
+        {
+            if (path.ParentPath is not { } parentPath) return;
 
-            var grandParent = GetByDirPath(parentPath.ParentPath)
-                ?? throw new Exception("Directory should not be null since it was just ensured");
+            var parent = GetByDirPath(parentPath);
 
-            grandParent.InsertSubdirectory(new DirectoryItem(parentDirectory.Path));
+            if (parent is null) return;
+
+            parent.InsertSubdirectory(new DirectoryItem(path));
+            UpsertDirectory(parentPath, parent);
         });
 
         protected void Insert(DirectoryPath path, IStorageCacheItem cacheItem)

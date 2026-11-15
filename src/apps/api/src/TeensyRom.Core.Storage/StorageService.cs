@@ -179,7 +179,6 @@ namespace TeensyRom.Core.Storage
             {
                 ClearCache(path);
             }
-            log.Internal("Resetting TeensyROM", settings.CartStorage.DeviceId);
             log.Internal($"Refreshing cache for {path} and all nested directories.", settings.CartStorage.DeviceId);
 
             var getDirectoryCommand = new GetDirectoryRecursiveCommand
@@ -232,7 +231,12 @@ namespace TeensyRom.Core.Storage
                 .ToList()
         };
 
-        private async Task<IStorageCacheItem> SaveDirectoryToCache(DirectoryContent dirContent)
+        /// <summary>
+        /// Stores a listing read from the device and lists the folder among its parent's subfolders when the
+        /// parent is held. <paramref name="transferJobId"/> stamps the playlist read this may send, for a read
+        /// made while a transfer job holds the device.
+        /// </summary>
+        private async Task<IStorageCacheItem> SaveDirectoryToCache(DirectoryContent dirContent, string? transferJobId = null, CancellationToken ct = default)
         {
             IStorageCacheItem? cacheItem;
             var files = MapAndOrderFiles(dirContent);
@@ -247,8 +251,9 @@ namespace TeensyRom.Core.Storage
                     StorageType = settings.CartStorage.Type,
                     FilePath = playlistFile.Path,
                     DeviceId = settings.CartStorage.DeviceId,
-                    CommunicationPort = _communicationPort
-                });
+                    CommunicationPort = _communicationPort,
+                    TransferJobId = transferJobId
+                }, ct);
 
                 var playlist = LaunchableItemSerializer.Deserialize<Playlist>(customResult.FileData);
 
@@ -277,6 +282,7 @@ namespace TeensyRom.Core.Storage
             if (favPaths.Any(dirContent.Path.Contains)) FavCacheItems(cacheItem);
 
             cache.UpsertDirectory(dirContent.Path, cacheItem);
+            cache.LinkToParent(dirContent.Path);
             return cacheItem;
         }
 
@@ -303,7 +309,7 @@ namespace TeensyRom.Core.Storage
             };
         }
 
-        public void UpsertTransferredFile(FilePath targetPath, long sizeBytes)
+        public IReadOnlyList<DirectoryPath> UpsertTransferredFile(FilePath targetPath, long sizeBytes)
         {
             var item = new FileItem
             {
@@ -313,8 +319,62 @@ namespace TeensyRom.Core.Storage
                 StorageType = settings.CartStorage.Type
             };
             var mapped = MapFile(item);
-            cache.EnsureParents(targetPath.Directory);
+            var created = cache.EnsureParents(targetPath.Directory);
             cache.UpsertFile(mapped);
+
+            // An index written before folder reads were linked can hold this folder, or an ancestor, without
+            // its parent listing it; EnsureParents finds the entry and creates nothing, so link them here.
+            for (DirectoryPath? folder = targetPath.Directory; folder is not null; folder = folder.ParentPath)
+            {
+                cache.LinkToParent(folder);
+            }
+            return created;
+        }
+
+        public async Task RereadFolders(IReadOnlyCollection<DirectoryPath> folders, string transferJobId, CancellationToken ct)
+        {
+            foreach (var folder in folders)
+            {
+                ct.ThrowIfCancellationRequested();
+
+                string? failure = null;
+
+                try
+                {
+                    var response = await mediator.Send(new GetDirectoryRecursiveCommand
+                    {
+                        StorageType = settings.CartStorage.Type,
+                        Path = folder,
+                        Recursive = false,
+                        DeviceId = settings.CartStorage.DeviceId,
+                        CommunicationPort = _communicationPort,
+                        TransferJobId = transferJobId
+                    }, ct);
+
+                    if (response.IsSuccess)
+                    {
+                        foreach (var dirContent in response.DirectoryContent)
+                        {
+                            if (dirContent is null) continue;
+
+                            await SaveDirectoryToCache(dirContent, transferJobId, ct);
+                        }
+                    }
+                    else
+                    {
+                        failure = response.Error?.Trim('\0') ?? string.Empty;
+                    }
+                }
+                catch (Exception ex) when (ex is not OperationCanceledException)
+                {
+                    failure = ex.Message;
+                }
+
+                if (failure is not null)
+                {
+                    log.InternalWarning($"The folder {folder} could not be re-read after a transfer, so the index lists only the files sent into it: {failure}", settings.CartStorage.DeviceId);
+                }
+            }
         }
 
         public void PersistCache() => cache.WriteToDisk();

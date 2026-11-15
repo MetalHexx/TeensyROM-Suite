@@ -15,12 +15,13 @@ public class StorageServiceCacheTests
 {
     private readonly IStorageCache _cache = Substitute.For<IStorageCache>();
     private readonly IMediator _mediator = Substitute.For<IMediator>();
+    private readonly ILoggingService _log = Substitute.For<ILoggingService>();
 
     private StorageService NewService(IDeviceTransferLease lease) => new(
         _cache,
         new StorageSettings { CartStorage = new CartStorage(TeensyStorageType.SD, available: true) { DeviceId = "device-1" } },
         _mediator,
-        Substitute.For<ILoggingService>(),
+        _log,
         Substitute.For<ISidMetadataService>(),
         Substitute.For<IGameMetadataService>(),
         Substitute.For<ICommunicationPort>(),
@@ -51,5 +52,16 @@ public class StorageServiceCacheTests
 
         cached.Should().BeTrue();
         _cache.Received(1).ClearCache();
+    }
+
+    [Fact]
+    public async Task CacheAll_DoesNotLogAResetItNeverSends()
+    {
+        _mediator.Send(Arg.Any<GetDirectoryRecursiveCommand>(), Arg.Any<CancellationToken>())
+            .Returns(new GetDirectoryRecursiveResult { DirectoryContent = [] });
+
+        await NewService(LeaseDoubles.Free()).CacheAll(CancellationToken.None);
+
+        _log.DidNotReceive().Internal(Arg.Is<string>(message => message.Contains("Resetting")), Arg.Any<string?>());
     }
 }

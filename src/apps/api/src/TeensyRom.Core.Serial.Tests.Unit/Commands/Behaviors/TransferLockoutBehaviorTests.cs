@@ -1,9 +1,11 @@
 using TeensyRom.Core.Abstractions;
 using TeensyRom.Core.Commands;
+using TeensyRom.Core.Commands.GetFile;
 using TeensyRom.Core.Entities.Device;
 using TeensyRom.Core.Entities.Storage;
 using TeensyRom.Core.Serial.Commands;
 using TeensyRom.Core.Serial.Commands.Behaviors;
+using TeensyRom.Core.ValueObjects;
 
 namespace TeensyRom.Core.Serial.Tests.Unit.Commands.Behaviors;
 
@@ -145,6 +147,75 @@ public class TransferLockoutBehaviorTests
 
         response.IsSuccess.Should().BeTrue();
         _nextInvocations.Should().Be(1);
+    }
+
+    private Task<GetDirectoryRecursiveResult> SendDirectoryRead(string? transferJobId) =>
+        Send<GetDirectoryRecursiveCommand, GetDirectoryRecursiveResult>(new GetDirectoryRecursiveCommand
+        {
+            StorageType = TeensyStorageType.SD,
+            Path = new DirectoryPath("/music/"),
+            Recursive = false,
+            DeviceId = DeviceId,
+            CommunicationPort = _port,
+            TransferJobId = transferJobId
+        });
+
+    private Task<GetFileResult> SendFileRead(string? transferJobId) =>
+        Send<GetFileCommand, GetFileResult>(new GetFileCommand
+        {
+            StorageType = TeensyStorageType.SD,
+            FilePath = new FilePath("/music/playlist.json"),
+            DeviceId = DeviceId,
+            CommunicationPort = _port,
+            TransferJobId = transferJobId
+        });
+
+    [Fact]
+    public async Task Handle_DirectoryReadStampedWithTheHolderJobId_PassesToNext()
+    {
+        LeaseDevice();
+
+        var response = await SendDirectoryRead(HolderJobId);
+
+        response.IsSuccess.Should().BeTrue();
+        _nextInvocations.Should().Be(1);
+    }
+
+    [Theory]
+    [InlineData(null)]
+    [InlineData("job-2")]
+    public async Task Handle_DirectoryReadNotStampedWithTheHolderJobId_IsRefused(string? transferJobId)
+    {
+        LeaseDevice();
+
+        var response = await SendDirectoryRead(transferJobId);
+
+        response.IsSuccess.Should().BeFalse();
+        response.ActiveTransferJobId.Should().Be(HolderJobId);
+        _nextInvocations.Should().Be(0);
+    }
+
+    [Fact]
+    public async Task Handle_FileReadStampedWithTheHolderJobId_PassesToNext()
+    {
+        LeaseDevice();
+
+        var response = await SendFileRead(HolderJobId);
+
+        response.IsSuccess.Should().BeTrue();
+        _nextInvocations.Should().Be(1);
+    }
+
+    [Fact]
+    public async Task Handle_FileReadWithNoJobId_IsRefused()
+    {
+        LeaseDevice();
+
+        var response = await SendFileRead(null);
+
+        response.IsSuccess.Should().BeFalse();
+        response.ActiveTransferJobId.Should().Be(HolderJobId);
+        _nextInvocations.Should().Be(0);
     }
 
     [Fact]

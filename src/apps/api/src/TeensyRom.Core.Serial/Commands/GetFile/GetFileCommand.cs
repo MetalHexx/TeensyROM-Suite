@@ -5,11 +5,12 @@ using TeensyRom.Core.ValueObjects;
 
 namespace TeensyRom.Core.Commands.GetFile
 {
-    public class GetFileCommand : ITeensyCommand<GetFileResult>, IReadCommand
+    public class GetFileCommand : ITeensyCommand<GetFileResult>, IReadCommand, ITransferCommand
     {
         public required TeensyStorageType StorageType { get; init; }
         public required FilePath FilePath { get; init; }
         public string? DeviceId { get; set; }
         public required ICommunicationPort CommunicationPort { get; init; }
+        public string? TransferJobId { get; init; }
     }
 }

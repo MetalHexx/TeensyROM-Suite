@@ -718,4 +718,60 @@ public class TransferJobTests
         dto.LaunchedPath.Should().Be("/t/game.prg");
         dto.LaunchError.Should().Be("no response");
     }
+
+    private static readonly DirectoryPath NewFolder = new("/transfers/new");
+
+    private static TransferJob SealedJobWithOneFileSent(params DirectoryPath[] createdFolders)
+    {
+        var job = NewJob();
+        job.TryTransitionTo(TransferJobState.Receiving);
+        job.OnFileReceived(10);
+        job.TryTransitionTo(TransferJobState.Sealed);
+        job.OnFileSent(Success(job, "a.prg", 10), createdFolders);
+        return job;
+    }
+
+    [Fact]
+    public void OnFileSent_WithCreatedFolders_HoldsCompletionInTheSameStepThatLowersPending()
+    {
+        var job = SealedJobWithOneFileSent(NewFolder);
+
+        job.PendingCount.Should().Be(0);
+        job.HasFolderReadsOutstanding.Should().BeTrue();
+        job.TryComplete(launchDue: false).Should().BeFalse();
+        job.State.Should().Be(TransferJobState.Sealed);
+    }
+
+    [Fact]
+    public void TryComplete_AfterTheFolderReadHoldsAreReleased_Completes()
+    {
+        var job = SealedJobWithOneFileSent(NewFolder);
+
+        job.ReleaseFolderReadHolds();
+
+        job.HasFolderReadsOutstanding.Should().BeFalse();
+        job.TryComplete(launchDue: false).Should().BeTrue();
+    }
+
+    [Fact]
+    public void TakeFoldersToReread_HandsTheFoldersOverOnceAndKeepsTheHold()
+    {
+        var job = SealedJobWithOneFileSent(NewFolder, new DirectoryPath("/transfers/new/deeper"));
+
+        var first = job.TakeFoldersToReread();
+        var second = job.TakeFoldersToReread();
+
+        first.Should().HaveCount(2);
+        second.Should().BeEmpty();
+        job.TryComplete(launchDue: false).Should().BeFalse();
+    }
+
+    [Fact]
+    public void OnFileSent_WithoutCreatedFolders_TakesNoHold()
+    {
+        var job = SealedJobWithOneFileSent();
+
+        job.HasFolderReadsOutstanding.Should().BeFalse();
+        job.TryComplete(launchDue: false).Should().BeTrue();
+    }
 }
