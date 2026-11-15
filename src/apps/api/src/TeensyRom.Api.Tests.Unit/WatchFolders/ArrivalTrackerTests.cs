@@ -366,13 +366,78 @@ public class ArrivalTrackerTests
     }
 
     [Fact]
-    public void FileOfAnUnsupportedType_IsDroppedSilently()
+    public void FileOfAnUnsupportedType_IsDropped_AndLeftOutIsLoggedOnce()
     {
         _fs.AddFile(P("report.doc"), 100);
         Created("report.doc");
 
         Run(15).Should().BeEmpty();
-        _log.ReceivedCalls().Should().BeEmpty();
+        _log.Received(1).Internal(
+            $"Watch folder {_root}: 1 file left out (.doc): not a file type the TeensyROM takes.", Arg.Any<string?>());
+        _log.DidNotReceiveWithAnyArgs().InternalWarning(default!, default);
+    }
+
+    [Fact]
+    public void Drops_BeforeASet_AreLoggedAsOneLineWithEveryReason_WhenTheSetGoesOut()
+    {
+        _fs.AddFile(P("a.xyz"), 100);
+        _fs.AddFile(P(".DS_Store"), 100);
+        _fs.AddFile(P("x.crdownload"), 100);
+        _fs.AddFile(P("b.bin"), 100);
+        _fs.AddFile(P("game.prg"), 100);
+        foreach (var name in new[] { "a.xyz", ".DS_Store", "x.crdownload", "b.bin", "game.prg" }) Created(name);
+
+        Run(2.5);
+        _log.DidNotReceiveWithAnyArgs().Internal(default!, default);
+
+        var set = Run(10).Should().ContainSingle().Subject;
+
+        Paths(set).Should().Equal("game.prg");
+        _log.Received(1).Internal(
+            $"Watch folder {_root}: 2 files left out (.bin, .xyz): not a file type the TeensyROM takes; 1 hidden or system file left out; 1 unfinished download left out.",
+            Arg.Any<string?>());
+    }
+
+    [Fact]
+    public void Drops_AreCounted_OnlyUntilTheNextLine()
+    {
+        _fs.AddFile(P("a.xyz"), 100);
+        Created("a.xyz");
+        Run(10);
+        _fs.AddFile(P("b.xyz"), 100);
+        Created("b.xyz");
+        Run(10);
+
+        _log.Received(2).Internal(
+            $"Watch folder {_root}: 1 file left out (.xyz): not a file type the TeensyROM takes.", Arg.Any<string?>());
+    }
+
+    [Fact]
+    public void Drops_WithNoSetFollowing_AreLoggedWhenTheGroupingWindowEnds()
+    {
+        _fs.AddFile(P("report.doc"), 100);
+        Created("report.doc");
+
+        Run(4);
+        _log.DidNotReceiveWithAnyArgs().Internal(default!, default);
+
+        Run(4);
+        _log.ReceivedWithAnyArgs(1).Internal(default!, default);
+    }
+
+    [Fact]
+    public void FileThatVanishedOrIsALinkOrEmpty_IsNotReportedAsLeftOut()
+    {
+        _fs.AddFile(P("link.sid"), 100, isLink: true);
+        _fs.AddFile(P("empty.prg"), 0);
+        _fs.AddFile(P("gone.sid"), 100);
+        Created("link.sid");
+        Created("empty.prg");
+        Created("gone.sid");
+        _fs.Remove(P("gone.sid"));
+
+        Run(15).Should().BeEmpty();
+        _log.DidNotReceiveWithAnyArgs().Internal(default!, default);
     }
 
     [Fact]
@@ -392,14 +457,18 @@ public class ArrivalTrackerTests
     }
 
     [Fact]
-    public void Archive_WithNothingTransferable_IsDroppedSilently()
+    public void Archive_WithNothingTransferable_IsDropped_AndItsEntriesAreCountedByReason()
     {
         _fs.AddFile(P("docs.zip"), 100);
-        _archives.ReadIndex(P("docs.zip")).Returns(Index(("readme.doc", false), ("folder.sid/", true)));
+        _archives.ReadIndex(P("docs.zip")).Returns(Index(
+            ("readme.DOC", false), ("notes.doc", false), ("README", false), ("folder.sid/", true), ("./.DS_Store", false)));
         Created("docs.zip");
 
         Run(15).Should().BeEmpty();
         _log.DidNotReceiveWithAnyArgs().InternalWarning(default!, default);
+        _log.Received(1).Internal(
+            $"Watch folder {_root}: 3 files left out ((no extension), .doc): not a file type the TeensyROM takes; 1 hidden or system file left out.",
+            Arg.Any<string?>());
     }
 
     [Fact]
@@ -411,6 +480,7 @@ public class ArrivalTrackerTests
 
         Run(15).Should().BeEmpty();
         _log.Received(1).InternalWarning(Arg.Is<string>(m => m.Contains("broken.zip")), Arg.Any<string?>());
+        _log.DidNotReceiveWithAnyArgs().Internal(default!, default);
     }
 
     [Theory]
@@ -641,14 +711,27 @@ public class ArrivalTrackerTests
     }
 
     [Fact]
-    public void Archive_WithOnlyADotSlashDsStoreEntry_IsKept_WithTheSwitchOn()
+    public void Archive_WithOnlyADotSlashDsStoreEntry_IsDropped_AndCountedAsHidden_WithTheSwitchOn()
     {
         _rules = new ArrivalRules(AllFileTypes: false, AllFileTypesInArchives: true);
         _fs.AddFile(P("dot.zip"), 100);
         _archives.ReadIndex(P("dot.zip")).Returns(Index(("./.DS_Store", false)));
         Created("dot.zip");
 
-        Run(10).Should().ContainSingle().Which.Files.Should().ContainSingle().Which.RelativePath.Should().Be("dot.zip");
+        Run(10).Should().BeEmpty();
+        _log.Received(1).Internal($"Watch folder {_root}: 1 hidden or system file left out.", Arg.Any<string?>());
+    }
+
+    [Fact]
+    public void Archive_WithUntransferableEntries_IsKept_AndNothingIsLogged_WhenTheSwitchIsOn()
+    {
+        _rules = new ArrivalRules(AllFileTypes: false, AllFileTypesInArchives: true);
+        _fs.AddFile(P("any.zip"), 100);
+        _archives.ReadIndex(P("any.zip")).Returns(Index(("notes.doc", false)));
+        Created("any.zip");
+
+        Run(10).Should().ContainSingle();
+        _log.DidNotReceiveWithAnyArgs().Internal(default!, default);
     }
 
     [Fact]

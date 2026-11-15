@@ -616,6 +616,59 @@ public class TransferJobTests
         dto.ExpandedFileCount.Should().BeNull();
     }
 
+    [Fact]
+    public void ToSnapshot_WithNothingSkipped_HasAnEmptySkippedList_AndTheDtoToo()
+    {
+        var job = NewJob();
+
+        job.ToSnapshot().Skipped.Should().BeEmpty();
+        TransferJobDto.From(job.ToSnapshot()).Skipped.Should().BeEmpty();
+    }
+
+    [Fact]
+    public void OnEntrySkipped_ReportsInReasonOrder_WithDistinctLowerCaseSortedTypes()
+    {
+        var job = NewJob();
+
+        job.OnEntrySkipped(TransferSkipReason.HiddenOrSystem, ".DS_Store");
+        job.OnEntrySkipped(TransferSkipReason.UnsupportedType, "b/Z.XYZ");
+        job.OnEntrySkipped(TransferSkipReason.UnsupportedType, "a.bin");
+        job.OnEntrySkipped(TransferSkipReason.UnsupportedType, "c.xyz");
+        job.OnEntrySkipped(TransferSkipReason.UnsupportedType, "README");
+        job.OnEntrySkipped(TransferSkipReason.HiddenOrSystem, "Thumbs.db");
+
+        job.ToSnapshot().Skipped.ShouldEqualSkips(
+            new TransferSkip(TransferSkipReason.UnsupportedType, 4, ["(no extension)", ".bin", ".xyz"]),
+            new TransferSkip(TransferSkipReason.HiddenOrSystem, 2, []));
+    }
+
+    [Fact]
+    public void OnEntrySkipped_FromManyThreads_LosesNoCounts()
+    {
+        var job = NewJob();
+
+        Parallel.For(0, 500, i => job.OnEntrySkipped(TransferSkipReason.HiddenOrSystem, $"._{i}"));
+
+        job.ToSnapshot().Skipped.Should().ContainSingle().Which.Count.Should().Be(500);
+    }
+
+    [Fact]
+    public void TransferJobDto_From_CarriesTheSkipsThroughToTheWireShape()
+    {
+        var job = NewJob();
+        job.OnEntrySkipped(TransferSkipReason.UnsupportedType, "a.doc");
+        job.OnEntrySkipped(TransferSkipReason.HiddenOrSystem, "._a");
+
+        var dto = TransferJobDto.From(job.ToSnapshot());
+
+        dto.Skipped.Should().HaveCount(2);
+        dto.Skipped[0].Reason.Should().Be(TransferSkipReason.UnsupportedType);
+        dto.Skipped[0].Count.Should().Be(1);
+        dto.Skipped[0].Types.Should().Equal(".doc");
+        dto.Skipped[1].Reason.Should().Be(TransferSkipReason.HiddenOrSystem);
+        dto.Skipped[1].Types.Should().BeEmpty();
+    }
+
     private static TransferJob SealedJobSending(params string[] targetPaths)
     {
         var job = NewJob();

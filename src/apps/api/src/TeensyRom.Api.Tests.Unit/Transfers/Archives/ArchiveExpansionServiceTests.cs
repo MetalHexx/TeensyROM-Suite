@@ -210,8 +210,135 @@ public sealed class ArchiveExpansionServiceTests : IDisposable
 
         await NewService().ExpandAsync(new ArchiveExpansionRequest(job.JobId, topPath, "pack.zip"), CancellationToken.None);
 
-        job.ToSnapshot().Failures.Should().ContainSingle().Which.Error.Should().Contain("no extractable entries");
+        var snapshot = job.ToSnapshot();
+        snapshot.Failures.Should().ContainSingle().Which.Error.Should().Contain("no extractable entries");
+        snapshot.Skipped.Should().ContainSingle().Which.Should().BeEquivalentTo(
+            new TransferSkip(TransferSkipReason.HiddenOrSystem, 2, []));
         await _admission.DidNotReceiveWithAnyArgs().AdmitAsync(default!, default!, default!, default, default, default);
+    }
+
+    [Theory]
+    [InlineData(false)]
+    [InlineData(true)]
+    public async Task ExpandAsync_MixedArchive_ReportsSkipsPerReason_AndAcceptsDotSlashEntries(bool allFileTypesInArchives)
+    {
+        var job = NewJob(allFileTypesInArchives: allFileTypesInArchives);
+        AcceptArchive(job);
+
+        var topPath = WriteTopLevelArchive(job.JobId, "TOP");
+        var bytes = new byte[] { 1, 2 };
+
+        _reader.Define("TOP", new FakeArchive
+        {
+            Entries =
+            [
+                new FakeEntry("x.prg", bytes.Length, bytes),
+                new FakeEntry("notes.doc", bytes.Length, bytes),
+                new FakeEntry("__MACOSX/a", bytes.Length, bytes),
+                new FakeEntry("._x", bytes.Length, bytes),
+                new FakeEntry("./y.prg", bytes.Length, bytes)
+            ],
+            DeclaredUncompressedBytes = bytes.Length * 5
+        });
+
+        await NewService().ExpandAsync(new ArchiveExpansionRequest(job.JobId, topPath, "pack.zip"), CancellationToken.None);
+
+        var sent = _admission.ReceivedCalls()
+            .Where(c => c.GetMethodInfo().Name == nameof(ITransferAdmission.AdmitAsync))
+            .Select(c => (string)c.GetArguments()[2]!)
+            .ToList();
+        var snapshot = job.ToSnapshot();
+
+        snapshot.Failures.Should().BeEmpty();
+        if (allFileTypesInArchives)
+        {
+            sent.Should().BeEquivalentTo(["pack/x.prg", "pack/y.prg", "pack/notes.doc"]);
+            snapshot.Skipped.ShouldEqualSkips(new TransferSkip(TransferSkipReason.HiddenOrSystem, 2, []));
+        }
+        else
+        {
+            sent.Should().BeEquivalentTo(["pack/x.prg", "pack/y.prg"]);
+            snapshot.Skipped.ShouldEqualSkips(
+                new TransferSkip(TransferSkipReason.UnsupportedType, 1, [".doc"]),
+                new TransferSkip(TransferSkipReason.HiddenOrSystem, 2, []));
+        }
+    }
+
+    [Fact]
+    public async Task ExpandAsync_DotSlashExcludedEntries_AreSkippedNotFailed()
+    {
+        var job = NewJob();
+        AcceptArchive(job);
+
+        var topPath = WriteTopLevelArchive(job.JobId, "TOP");
+        var bytes = new byte[] { 1 };
+
+        _reader.Define("TOP", new FakeArchive
+        {
+            Entries =
+            [
+                new FakeEntry("./game.prg", 1, bytes),
+                new FakeEntry("./.DS_Store", 1, bytes),
+                new FakeEntry("./__MACOSX/._x", 1, bytes),
+                new FakeEntry("./._x", 1, bytes)
+            ],
+            DeclaredUncompressedBytes = 4
+        });
+
+        await NewService().ExpandAsync(new ArchiveExpansionRequest(job.JobId, topPath, "pack.zip"), CancellationToken.None);
+
+        var snapshot = job.ToSnapshot();
+        snapshot.Failures.Should().BeEmpty();
+        snapshot.Skipped.ShouldEqualSkips(new TransferSkip(TransferSkipReason.HiddenOrSystem, 3, []));
+    }
+
+    [Fact]
+    public async Task ExpandAsync_ArchiveOfOnlyUnsupportedEntries_FailsAndStillCountsThem()
+    {
+        var job = NewJob();
+        AcceptArchive(job);
+
+        var topPath = WriteTopLevelArchive(job.JobId, "TOP");
+        var bytes = new byte[] { 1 };
+
+        _reader.Define("TOP", new FakeArchive
+        {
+            Entries = [new FakeEntry("a.DOC", 1, bytes), new FakeEntry("b.doc", 1, bytes), new FakeEntry("README", 1, bytes)],
+            DeclaredUncompressedBytes = 3
+        });
+
+        await NewService().ExpandAsync(new ArchiveExpansionRequest(job.JobId, topPath, "pack.zip"), CancellationToken.None);
+
+        var snapshot = job.ToSnapshot();
+        snapshot.Failures.Should().ContainSingle().Which.Error.Should().Contain("no extractable entries");
+        snapshot.Skipped.ShouldEqualSkips(new TransferSkip(TransferSkipReason.UnsupportedType, 3, ["(no extension)", ".doc"]));
+    }
+
+    [Fact]
+    public async Task ExpandAsync_PathRefusalsAndSymlinks_StayFailuresAndAreNotSkips()
+    {
+        var job = NewJob();
+        AcceptArchive(job);
+
+        var topPath = WriteTopLevelArchive(job.JobId, "TOP");
+        var bytes = new byte[] { 1 };
+
+        _reader.Define("TOP", new FakeArchive
+        {
+            Entries =
+            [
+                new FakeEntry("game.prg", 1, bytes),
+                new FakeEntry("a/./b.prg", 1, bytes),
+                new FakeEntry("link.prg", 1, bytes, IsSymlink: true)
+            ],
+            DeclaredUncompressedBytes = 3
+        });
+
+        await NewService().ExpandAsync(new ArchiveExpansionRequest(job.JobId, topPath, "pack.zip"), CancellationToken.None);
+
+        var snapshot = job.ToSnapshot();
+        snapshot.Failures.Should().HaveCount(2);
+        snapshot.Skipped.Should().BeEmpty();
     }
 
     [Fact]

@@ -56,6 +56,50 @@ public class ArchiveEntryPathResolverTests
         error.Should().NotBeNullOrWhiteSpace();
     }
 
+    [Theory]
+    [InlineData("./x.prg", "x.prg")]
+    [InlineData("././x.prg", "x.prg")]
+    [InlineData(".\\x.prg", "x.prg")]
+    [InlineData("./dir/x.prg", "dir/x.prg")]
+    [InlineData(".//x.prg", "x.prg")]
+    [InlineData("./.DS_Store", ".DS_Store")]
+    public void TryResolve_LeadingDotSegments_AreDropped(string entryPath, string expected)
+    {
+        var resolved = ArchiveEntryPathResolver.TryResolve(entryPath, out var relativePath, out var error);
+
+        resolved.Should().BeTrue();
+        error.Should().BeNull();
+        relativePath.Should().Be(expected);
+    }
+
+    [Theory]
+    [InlineData("a/./b")]
+    [InlineData("./a/./b")]
+    [InlineData("./../x")]
+    [InlineData("././..")]
+    [InlineData("./")]
+    [InlineData("./.")]
+    [InlineData("././")]
+    [InlineData("./a/..")]
+    public void TryResolve_DotSegmentsPastTheFirstRealSegment_OrNothingButDots_AreRefused(string entryPath)
+    {
+        var resolved = ArchiveEntryPathResolver.TryResolve(entryPath, out var relativePath, out var error);
+
+        resolved.Should().BeFalse();
+        relativePath.Should().BeEmpty();
+        error.Should().NotBeNullOrWhiteSpace();
+    }
+
+    [Theory]
+    [InlineData("./")]
+    [InlineData("./.")]
+    public void TryResolve_OnlyDots_KeepsTheDotSegmentMessage(string entryPath)
+    {
+        ArchiveEntryPathResolver.TryResolve(entryPath, out _, out var error);
+
+        error.Should().Be("Archive entry path must not contain '.' or '..' segments.");
+    }
+
     [Fact]
     public void TryResolve_SimpleRelativePath_ResolvesSuccessfully()
     {

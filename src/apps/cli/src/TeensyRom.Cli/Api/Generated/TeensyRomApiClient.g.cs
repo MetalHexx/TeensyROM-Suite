@@ -11389,6 +11389,10 @@ namespace TeensyRom.Cli.Api.Generated
         [System.Text.Json.Serialization.JsonPropertyName("launchError")]
         public string? LaunchError { get; set; } = default!;
 
+        [System.Text.Json.Serialization.JsonPropertyName("skipped")]
+        [System.ComponentModel.DataAnnotations.Required]
+        public System.Collections.Generic.ICollection<TransferSkipDto> Skipped { get; set; } = new System.Collections.ObjectModel.Collection<TransferSkipDto>();
+
         private System.Collections.Generic.IDictionary<string, object>? _additionalProperties;
 
         [System.Text.Json.Serialization.JsonExtensionData]
@@ -11490,6 +11494,10 @@ namespace TeensyRom.Cli.Api.Generated
         [System.Text.Json.Serialization.JsonPropertyName("launchError")]
         public string? LaunchError { get; set; } = default!;
 
+        [System.Text.Json.Serialization.JsonPropertyName("skipped")]
+        [System.ComponentModel.DataAnnotations.Required]
+        public System.Collections.Generic.ICollection<TransferSkipDto> Skipped { get; set; } = new System.Collections.ObjectModel.Collection<TransferSkipDto>();
+
         private System.Collections.Generic.IDictionary<string, object>? _additionalProperties;
 
         [System.Text.Json.Serialization.JsonExtensionData]
@@ -11582,6 +11590,46 @@ namespace TeensyRom.Cli.Api.Generated
 
         [System.Runtime.Serialization.EnumMember(Value = @"WatchFolder")]
         WatchFolder = 1,
+
+    }
+
+    [System.CodeDom.Compiler.GeneratedCode("NJsonSchema", "14.4.0.0 (NJsonSchema v11.3.2.0 (Newtonsoft.Json v13.0.0.0))")]
+    public partial class TransferSkipDto
+    {
+
+        [System.Text.Json.Serialization.JsonPropertyName("reason")]
+        public TransferSkipReason Reason { get; set; } = default!;
+
+        [System.Text.Json.Serialization.JsonPropertyName("count")]
+        public int Count { get; set; } = default!;
+
+        [System.Text.Json.Serialization.JsonPropertyName("types")]
+        [System.ComponentModel.DataAnnotations.Required]
+        public System.Collections.Generic.ICollection<string> Types { get; set; } = new System.Collections.ObjectModel.Collection<string>();
+
+        private System.Collections.Generic.IDictionary<string, object>? _additionalProperties;
+
+        [System.Text.Json.Serialization.JsonExtensionData]
+        public System.Collections.Generic.IDictionary<string, object> AdditionalProperties
+        {
+            get { return _additionalProperties ?? (_additionalProperties = new System.Collections.Generic.Dictionary<string, object>()); }
+            set { _additionalProperties = value; }
+        }
+
+    }
+
+    [System.CodeDom.Compiler.GeneratedCode("NJsonSchema", "14.4.0.0 (NJsonSchema v11.3.2.0 (Newtonsoft.Json v13.0.0.0))")]
+    public enum TransferSkipReason
+    {
+
+        [System.Runtime.Serialization.EnumMember(Value = @"UnsupportedType")]
+        UnsupportedType = 0,
+
+        [System.Runtime.Serialization.EnumMember(Value = @"HiddenOrSystem")]
+        HiddenOrSystem = 1,
+
+        [System.Runtime.Serialization.EnumMember(Value = @"PartialDownload")]
+        PartialDownload = 2,
 
     }
 

@@ -135,6 +135,8 @@ export * from './TransferJobState';
 export * from './TransferLaunchState';
 export * from './TransferOriginDto';
 export * from './TransferOriginKind';
+export * from './TransferSkipDto';
+export * from './TransferSkipReason';
 export * from './UploadFileResponse';
 export * from './VideoSettingsDto';
 export * from './VideoStandard';

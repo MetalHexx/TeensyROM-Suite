@@ -36,6 +36,7 @@ namespace TeensyRom.Api.Transfers
         private long _expansionBytesWritten; // for that archive only — resets when the next one starts
         private long _expansionBytesDeclared; // for that archive only
         private int _expandedFileCount;      // job-wide running total
+        private readonly TransferSkipTally _skips = new(); // archive entries expansion left out, by reason
         private int _archivesAccepted;       // archives uploaded and handed to expansion
         private int _archivesOutstanding;    // accepted but not yet finished expanding
         private int _archiveSlotsPendingRelease; // finished archives whose own PendingCount slot is still held
@@ -383,6 +384,19 @@ namespace TeensyRom.Api.Transfers
         }
 
         /// <summary>
+        /// Expansion left an archive entry out on purpose (hidden or system, or a type the job does not send).
+        /// Tallied per reason for <see cref="ToSnapshot"/>; not a failure and not a file of the job.
+        /// </summary>
+        public void OnEntrySkipped(TransferSkipReason reason, string relativePath)
+        {
+            lock (_lock)
+            {
+                _skips.Add(reason, relativePath);
+                LastActivityUtc = _clock();
+            }
+        }
+
+        /// <summary>
         /// One extracted entry has been admitted to staging. Raises <see cref="PendingCount"/>; deliberately
         /// does NOT raise the received-file count (the entry was never uploaded) nor the expanded-file total
         /// (the walk already counted it - see <see cref="OnEntryExpanded"/>). Must be called before
@@ -601,6 +615,7 @@ namespace TeensyRom.Api.Transfers
                     LaunchState = _launchState,
                     LaunchedPath = _launchedPath,
                     LaunchError = _launchError,
+                    Skipped = _skips.ToSkips(),
                     // Null until no further archives can arrive AND none is still expanding. The browser
                     // composes the job's expected total from this; a count published while an archive is
                     // still inbound gives it a total that grows, which is the exact backwards movement the

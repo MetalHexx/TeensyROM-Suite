@@ -6075,7 +6075,8 @@
           "filesPerSecond",
           "expansionBytesWritten",
           "expansionBytesDeclared",
-          "launchState"
+          "launchState",
+          "skipped"
         ],
         "type": "object",
         "properties": {
@@ -6181,6 +6182,12 @@
           "launchError": {
             "type": "string",
             "nullable": true
+          },
+          "skipped": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/TransferSkipDto"
+            }
           }
         }
       },
@@ -6204,7 +6211,8 @@
           "filesPerSecond",
           "expansionBytesWritten",
           "expansionBytesDeclared",
-          "launchState"
+          "launchState",
+          "skipped"
         ],
         "type": "object",
         "properties": {
@@ -6310,6 +6318,12 @@
           "launchError": {
             "type": "string",
             "nullable": true
+          },
+          "skipped": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/TransferSkipDto"
+            }
           }
         },
         "nullable": true
@@ -6357,6 +6371,36 @@
         "enum": [
           "Upload",
           "WatchFolder"
+        ]
+      },
+      "TransferSkipDto": {
+        "required": [
+          "reason",
+          "count",
+          "types"
+        ],
+        "type": "object",
+        "properties": {
+          "reason": {
+            "$ref": "#/components/schemas/TransferSkipReason"
+          },
+          "count": {
+            "type": "integer",
+            "format": "int32"
+          },
+          "types": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          }
+        }
+      },
+      "TransferSkipReason": {
+        "enum": [
+          "UnsupportedType",
+          "HiddenOrSystem",
+          "PartialDownload"
         ]
       },
       "UploadFileResponse": {

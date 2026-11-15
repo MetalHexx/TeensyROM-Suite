@@ -41,6 +41,13 @@ import {
     TransferLaunchStateToJSON,
     TransferLaunchStateToJSONTyped,
 } from './TransferLaunchState';
+import type { TransferSkipDto } from './TransferSkipDto';
+import {
+    TransferSkipDtoFromJSON,
+    TransferSkipDtoFromJSONTyped,
+    TransferSkipDtoToJSON,
+    TransferSkipDtoToJSONTyped,
+} from './TransferSkipDto';
 import type { TransferFileCompleted } from './TransferFileCompleted';
 import {
     TransferFileCompletedFromJSON,
@@ -211,6 +218,12 @@ export interface TransferJobDto2 {
      * @memberof TransferJobDto2
      */
     launchError?: string | null;
+    /**
+     * 
+     * @type {Array<TransferSkipDto>}
+     * @memberof TransferJobDto2
+     */
+    skipped: Array<TransferSkipDto>;
 }
 
 
@@ -238,6 +251,7 @@ export function instanceOfTransferJobDto2(value: object): value is TransferJobDt
     if (!('expansionBytesWritten' in value) || value['expansionBytesWritten'] === undefined) return false;
     if (!('expansionBytesDeclared' in value) || value['expansionBytesDeclared'] === undefined) return false;
     if (!('launchState' in value) || value['launchState'] === undefined) return false;
+    if (!('skipped' in value) || value['skipped'] === undefined) return false;
     return true;
 }
 
@@ -277,6 +291,7 @@ export function TransferJobDto2FromJSONTyped(json: any, ignoreDiscriminator: boo
         'launchState': TransferLaunchStateFromJSON(json['launchState']),
         'launchedPath': json['launchedPath'] == null ? undefined : json['launchedPath'],
         'launchError': json['launchError'] == null ? undefined : json['launchError'],
+        'skipped': ((json['skipped'] as Array<any>).map(TransferSkipDtoFromJSON)),
     };
 }
 
@@ -317,6 +332,7 @@ export function TransferJobDto2ToJSONTyped(value?: TransferJobDto2 | null, ignor
         'launchState': TransferLaunchStateToJSON(value['launchState']),
         'launchedPath': value['launchedPath'],
         'launchError': value['launchError'],
+        'skipped': ((value['skipped'] as Array<any>).map(TransferSkipDtoToJSON)),
     };
 }
 

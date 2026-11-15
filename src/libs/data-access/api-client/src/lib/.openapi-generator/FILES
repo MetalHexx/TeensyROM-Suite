@@ -148,6 +148,8 @@ models/TransferJobState.ts
 models/TransferLaunchState.ts
 models/TransferOriginDto.ts
 models/TransferOriginKind.ts
+models/TransferSkipDto.ts
+models/TransferSkipReason.ts
 models/UploadFileResponse.ts
 models/VideoSettingsDto.ts
 models/VideoStandard.ts

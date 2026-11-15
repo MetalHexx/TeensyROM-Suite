@@ -52,5 +52,8 @@ namespace TeensyRom.Core.Entities.Transfers
         public string? LaunchedPath { get; init; }
 
         public string? LaunchError { get; init; }
+
+        /// <summary>What the job left out, in <see cref="TransferSkipReason"/> order, only reasons with a count above zero.</summary>
+        public IReadOnlyList<TransferSkip> Skipped { get; init; } = [];
     }
 }

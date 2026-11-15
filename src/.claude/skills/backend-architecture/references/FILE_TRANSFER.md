@@ -6,6 +6,8 @@ File transfers to TeensyROM devices involve two inherently slow network hops: HT
 
 Some files are archives and require expansion (unzipping, extraction) before writing to the device. The expansion stage runs after staging but before queueing, with the expanded children written as individual files to the queue. This order prevents expansion — a CPU and I/O intensive operation — from blocking the device-write loop, which is single-threaded per device and the only path that releases staging capacity. An expansion operation that waited on available queue space could deadlock: it would wait on capacity only its own thread could free.
 
+An archive entry that expansion leaves out on purpose is not a failure. The job counts it per reason and reports the counts as `skipped` on its snapshot (see [Skipped entries](#skipped-entries)). An entry path that starts with `./` (some archivers pack that way) resolves as if the prefix were absent; a `.` or `..` after the first real segment is still refused.
+
 ---
 
 ## Component Chain
@@ -280,9 +282,16 @@ Queued files are **delivered, not discarded**: the pump drains the queue normall
 `TransferPump.TryFinalize` makes the launch decision once a job has sent its last file. `ITransferAutoLauncher.ShouldLaunch` decides whether a launch is due. `TryComplete` then moves the job to `Completed`, leaving a due launch `Pending`, so a poller never sees `Completed` with the launch undecided. The lease is released, staging and scratch are purged, and only then does `StartLaunch` run the launch in the background. Its outcome arrives on a later snapshot as `launchState`, `launchedPath` and `launchError`.
 
 - **Who launches.** An upload launches when `FileTransferSettings.AutoLaunchOnCopyEnabled` is on or the job's `LaunchRequested` is set (`trom file upload --launch`). A watch-folder job launches when `LaunchRequested` is set, which `WatchFolderDelivery` takes from its destination's `launch` flag, and the setting never applies. `AutoLaunchOnCopyEnabled` therefore means "launch after an upload", not after a watch-folder transfer.
-- **Which types an archive yields.** The job's `AllFileTypesInArchives` decides: off, `ArchiveExpansionService` drops an entry that is neither a known type nor a nested archive; on, it keeps every entry. `TransferExclusions` runs first and drops hidden and system entries whatever the switch says.
+- **Which types an archive yields.** The job's `AllFileTypesInArchives` decides: off, `ArchiveExpansionService` drops an entry that is neither a known type nor a nested archive; on, it keeps every entry. `TransferExclusions` runs first and drops hidden and system entries whatever the switch says. Both drops are counted in the job's `skipped`.
+
 - **Which file.** As each file completes, `LaunchCandidateRanker.IsBetter` keeps the best candidate so far. Games (`Prg`, `Crt`, `P00`) rank 0, `Sid` 1, images and text (`Kla`, `Koa`, `Art`, `Aas`, `Hpi`, `Seq`, `Txt`) 2, `Hex` 3. A tie goes to the earlier file name, then the earlier full device path. `.trh` never launches. Neither do `D64`, `Zip`, `Nfo` or any other unranked type, such as `.reu`, `.d71`, `.d81`, `.md`, `.ocp` and `.pic`.
 - **Failures.** A failed or incompatible launch is logged as a warning and recorded as `launchState` `Failed` or `Incompatible`. The job stays `Completed`.
+
+---
+
+## Skipped entries
+
+`TransferJob.OnEntrySkipped(reason, path)` tallies what expansion left out, and `ToSnapshot` publishes it as `Skipped` (`skipped` on `TransferJobDto`, always present, empty when nothing was skipped). Each item is `{ reason, count, types }`, in this order and only when the count is above zero: `UnsupportedType`, `HiddenOrSystem`, `PartialDownload`. `types` is filled only for `UnsupportedType`: the distinct lower-case extensions with the dot, sorted ordinally, with `(no extension)` for a name that has none. Symlinks, refused paths and case collisions remain failures and are not skips. An archive whose every entry was skipped still fails with "Archive produced no extractable entries.", and its skips are still counted. `TransferSkipWording.Describe` is the one wording every surface uses.
 
 ---
 
@@ -315,6 +324,8 @@ These are engine warnings, so they reach the engine log. The main ones:
 - `Watch folder {folder}: could not seal its transfer to {device}: {error}.`
 - `Watch folder {folder}: delivery to {device} failed: {message}.` An unexpected failure.
 - `Watch folder {folder}: skipped {file}, it could not be read as an archive ({message}).`
+
+One more line is an ordinary log line, not a warning: `Watch folder {folder}: {what was left out}`, for example `Watch folder C:\Drops: 3 files left out (.bin, .xyz): not a file type the TeensyROM takes; 2 hidden or system files left out; 1 unfinished download left out.` The tracker counts each arrival it drops for its type, for being hidden or excluded, or for being a partial download, and an archive it drops because nothing in it would be sent (its entries are counted by reason, as an expanding job would). It writes the line, then resets the counts, when the folder's next set is handed over, or when no set follows within `GroupingWindow` of the last drop. A file that vanished, is a link or is empty stays silent, and so does an archive that could not be read (it keeps its warning above).
 
 ### WatchFolderOptions
 

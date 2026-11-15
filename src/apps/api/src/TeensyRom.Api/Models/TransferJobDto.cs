@@ -37,6 +37,7 @@ namespace TeensyRom.Api.Models
         [Required] public TransferLaunchState LaunchState { get; set; }
         public string? LaunchedPath { get; set; }
         public string? LaunchError { get; set; }
+        [Required] public List<TransferSkipDto> Skipped { get; set; } = [];
 
         /// <summary>
         /// Maps a domain snapshot to the wire shape. The only place a <see cref="TransferJobSnapshot"/>
@@ -69,7 +70,8 @@ namespace TeensyRom.Api.Models
             ExpandedFileCount = snapshot.ExpandedFileCount,
             LaunchState = snapshot.LaunchState,
             LaunchedPath = snapshot.LaunchedPath,
-            LaunchError = snapshot.LaunchError
+            LaunchError = snapshot.LaunchError,
+            Skipped = [.. snapshot.Skipped.Select(TransferSkipDto.From)]
         };
     }
 }
