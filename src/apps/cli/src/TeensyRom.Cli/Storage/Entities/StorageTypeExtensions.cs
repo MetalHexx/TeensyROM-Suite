@@ -15,6 +15,8 @@
             ".aas" => TeensyFileType.Aas,
             ".hpi" => TeensyFileType.Hpi,
             ".d64" => TeensyFileType.D64,
+            ".seq" => TeensyFileType.Seq,
+            ".txt" => TeensyFileType.Txt,
             _ => TeensyFileType.Unknown
         };
     }

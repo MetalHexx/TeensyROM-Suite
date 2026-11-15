@@ -194,7 +194,7 @@ internal sealed class FileUploadCommand(
 
         if (!Output.Err.Confirm(Markup.Escape(question), defaultValue: false))
         {
-            throw new CliException(CliExitCode.Failed, "Cancelled; nothing was sent.");
+            throw new CliCancelledException("Cancelled. Nothing was sent.");
         }
     }
 

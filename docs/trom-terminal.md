@@ -58,11 +58,11 @@ trom file delete /games/old.prg
 
 <img width="1465" height="772" alt="Trom Terminal one-line commands" src="../.github/images/trom-terminal-commands.png" />
 
-- **Launch:** `file launch` starts one file. `file random` launches a random one, and is how you shuffle: narrow it with `--filter` and `--directory`.
+- **Launch:** `file launch` starts one file. A file that is there but isn't launchable exits 7. `file random` launches a random one, and is how you shuffle: narrow it with `--filter` and `--directory`.
 - **Move along:** `file next` and `file previous` step through what you were playing. `file pause` pauses or resumes a song, and `file stop` stops whatever is running.
 - **Find:** `file ls` lists a folder, including files the TeensyROM can't launch (marked `launchable: false` in `--json`), and `file search` searches the files you have indexed. Run `trom index build` first so search covers everything; [getting started](getting-started.md#index-your-storage) explains why.
 - **Curate:** `file favorite` and `file unfavorite` tag files. `file ban`, `file banned` and `file unban` hide files and folders from browsing, search and shuffle. See [bans](getting-started.md#bans).
-- **Delete:** `file delete` removes files from the TeensyROM's storage. It asks once, naming the files, unless you pass `--yes`, which a script or piped paths need. Files only: a folder can't be deleted. Favorite copies, playlists and bans that name a deleted file are left as they are, and like other commands that touch the device, a delete resets a C64 that is running a program.
+- **Delete:** `file delete` removes files from the TeensyROM's storage. It asks once, naming the files, unless you pass `--yes`, which a script or piped paths need. Saying no cancels cleanly: nothing is deleted and the command exits 0. Files only: a folder can't be deleted. Favorite copies, playlists and bans that name a deleted file are left as they are, and like other commands that touch the device, a delete resets a C64 that is running a program.
 
 ## Copy files
 

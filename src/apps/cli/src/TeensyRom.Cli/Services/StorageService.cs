@@ -69,14 +69,14 @@ internal sealed class StorageService(ITeensyRomApiClient api, IDeviceService dev
         }
     }
 
-    public async Task<ILaunchableItem?> GetFile(string path)
+    public async Task<IFileItem?> FindFile(string path)
     {
         var directory = await GetDirectory(path.GetUnixParentPath());
 
-        return directory.Files
-            .OfType<ILaunchableItem>()
-            .FirstOrDefault(file => file.Path.Equals(path, StringComparison.OrdinalIgnoreCase));
+        return directory.Files.FirstOrDefault(file => file.Path.Equals(path, StringComparison.OrdinalIgnoreCase));
     }
+
+    public async Task<ILaunchableItem?> GetFile(string path) => await FindFile(path) as ILaunchableItem;
 
     public async Task<IReadOnlyList<ILaunchableItem>> Search(string query, TeensyFilterType filter)
     {

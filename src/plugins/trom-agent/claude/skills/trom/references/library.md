@@ -4,7 +4,7 @@
 
 Guide the user through the library with `trom file ls "<dir>" --json`. It works without an index. Start at the storage root (`trom file ls --json`) and follow their curiosity, a few entries at a time.
 
-`trom file ls` lists files the TeensyROM can't launch with `launchable: false`. They can be downloaded, and are never launched, played or favorited.
+`trom file ls` lists files the TeensyROM can't launch with `launchable: false`. They can be downloaded, and are never launched, played or favorited. `trom file launch` of one exits 7 (`notLaunchable`); a path with no file exits 5.
 
 ## Stories
 
@@ -50,6 +50,7 @@ Offer delete only when `init`'s `capabilities` lists `file delete`. You can't an
 
 - Name the exact files and the device to the user, and wait for a yes. Never delete a file the user didn't name.
 - Say that, like any device command other than a launch, a delete resets a C64 that is running a program.
+- A delete the user declines in a terminal exits 0 with `{"cancelled": true}` under `--json`, and nothing is deleted. You always pass `--yes` after the user confirms, so you won't see this.
 - Then run `trom file delete "<path>"... --device <name> [--storage sd|usb] --yes --json`. `--yes` is right here only because the user just confirmed.
 - The JSON is `[{path, ok, message}]`. It exits 5 when every failure was a not-found, and 1 for any other failure; report each failure in plain words.
 - Only files can be deleted. A folder path fails with "Only files can be deleted". A path under `/favorites/` is a favorite's copy: point to `trom file unfavorite` instead.

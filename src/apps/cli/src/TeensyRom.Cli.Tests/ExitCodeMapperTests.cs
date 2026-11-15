@@ -107,6 +107,7 @@ public class ExitCodeMapperTests
     [InlineData((int)CliExitCode.NoDevice, 4)]
     [InlineData((int)CliExitCode.NotFound, 5)]
     [InlineData((int)CliExitCode.DeviceBusy, 6)]
+    [InlineData((int)CliExitCode.NotLaunchable, 7)]
     public void TheExitCodeNumbersAreAStableContract(int code, int number)
     {
         code.Should().Be(number);

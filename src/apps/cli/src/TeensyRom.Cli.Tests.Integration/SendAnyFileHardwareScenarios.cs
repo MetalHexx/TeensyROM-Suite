@@ -224,7 +224,7 @@ public sealed partial class HardwareScenarios
     }
 
     /// <summary>
-    /// Launching a file of an unknown type fails cleanly: the CLI finds no launchable file and exits 5 without asking the
+    /// Launching a file of an unknown type fails cleanly: the CLI finds the file isn't launchable and exits 7 without asking the
     /// engine, and the engine's own launch endpoint answers 400.
     /// </summary>
     [SkippableFact]
@@ -242,8 +242,8 @@ public sealed partial class HardwareScenarios
 
             var launch = await RunJsonAsync("file", "launch", path, "--device", device.DeviceId, "--storage", storage, "--json");
 
-            launch.ExitCode.Should().Be((int)CliExitCode.NotFound);
-            launch.Error.Should().Contain($"There is no launchable file at {path}.");
+            launch.ExitCode.Should().Be((int)CliExitCode.NotLaunchable);
+            launch.Error.Should().Contain("notLaunchable").And.Contain($"{path} isn't a file the TeensyROM can launch.");
 
             var direct = async () => await api.Api.LaunchFileAsync(device.DeviceId, storage == "sd" ? ApiStorageType.SD : ApiStorageType.USB, path);
 

@@ -34,7 +34,8 @@ internal sealed class FileDeleteCommand(
 {
     private const int MaxPathsListed = 10;
 
-    /// <exception cref="CliException"><see cref="CliExitCode.Failed"/> when declined; <see cref="CliExitCode.Usage"/> when there is no terminal to ask in.</exception>
+    /// <exception cref="CliCancelledException">The user declined.</exception>
+    /// <exception cref="CliException"><see cref="CliExitCode.Usage"/> when there is no terminal to ask in.</exception>
     protected override void BeforeAll(IReadOnlyList<string> paths, FileDeleteSettings settings)
     {
         if (settings.Yes) return;
@@ -43,7 +44,7 @@ internal sealed class FileDeleteCommand(
 
         if (!Output.Err.Confirm(Question(paths), defaultValue: false))
         {
-            throw new CliException(CliExitCode.Failed, "Cancelled; nothing was deleted.");
+            throw new CliCancelledException("Cancelled. Nothing was deleted.");
         }
     }
 

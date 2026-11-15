@@ -21,7 +21,8 @@ internal sealed class TromHelpProvider(ICommandAppSettings settings) : HelpProvi
         (CliExitCode.EngineUnavailable, "Trom API is not running or did not answer"),
         (CliExitCode.NoDevice, "no TeensyROM is online, or the one you named is offline"),
         (CliExitCode.NotFound, "the device, file or directory was not found"),
-        (CliExitCode.DeviceBusy, "the TeensyROM is busy with a transfer: try again when it finishes")
+        (CliExitCode.DeviceBusy, "the TeensyROM is busy with a transfer: try again when it finishes"),
+        (CliExitCode.NotLaunchable, "the file is there, but the TeensyROM can't launch it")
     ];
 
     public override IEnumerable<IRenderable> GetHeader(ICommandModel model, ICommandInfo? command)

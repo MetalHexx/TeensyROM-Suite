@@ -48,6 +48,7 @@ public sealed class FileCommandTests : IDisposable
         _storage.When(s => s.UseStorage(Arg.Any<TeensyStorageType>())).Do(call => _storageType = call.Arg<TeensyStorageType>());
         _storage.GetDirectory(Arg.Any<string>()).Returns(_ => new DirectoryListing());
         _storage.GetFile(Arg.Any<string>()).Returns((ILaunchableItem?)null);
+        _storage.FindFile(Arg.Any<string>()).Returns((IFileItem?)null);
         _storage.Search(Arg.Any<string>(), Arg.Any<TeensyFilterType>()).Returns(new List<ILaunchableItem>());
 
         _player.FileLaunched.Returns(_fileLaunched);
@@ -117,6 +118,9 @@ public sealed class FileCommandTests : IDisposable
 
     private static JsonElement Parse(string json) => JsonDocument.Parse(json).RootElement;
 
+    private static JsonElement LastError(TestHost host) =>
+        Parse(host.Consoles.StdErr.TrimEnd().Split('\n')[^1]).GetProperty("error");
+
     private static string[] Names(JsonElement element) => element.EnumerateObject().Select(p => p.Name).ToArray();
 
     private static readonly string[] ItemShape =
@@ -182,7 +186,7 @@ public sealed class FileCommandTests : IDisposable
     }
 
     [Fact]
-    public async Task AnUnknownTypeFile_IsListedAsNotLaunchable_AndLaunchingItIsNotFound()
+    public async Task AnUnknownTypeFile_IsListedAsNotLaunchable_AndLaunchingItExitsNotLaunchable_WhileAMissingOneIsNotFound()
     {
         var api = Substitute.For<ITeensyRomApiClient>();
         api.GetDirectoryAsync(Arg.Any<string>(), Arg.Any<ApiStorageType>(), "/", Arg.Any<CancellationToken>())
@@ -214,8 +218,15 @@ public sealed class FileCommandTests : IDisposable
 
         var launching = NewHost(extra: UseRealStorage);
 
-        (await launching.RunAsync("file", "launch", "/x.bin")).Should().Be((int)CliExitCode.NotFound);
-        launching.Consoles.StdErr.Should().Contain("There is no launchable file at /x.bin.");
+        (await launching.RunAsync("file", "launch", "/x.bin", "--json")).Should().Be((int)CliExitCode.NotLaunchable);
+        LastError(launching).GetProperty("code").GetString().Should().Be("notLaunchable");
+        LastError(launching).GetProperty("exitCode").GetInt32().Should().Be(7);
+        launching.Consoles.StdErr.Should().Contain("/x.bin isn't a file the TeensyROM can launch.");
+
+        var missing = NewHost(extra: UseRealStorage);
+
+        (await missing.RunAsync("file", "launch", "/nothing.bin")).Should().Be((int)CliExitCode.NotFound);
+        missing.Consoles.StdErr.Should().Contain("There is no file at /nothing.bin.");
     }
 
     [Fact]
@@ -475,7 +486,7 @@ public sealed class FileCommandTests : IDisposable
     private SongItem Launchable(string path = "/music/1.sid")
     {
         var song = Song(path);
-        _storage.GetFile(path).Returns(song);
+        _storage.FindFile(path).Returns(song);
         _launches.LaunchFile(Arg.Any<TeensyStorageType>(), song).Returns(new LaunchOutcome(LaunchStatus.Launched, song, "Launched"));
         return song;
     }
@@ -514,7 +525,7 @@ public sealed class FileCommandTests : IDisposable
     public async Task Launch_Json_WritesTheFullRecord_AndPlainOutputIsUnchanged()
     {
         var song = EngineSong("/music/1.sid");
-        _storage.GetFile("/music/1.sid").Returns(song);
+        _storage.FindFile("/music/1.sid").Returns(song);
         _launches.LaunchFile(Arg.Any<TeensyStorageType>(), song).Returns(new LaunchOutcome(LaunchStatus.Launched, song, "Launched"));
 
         var json = NewHost();

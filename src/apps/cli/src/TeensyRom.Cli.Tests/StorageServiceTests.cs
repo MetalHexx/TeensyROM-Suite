@@ -209,6 +209,26 @@ public class StorageServiceTests
     }
 
     [Fact]
+    public async Task FindFile_FindsAFileOfAnyType_ThatIsNotLaunchable()
+    {
+        ListDirectory("/docs/", File("/docs/x.bin", FileItemType.Unknown));
+
+        var file = await _sut.FindFile("/docs/X.BIN");
+
+        file.Should().NotBeNull();
+        file.Should().NotBeAssignableTo<ILaunchableItem>();
+        file!.Path.Should().Be("/docs/x.bin");
+    }
+
+    [Fact]
+    public async Task FindFile_WhenNothingIsAtThePath_FindsNothing()
+    {
+        ListDirectory("/docs/", File("/docs/x.bin.bak", FileItemType.Unknown));
+
+        (await _sut.FindFile("/docs/x.bin")).Should().BeNull();
+    }
+
+    [Fact]
     public async Task GetFile_ListsTheFilesParentDirectory()
     {
         ListDirectory("/");

@@ -145,7 +145,7 @@ public sealed class HelpSurfaceTests
         exitCode.Should().Be(0);
         host.Consoles.StdOut.Should().Contain("interactive menu").And.Contain("--json").And.Contain("EXIT CODES").And.Contain("EXAMPLES")
             .And.Contain("trom file search commando --json | jq -r '.[0].path' | trom file launch -");
-        foreach (var code in new[] { "0", "1", "2", "3", "4", "5" })
+        foreach (var code in new[] { "0", "1", "2", "3", "4", "5", "6", "7" })
         {
             host.Consoles.StdOut.Should().MatchRegex($@"(?m)^\s+{code}\s+\S");
         }

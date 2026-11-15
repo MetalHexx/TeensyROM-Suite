@@ -598,7 +598,7 @@ public sealed class FileUploadCommandTests : IDisposable
 
         var exitCode = await host.RunAsync("file", "upload", "--to", "/x");
 
-        exitCode.Should().Be((int)CliExitCode.Failed);
+        exitCode.Should().Be(0);
         await host.Engine.ReceivedWithAnyArgs(1).EnsureRunningAsync(default);
         _calls.Should().BeEmpty();
     }
@@ -685,8 +685,8 @@ public sealed class FileUploadCommandTests : IDisposable
 
         var exitCode = await host.RunAsync("file", "upload", "--to", "/x");
 
-        exitCode.Should().Be((int)CliExitCode.Failed);
-        host.Consoles.StdErr.Should().Contain("Cancelled; nothing was sent.");
+        exitCode.Should().Be(0);
+        host.Consoles.StdErr.Should().Contain("Cancelled. Nothing was sent.");
         _calls.Should().BeEmpty();
         await AssertEngineNeverStarted(host);
     }
@@ -700,7 +700,7 @@ public sealed class FileUploadCommandTests : IDisposable
 
         var exitCode = await host.RunAsync("file", "upload", "--to", "/x");
 
-        exitCode.Should().Be((int)CliExitCode.Failed);
+        exitCode.Should().Be(0);
         _calls.Should().BeEmpty();
     }
 
@@ -786,12 +786,12 @@ public sealed class FileUploadCommandTests : IDisposable
     [Theory]
     [InlineData("games", "is a folder")]
     [InlineData("pack.zip", "an archive")]
-    [InlineData("notes.txt", "only launches")]
+    [InlineData("disk.d64", "only launches")]
     [InlineData("nothing-here.prg", "wasn't found")]
     public async Task Launch_OfAnythingButOneLaunchableFile_IsAUsageError_BeforeTheEngineStarts(string path, string reason)
     {
         Write("pack.zip", 10);
-        Write("notes.txt", 10);
+        Write("disk.d64", 10);
         var host = NewHost();
 
         var exitCode = await host.RunAsync("file", "upload", "--launch", path, "--to", "/x");
@@ -860,6 +860,20 @@ public sealed class FileUploadCommandTests : IDisposable
             .Should().Equal("UseStorage", "RecordLaunched");
         _player.Received(1).RecordLaunched(item, LaunchStatus.Launched);
         Lines(host).Should().Equal("/games/x.prg");
+    }
+
+    [Fact]
+    public async Task Launch_OfATextFile_PassesTheUpFrontCheck_AndIsSent()
+    {
+        Write("notes.txt", 10);
+        _storage.GetFile("/docs/notes.txt").Returns(new ImageItem { Name = "notes.txt", Path = "/docs/notes.txt", Size = 10 });
+        (_launchState, _launchedPath) = (TransferLaunchState.Launched, "/docs/notes.txt");
+        var host = NewHost();
+
+        var exitCode = await host.RunAsync("file", "upload", "--launch", "notes.txt", "--to", "/docs");
+
+        exitCode.Should().Be(0, host.Consoles.StdErr);
+        _calls.Should().Contain("upload notes.txt");
     }
 
     [Fact]
@@ -1212,7 +1226,7 @@ public sealed class FileUploadCommandTests : IDisposable
     {
         Write("x.prg", 10);
         var path = UnixLookalike(Path.Combine(_root, "x.prg"));
-        _storage.GetFile(path).Returns((ILaunchableItem?)null);
+        _storage.FindFile(path).Returns((IFileItem?)null);
         var host = NewHost();
 
         var exitCode = await host.RunAsync("file", "launch", path);
@@ -1226,7 +1240,7 @@ public sealed class FileUploadCommandTests : IDisposable
     {
         Write("x.prg", 10);
         var path = UnixLookalike(Path.Combine(_root, "x.prg"));
-        _storage.GetFile(path).ThrowsAsyncForAnyArgs(new TeensyApiException("The directory does not exist on this storage.", 404));
+        _storage.FindFile(path).ThrowsAsyncForAnyArgs(new TeensyApiException("The directory does not exist on this storage.", 404));
         var host = NewHost();
 
         var exitCode = await host.RunAsync("file", "launch", path);
@@ -1238,16 +1252,16 @@ public sealed class FileUploadCommandTests : IDisposable
     [Fact]
     public async Task FileLaunch_OfAUnixPathThatIsNotLocal_KeepsTodaysMessages()
     {
-        _storage.GetFile("/nowhere/at/all.prg").Returns((ILaunchableItem?)null);
+        _storage.FindFile("/nowhere/at/all.prg").Returns((IFileItem?)null);
         var missingFolder = NewHost();
         var missing = await missingFolder.RunAsync("file", "launch", "/nowhere/at/all.prg");
-        _storage.GetFile("/nowhere/at/gone.prg").ThrowsAsyncForAnyArgs(new TeensyApiException("The directory does not exist on this storage.", 404));
+        _storage.FindFile("/nowhere/at/gone.prg").ThrowsAsyncForAnyArgs(new TeensyApiException("The directory does not exist on this storage.", 404));
         var failing = NewHost();
 
         var failed = await failing.RunAsync("file", "launch", "/nowhere/at/gone.prg");
 
         missing.Should().Be((int)CliExitCode.NotFound);
-        missingFolder.Consoles.StdErr.Should().Contain("There is no launchable file at /nowhere/at/all.prg.");
+        missingFolder.Consoles.StdErr.Should().Contain("There is no file at /nowhere/at/all.prg.");
         failed.Should().Be((int)CliExitCode.NotFound);
         failing.Consoles.StdErr.Should().Contain("The directory does not exist on this storage.").And.NotContain("on this computer");
     }

@@ -22,6 +22,12 @@ internal interface IStorageService
     Task<DirectoryListing> GetDirectory(string path);
 
     /// <summary>
+    /// The file of any type at exactly <paramref name="path"/> in the current storage, or null when its directory holds
+    /// none by that path. Case is ignored, as FAT storage does.
+    /// </summary>
+    Task<IFileItem?> FindFile(string path);
+
+    /// <summary>
     /// The launchable file at exactly <paramref name="path"/> in the current storage, or null when its directory holds
     /// none by that path. Case is ignored, as FAT storage does.
     /// </summary>

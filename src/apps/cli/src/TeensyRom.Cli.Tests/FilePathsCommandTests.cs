@@ -266,15 +266,32 @@ public sealed class FilePathsCommandTests : IDisposable
     }
 
     [Fact]
-    public async Task Delete_InATerminal_DecliningExitsFailed_AndDeletesNothing()
+    public async Task Delete_InATerminal_DecliningExitsCleanly_AndDeletesNothing()
     {
         var host = NewHost(terminal: true);
         host.Consoles.Err.Input.PushTextWithEnter("n");
 
         var exitCode = await host.RunAsync("file", "delete", "/a.prg");
 
-        exitCode.Should().Be((int)CliExitCode.Failed);
-        host.Consoles.StdErr.Should().Contain("Cancelled; nothing was deleted.");
+        exitCode.Should().Be(0);
+        host.Consoles.StdErr.Should().Contain("Cancelled. Nothing was deleted.");
+        host.Consoles.StdOut.Should().BeEmpty();
+        await _storage.DidNotReceiveWithAnyArgs().DeleteFile(default!);
+    }
+
+    [Fact]
+    public async Task Delete_InATerminal_DecliningUnderJson_WritesCancelledOnStdout()
+    {
+        var host = NewHost(terminal: true);
+        host.Consoles.Err.Input.PushTextWithEnter("n");
+
+        var exitCode = await host.RunAsync("file", "delete", "/a.prg", "--json");
+
+        exitCode.Should().Be(0);
+        var document = Parse(host.Consoles.StdOut);
+        document.EnumerateObject().Select(p => p.Name).Should().Equal("cancelled");
+        document.GetProperty("cancelled").GetBoolean().Should().BeTrue();
+        host.Consoles.StdErr.Should().Contain("Cancelled. Nothing was deleted.").And.NotContain("\"error\"");
         await _storage.DidNotReceiveWithAnyArgs().DeleteFile(default!);
     }
 

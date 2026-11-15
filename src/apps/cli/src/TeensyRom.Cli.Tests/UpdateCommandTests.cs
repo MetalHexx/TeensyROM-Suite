@@ -311,8 +311,8 @@ public sealed class UpdateCommandTests : IDisposable
 
         var exitCode = await host.RunAsync("update");
 
-        exitCode.Should().Be((int)CliExitCode.Failed);
-        host.Consoles.StdErr.Should().Contain("Update TeensyROM Suite from 1.0.0-beta.1 to 1.0.0-beta.2?").And.Contain("Cancelled; nothing was changed.");
+        exitCode.Should().Be(0);
+        host.Consoles.StdErr.Should().Contain("Update TeensyROM Suite from 1.0.0-beta.1 to 1.0.0-beta.2?").And.Contain("Cancelled. Nothing was changed.");
         await host.Updates.DidNotReceiveWithAnyArgs().ApplyAsync(default!, default!, default, default);
     }
 

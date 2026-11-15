@@ -8,7 +8,7 @@ namespace TeensyRom.Cli.Storage.Entities
     {
         public override string Creator => GetExtensionShortDescription();
         public override string Description => GetExtensionLongDescription();
-        public override string Title => $"{Name[..Name.LastIndexOf('.')]}";
+        public override string Title => Name.Contains('.') ? Name[..Name.LastIndexOf('.')] : Name;
         public override string Meta1 => Name[(Name.LastIndexOf('.') + 1)..];
         public TimeSpan PlayLength { get; set; } =  TimeSpan.FromMinutes(1);
 
@@ -21,6 +21,8 @@ namespace TeensyRom.Cli.Storage.Entities
                 TeensyFileType.Art => "Art Studio Image",
                 TeensyFileType.Aas => "Advanced Art Studio Image",
                 TeensyFileType.Hpi => "Hi-Pic Creator Image",
+                TeensyFileType.Seq => "Sequential Data",
+                TeensyFileType.Txt => "Text File",
                 _ => "Unknown File Type"
             };
         }
@@ -34,6 +36,8 @@ namespace TeensyRom.Cli.Storage.Entities
                 TeensyFileType.Art => "About ART Files:\r\rA file format from Art Studio, a prominent bitmap graphics editor on the C64. It features a resolution of 160x200 pixels using a 16-color palette and was celebrated for bringing detailed pixel graphics editing to the home user, showcasing the graphic capabilities of the C64.",
                 TeensyFileType.Aas => "About AAS Files:\r\rThe successor to Art Studio, the AAS format comes from Advanced Art Studio, pushing the C64's graphical prowess further. It maintained the standard 160x200 resolution with a 16-color palette but introduced enhanced tools and features for the burgeoning community of home computer artists.",
                 TeensyFileType.Hpi => "About HPI Files:\r\rA less common but technically intriguing format used by Hi-Pic Creator, a C64 program designed for high-resolution images. HPI files often pushed beyond standard C64 limitations, experimenting with resolutions and color techniques that paved the way for future graphics innovations on home computers.",
+                TeensyFileType.Seq => "About SEQ Files:\r\rA sequential data file, the Commodore DOS format for a plain stream of bytes that a program reads from start to end. It is often used for text, data and saved program output.",
+                TeensyFileType.Txt => "About TXT Files:\r\rA plain text file. The TeensyROM shows it on the C64 screen for reading.",
                 _ => "Unknown File Type"
             };
         }
