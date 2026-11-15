@@ -15,6 +15,14 @@
     <p>{{ message() }}</p>
   </div>
 
+  @if (rememberLabel()) {
+    <div class="dialog-remember">
+      <mat-slide-toggle [checked]="remember()" (change)="remember.set($event.checked)">
+        {{ rememberLabel() }}
+      </mat-slide-toggle>
+    </div>
+  }
+
   <!-- Action Buttons -->
   <div class="button-row">
     @if (showLabels()) {

@@ -83,6 +83,7 @@ Video is optional but recommended.
 - **Back and forward:** retrace your steps through folders, like a browser.
 - **Several carts:** browse multiple connected carts at the same time.
 - **Every file listed:** files the TeensyROM can't launch are listed too, but they can't be played.
+- **Re-index a folder:** the refresh button re-reads the shown folder and every folder below it from the TeensyROM, so the list matches what's on the card. On the top folder it re-reads the whole storage, and a large folder can take a few minutes. The button asks you to confirm first; switch on "Don't ask again" in that dialog to skip the question from then on in this browser.
 
 ## Mobile and responsive
 

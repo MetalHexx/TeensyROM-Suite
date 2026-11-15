@@ -211,6 +211,38 @@ export function removeStorage(
   });
 }
 
+/** Lowercases a path and drops trailing slashes, so `/Games/` and `/games` compare equal. */
+export function normalizePathForCompare(path: string): string {
+  return path.replace(/\/+$/, '').toLowerCase();
+}
+
+/**
+ * Helper to drop the `directoryListings` of every folder strictly below `path` (the listing at
+ * `path` itself is kept), so those folders are loaded again the next time they are opened.
+ * Paths compare ignoring case and a trailing `/`, because the API returns paths with a trailing
+ * `/` and the store may hold them without. A no-op when the entry has no listings below `path`.
+ */
+export function dropListingsBelowPath(
+  store: WritableStore<StorageState>,
+  key: StorageKey,
+  path: string,
+  actionMessage: string
+): void {
+  const listings = getStorage(store, key)?.directoryListings;
+  if (!listings) return;
+
+  const base = normalizePathForCompare(path);
+  const kept = Object.fromEntries(
+    Object.entries(listings).filter(([listingPath]) => {
+      const normalized = normalizePathForCompare(listingPath);
+      return normalized === base || !normalized.startsWith(`${base}/`);
+    })
+  );
+  if (Object.keys(kept).length === Object.keys(listings).length) return;
+
+  updateStorage(store, key, { directoryListings: kept }, actionMessage);
+}
+
 /**
  * Helper to filter entries by device ID
  */

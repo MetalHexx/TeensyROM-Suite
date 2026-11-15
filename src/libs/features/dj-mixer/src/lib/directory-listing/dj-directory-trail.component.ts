@@ -1,5 +1,5 @@
 import { ChangeDetectionStrategy, Component, computed, inject, input } from '@angular/core';
-import { StorageStore } from '@teensyrom-nx/application';
+import { DeviceStore, StorageStore } from '@teensyrom-nx/application';
 import { StorageType } from '@teensyrom-nx/domain';
 import { DirectoryTrailComponent } from '@teensyrom-nx/ui/components';
 import type { ActiveStorage } from '../active-storage';
@@ -25,6 +25,7 @@ export class DjDirectoryTrailComponent {
   readonly activeStorage = input.required<ActiveStorage>();
 
   private readonly storageStore = inject(StorageStore);
+  private readonly deviceStore = inject(DeviceStore);
 
   private readonly selectedDirectoryState = computed(() =>
     this.storageStore.getSelectedDirectoryState(this.activeStorage().deviceId)()
@@ -68,9 +69,13 @@ export class DjDirectoryTrailComponent {
     void this.storageStore.navigateUpOneDirectory({ deviceId, storageType });
   }
 
-  onRefreshClick(): void {
+  /** Re-indexes the shown folder and everything below it, then reloads it from the API. */
+  async onRefreshClick(): Promise<void> {
     const { deviceId, storageType } = this.activeStorage();
-    void this.storageStore.refreshDirectory({ deviceId, storageType });
+    const path = this.currentPath();
+    if (await this.deviceStore.indexStorage(deviceId, storageType, path)) {
+      await this.storageStore.refreshAfterIndex({ deviceId, storageType, path });
+    }
   }
 
   onNavigationRequested(path: string): void {

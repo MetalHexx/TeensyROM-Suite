@@ -3,7 +3,7 @@ import { of } from 'rxjs';
 import { signal, type Type } from '@angular/core';
 import { TestBed } from '@angular/core/testing';
 import { ScrollingModule } from '@angular/cdk/scrolling';
-import { StorageStore } from '@teensyrom-nx/application';
+import { DeviceStore, StorageStore } from '@teensyrom-nx/application';
 import type { IPlayerContext, LaunchedFile, PlayerFileContext } from '@teensyrom-nx/application';
 import {
   STORAGE_SERVICE,
@@ -51,6 +51,7 @@ describe('DirectoryFilesComponent', () => {
       realChildren: overrides.realChildren,
       stubChildren: overrides.stubChildren,
       providers: [
+        { provide: DeviceStore, useValue: { indexStorage: vi.fn() } },
         {
           provide: STORAGE_SERVICE,
           useValue: createMockStorageService({

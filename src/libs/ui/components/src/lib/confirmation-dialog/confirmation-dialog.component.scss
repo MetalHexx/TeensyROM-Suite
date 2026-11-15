@@ -50,6 +50,13 @@
   }
 }
 
+// Optional "remember" toggle
+.dialog-remember {
+  display: flex;
+  justify-content: center;
+  margin-bottom: var(--spacing-md);
+}
+
 // Button row
 .button-row {
   display: grid;

@@ -141,6 +141,53 @@ describe('DeviceStore - indexStorage state updates', () => {
     });
   });
 
+  describe('Return value and partial re-index', () => {
+    beforeEach(async () => {
+      mockDeviceService.findDevices = vi.fn().mockReturnValue(of([createMockDevice('device-1')]));
+      await store.findDevices();
+    });
+
+    it('resolves true on success and false on failure', async () => {
+      const index = mockStorageService.index as ReturnType<typeof vi.fn>;
+
+      index.mockReturnValue(of(void 0));
+      expect(await store.indexStorage('device-1', StorageType.Sd)).toBe(true);
+
+      index.mockReturnValue(throwError(() => new Error('boom')));
+      expect(await store.indexStorage('device-1', StorageType.Sd)).toBe(false);
+    });
+
+    it('passes the starting path to the service', async () => {
+      (mockStorageService.index as ReturnType<typeof vi.fn>).mockReturnValue(of(void 0));
+
+      await store.indexStorage('device-1', StorageType.Sd, '/games/');
+
+      expect(mockStorageService.index).toHaveBeenCalledWith('device-1', StorageType.Sd, '/games/');
+    });
+
+    it('leaves indexExists unchanged for a partial re-index, and shows isIndexing while it runs', async () => {
+      const pending = new Subject<void>();
+      (mockStorageService.index as ReturnType<typeof vi.fn>).mockReturnValue(pending);
+
+      const done = store.indexStorage('device-1', StorageType.Sd, '/games/');
+      expect(store.isIndexing()).toBe(true);
+      pending.next();
+      pending.complete();
+
+      expect(await done).toBe(true);
+      expect(store.isIndexing()).toBe(false);
+      expect(store.devices()[0].sdStorage?.indexExists).toBe(false);
+    });
+
+    it('sets indexExists for a full index given as the root path', async () => {
+      (mockStorageService.index as ReturnType<typeof vi.fn>).mockReturnValue(of(void 0));
+
+      await store.indexStorage('device-1', StorageType.Sd, '/');
+
+      expect(store.devices()[0].sdStorage?.indexExists).toBe(true);
+    });
+  });
+
   describe('USB Storage Updates', () => {
     it('should update usbStorage.indexExists to true after successful USB indexing', async () => {
       const mockDevice = createMockDevice('device-1');

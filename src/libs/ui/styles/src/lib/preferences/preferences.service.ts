@@ -12,6 +12,12 @@ export interface UserPreferences {
    * @default true
    */
   tooltipsEnabled: boolean;
+
+  /**
+   * Whether the directory refresh button asks for confirmation before re-indexing a folder.
+   * @default true
+   */
+  confirmReindex: boolean;
 }
 
 /**
@@ -19,6 +25,7 @@ export interface UserPreferences {
  */
 const DEFAULT_PREFERENCES: UserPreferences = {
   tooltipsEnabled: true,
+  confirmReindex: true,
 };
 
 const STORAGE_KEY = 'user-preferences';
@@ -73,6 +80,18 @@ export class PreferencesService {
    */
   setTooltipsEnabled(enabled: boolean): void {
     this.updatePreference('tooltipsEnabled', enabled);
+  }
+
+  /**
+   * Read-only signal: whether re-indexing a folder asks for confirmation first
+   */
+  readonly confirmReindex = computed(() => this._preferences().confirmReindex);
+
+  /**
+   * Sets whether re-indexing a folder asks for confirmation first and persists to localStorage
+   */
+  setConfirmReindex(value: boolean): void {
+    this.updatePreference('confirmReindex', value);
   }
 
   /**

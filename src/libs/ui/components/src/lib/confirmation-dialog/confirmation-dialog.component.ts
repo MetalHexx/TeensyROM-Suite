@@ -1,6 +1,7 @@
-import { Component, input, output, computed } from '@angular/core';
+import { Component, input, output, computed, signal } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { MatButtonModule } from '@angular/material/button';
+import { MatSlideToggleModule } from '@angular/material/slide-toggle';
 import { IconButtonComponent } from '../icon-button/icon-button.component';
 import { ActionButtonComponent } from '../action-button/action-button.component';
 import { StyledIconComponent } from '../styled-icon/styled-icon.component';
@@ -36,6 +37,7 @@ import { TooltipConfig, TooltipPosition } from '../tooltip/tooltip.directive';
   imports: [
     CommonModule,
     MatButtonModule,
+    MatSlideToggleModule,
     IconButtonComponent,
     ActionButtonComponent,
     StyledIconComponent,
@@ -75,6 +77,14 @@ export class ConfirmationDialogComponent {
    * since `lib-icon-button` has no primary.
    */
   confirmColor = input<'error' | 'primary'>('error');
+  /**
+   * Label for an optional "remember my choice" slide toggle (default: `''` — no toggle rendered).
+   * The opener reads the toggle's value from `remember` when `confirmed` fires.
+   */
+  rememberLabel = input<string>('');
+
+  /** Current value of the "remember" toggle; `false` until the user switches it on. */
+  readonly remember = signal(false);
 
   // Output events
   /**
@@ -112,9 +122,13 @@ export class ConfirmationDialogComponent {
     this.cancelled.emit();
   }
 
-  /** Confirms on `Enter` and cancels on `Escape`. */
+  /**
+   * Confirms on `Enter` and cancels on `Escape`. `Enter` on the remember toggle flips the toggle
+   * rather than confirming.
+   */
   onKeyDown(event: KeyboardEvent): void {
     if (event.key === 'Enter') {
+      if ((event.target as Element | null)?.closest?.('mat-slide-toggle')) return;
       this.onConfirmClick();
     } else if (event.key === 'Escape') {
       this.onCancelClick();

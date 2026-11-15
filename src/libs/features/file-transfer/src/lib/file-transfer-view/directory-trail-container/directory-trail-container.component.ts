@@ -1,5 +1,5 @@
 import { Component, input, inject, computed } from '@angular/core';
-import { StorageStore } from '@teensyrom-nx/application';
+import { DeviceStore, StorageStore } from '@teensyrom-nx/application';
 import { DirectoryTrailComponent } from '@teensyrom-nx/ui/components';
 
 /**
@@ -15,6 +15,7 @@ export class DirectoryTrailContainerComponent {
   deviceId = input.required<string>();
 
   private readonly storageStore = inject(StorageStore);
+  private readonly deviceStore = inject(DeviceStore);
 
   selectedDirectoryState = computed(() => {
     const deviceId = this.deviceId();
@@ -106,14 +107,16 @@ export class DirectoryTrailContainerComponent {
     });
   }
 
-  onRefreshClick(): void {
+  /** Re-indexes the shown folder and everything below it, then reloads it from the API. */
+  async onRefreshClick(): Promise<void> {
     const selected = this.selectedDirectory();
     if (!selected || selected.storageType === null) return;
 
-    this.storageStore.refreshDirectory({
-      deviceId: selected.deviceId,
-      storageType: selected.storageType,
-    });
+    const { deviceId, storageType } = selected;
+    const path = this.currentPath();
+    if (await this.deviceStore.indexStorage(deviceId, storageType, path)) {
+      await this.storageStore.refreshAfterIndex({ deviceId, storageType, path });
+    }
   }
 
   onNavigationRequested(path: string): void {
