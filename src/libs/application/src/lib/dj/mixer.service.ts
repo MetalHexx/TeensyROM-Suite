@@ -60,7 +60,7 @@ export class MixerService {
     if (!isVoice(voice) || !Number.isFinite(value) || !this.canShape(slot, knob)) {
       return;
     }
-    this.runtime.markPress(slot, 'nudge');
+    this.runtime.markPress(slot, 'knob');
     this.write(slot, () =>
       this.store.setVoiceStrip({
         slot,
@@ -75,7 +75,7 @@ export class MixerService {
     if (!Number.isFinite(value) || !this.canShape(slot, knob)) {
       return;
     }
-    this.runtime.markPress(slot, 'nudge');
+    this.runtime.markPress(slot, 'knob');
     this.write(slot, () =>
       this.store.setDeckPanel({ slot, patch: { [knob]: bounded(PANEL_RANGES[knob], value) } })
     );
@@ -86,6 +86,7 @@ export class MixerService {
     if (!Number.isFinite(semitones) || !this.canShape(slot, 'key')) {
       return;
     }
+    this.runtime.markPress(slot, 'knob');
     this.write(slot, () =>
       this.store.setDeckPanel({
         slot,

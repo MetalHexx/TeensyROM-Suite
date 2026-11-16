@@ -3,6 +3,7 @@ import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest';
 import { frames, milliseconds } from '@sidablist/core';
 import type { ReplayRunner, SidPlayer } from '@sidablist/core';
 import type { MidiOutputPort } from '@sidablist/asid';
+import { PressOrigin } from './bench/press-origin';
 import { DeckRuntime } from './deck-runtime';
 import {
   FRAME_CLOCK_FACTORY,
@@ -741,7 +742,8 @@ describe('DeckRuntime with a timing helper', () => {
           scheduleAheadMs: number;
           frames: number;
           presses: {
-            byKind: Record<string, { count: number }>;
+            byKind: Record<string, { count: number; max: number }>;
+            fromController: number;
             noFrame: number;
             superseded: number;
           };
@@ -780,16 +782,38 @@ describe('DeckRuntime with a timing helper', () => {
       expect(byKind['mute'].count).toBe(1);
     });
 
-    it('measures a nudge only from the frame after the engine took it', async () => {
+    it('measures a knob only from the frame after the engine took it', async () => {
       await playDeckA();
 
-      runtime.markPress('A', 'nudge');
+      runtime.markPress('A', 'knob');
       clocks[0].tick(milliseconds(performance.now()));
-      expect(reading().decks.A.presses.byKind['nudge']).toBeUndefined();
+      expect(reading().decks.A.presses.byKind['knob']).toBeUndefined();
 
       runtime.notePressApplied('A');
       clocks[0].tick(milliseconds(performance.now()));
-      expect(reading().decks.A.presses.byKind['nudge'].count).toBe(1);
+      expect(reading().decks.A.presses.byKind['knob'].count).toBe(1);
+    });
+
+    it('times a press from the arrival of the controller message it came in on', async () => {
+      await playDeckA();
+      const origin = TestBed.inject(PressOrigin);
+
+      origin.begin(performance.now() - 30);
+      runtime.markPress('A', 'mute');
+      origin.end();
+      clocks[0].tick(milliseconds(performance.now()));
+
+      const presses = reading().decks.A.presses;
+      expect(presses.byKind['mute'].max).toBeGreaterThanOrEqual(30);
+      expect(presses.fromController).toBe(1);
+    });
+
+    it('times a press with no controller message from its mark, as before', async () => {
+      await playDeckA();
+
+      pressThenFrame('mute');
+
+      expect(reading().decks.A.presses.fromController).toBe(0);
     });
 
     it('does nothing for a slot that is not built', () => {

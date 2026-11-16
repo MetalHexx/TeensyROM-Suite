@@ -214,6 +214,7 @@ export class DeckHand {
     hand.arrived = false;
     hand.state = 'held';
     this.store.setDeckHand({ slot, held: true });
+    this.runtime.markPress(slot, 'hand-touch');
   }
 
   private move(hand: SlotHand, value: number, timeStampMs: number): void {
@@ -228,9 +229,11 @@ export class DeckHand {
     if (hand.sampleCount < SAMPLE_CAPACITY) {
       hand.sampleCount++;
     }
+    this.runtime.markPress(hand.slot, 'hand-move');
   }
 
   private lift(hand: SlotHand, liftTimeMs: number): void {
+    this.runtime.markPress(hand.slot, 'hand-lift');
     this.store.setDeckHand({ slot: hand.slot, held: false });
     if (this.slip.land(hand.slot, 'hand')) {
       hand.state = 'idle';

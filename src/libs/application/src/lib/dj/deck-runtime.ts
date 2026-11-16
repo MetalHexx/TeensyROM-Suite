@@ -40,6 +40,7 @@ import {
 import type { DeckFrameClock, RegisterRecorder, TickSource } from './ports';
 import type { Slot } from './slot';
 import { DeliveryProbe } from './bench/delivery-probe';
+import { PressOrigin } from './bench/press-origin';
 import { PressProbe, type PressKind } from './bench/press-probe';
 import { installDeckBench } from './bench/deck-bench';
 import { DeckSendRoute, tickSourceOf } from './sender/deck-send-route';
@@ -133,6 +134,7 @@ export class DeckRuntime {
   private readonly recorderFactory = inject(REGISTER_RECORDER_FACTORY);
   private readonly midiAccess = inject(MIDI_ACCESS);
   private readonly route = inject(DeckSendRoute);
+  private readonly pressOrigin = inject(PressOrigin);
 
   private readonly slots = new Map<Slot, SlotRuntime>();
   private readonly facades = new Map<Slot, FacadeState>();
@@ -244,13 +246,24 @@ export class DeckRuntime {
     this.slots.get(slot)?.clock.setSource(source);
   }
 
-  /** Dev builds: marks a press reaching this slot's engine, for the press-to-wire reading. Does
-   *  nothing in production or for a slot not built. */
+  /** Dev builds: marks a press reaching this slot's engine, for the press-to-wire reading. It starts
+   *  at the arrival of the controller message being handled, if there is one, or now. Does nothing
+   *  in production or for a slot not built. */
   markPress(slot: Slot, kind: PressKind): void {
-    this.pressProbes.get(slot)?.mark(kind, performance.now());
+    const probe = this.pressProbes.get(slot);
+    if (probe === undefined) {
+      return;
+    }
+    const nowMs = performance.now();
+    probe.mark(
+      kind,
+      nowMs,
+      this.pressOrigin.startMs(nowMs),
+      this.pressOrigin.fromController(nowMs)
+    );
   }
 
-  /** Dev builds: the engine has taken the press pending on this slot — a nudge's panel apply. Does
+  /** Dev builds: the engine has taken the press pending on this slot — a knob's panel apply. Does
    *  nothing in production or for a slot not built. */
   notePressApplied(slot: Slot): void {
     this.pressProbes.get(slot)?.applied();
