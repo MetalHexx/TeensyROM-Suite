@@ -5,6 +5,7 @@ import type { ReplayRequest, ReplayResponse, ReplayRunner } from '@sidablist/cor
 import { createRow, createSet } from '@sidablist/tunes';
 import type { LoopMarker, Playable, TuneIdentity } from '@sidablist/tunes';
 import type { TuneIndexRecord } from '@sidablist/analysis';
+import { PressOrigin } from './bench/press-origin';
 import { DeckRuntime } from './deck-runtime';
 import { PlayheadPainter } from './playhead-painter';
 import { PITCH_BEND_CENTRE, PITCH_BEND_MAX } from './ports';
@@ -288,6 +289,65 @@ describe('DeckHand', () => {
   afterEach(() => {
     vi.restoreAllMocks();
     vi.unstubAllGlobals();
+  });
+
+  describe('press timing, in a dev build', () => {
+    interface Mark {
+      readonly kind: string;
+      readonly startMs: number;
+      readonly fromController: boolean;
+    }
+    let marks: Mark[];
+
+    /** Records each press the hand marks, with the start the runtime would time it from. */
+    beforeEach(() => {
+      marks = [];
+      const origin = TestBed.inject(PressOrigin);
+      vi.spyOn(runtime, 'markPress').mockImplementation((_slot, kind) => {
+        const nowMs = performance.now();
+        marks.push({
+          kind,
+          startMs: origin.startMs(nowMs),
+          fromController: origin.fromController(nowMs),
+        });
+      });
+    });
+
+    it('marks a touch, each move past the still band, and the lift, from each message arrival', async () => {
+      await playing(100);
+      const at = performance.now() - 20;
+
+      bend(9000, at);
+      bend(9000 + 5, at + 1);
+      bend(9000 + 100, at + 2);
+      bend(9000 + 200, at + 3);
+      bend(PITCH_BEND_CENTRE, at + 4);
+
+      expect(marks).toEqual([
+        { kind: 'hand-touch', startMs: at, fromController: true },
+        { kind: 'hand-move', startMs: at + 2, fromController: true },
+        { kind: 'hand-move', startMs: at + 3, fromController: true },
+        { kind: 'hand-lift', startMs: at + 4, fromController: true },
+      ]);
+    });
+
+    it('marks nothing for a touch the deck cannot take', () => {
+      bend(9000, performance.now() - 1);
+
+      expect(marks).toEqual([]);
+    });
+
+    it('marks a lift when the strip goes away under the finger, timed from the mark', async () => {
+      await playing(100);
+      bend(9000, performance.now() - 1);
+      marks = [];
+
+      h.engine.releaseHolds();
+
+      expect(marks).toEqual([
+        { kind: 'hand-lift', startMs: expect.any(Number), fromController: false },
+      ]);
+    });
   });
 
   describe('a touch', () => {

@@ -1,7 +1,9 @@
 import { TestBed } from '@angular/core/testing';
 import { beforeEach, describe, expect, it, vi, type MockInstance } from 'vitest';
 import { logWarn } from '@teensyrom-nx/utils';
+import { PressOrigin } from '../bench/press-origin';
 import type { HandTarget } from '../deck-hand';
+import { DeckRuntime } from '../deck-runtime';
 import { lengthLadder } from '../grid/beat-math';
 import type { ControlIdentity, MappingStyle, MidiSource, SourceEvent } from './mapping.models';
 import {
@@ -23,6 +25,7 @@ vi.mock('@teensyrom-nx/utils', async (importOriginal) => {
 
 const SPEED_A: ControlIdentity = { owner: 'A', control: 'speed' };
 const KEY_A: ControlIdentity = { owner: 'A', control: 'key' };
+const CUTOFF_A: ControlIdentity = { owner: 'A', control: 'filter-cutoff' };
 const MUTE_1_A: ControlIdentity = { owner: 'A', control: 'voice-1-mute' };
 const MUTE_2_A: ControlIdentity = { owner: 'A', control: 'voice-2-mute' };
 const HOLD_1_A: ControlIdentity = { owner: 'A', control: 'voice-1-hold' };
@@ -52,6 +55,90 @@ describe('MidiMappingEngine', () => {
   const muted = (voice = 0): boolean => h.djStore.deck('A')().voices[voice].muted;
   const held = (voice: number): boolean => h.djStore.deck('A')().voices[voice].held;
   const speed = (): number => h.djStore.deck('A')().speed;
+
+  describe('press timing, in a dev build', () => {
+    interface Mark {
+      readonly kind: string;
+      readonly startMs: number;
+      readonly fromController: boolean;
+    }
+    let marks: Mark[];
+    let origin: PressOrigin;
+
+    /** Records each press as the runtime sees it when it is marked, with the start it would use. */
+    beforeEach(() => {
+      marks = [];
+      origin = TestBed.inject(PressOrigin);
+      vi.spyOn(TestBed.inject(DeckRuntime), 'markPress').mockImplementation((_slot, kind) => {
+        const nowMs = performance.now();
+        marks.push({
+          kind,
+          startMs: origin.startMs(nowMs),
+          fromController: origin.fromController(nowMs),
+        });
+      });
+    });
+
+    it('starts a knob turned on a controller at the message arrival', () => {
+      map(ccSource(9), CUTOFF_A, style('absolute'));
+      const arrived = performance.now() - 12;
+
+      h.engine.handle(cc(9, 100, 1, LAUNCH_CONTROL, arrived));
+
+      expect(marks).toEqual([{ kind: 'knob', startMs: arrived, fromController: true }]);
+    });
+
+    it('marks the key as a knob', () => {
+      map(ccSource(7), KEY_A, style('absolute'));
+
+      h.engine.handle(cc(7, 127, 1, LAUNCH_CONTROL, performance.now() - 3));
+
+      expect(marks.map((mark) => mark.kind)).toEqual(['knob']);
+      expect(marks[0].fromController).toBe(true);
+    });
+
+    it('starts a button press at the message arrival', () => {
+      map(noteSource(40), MUTE_1_A, style('latch'));
+      const arrived = performance.now() - 8;
+
+      h.engine.handle(note(40, 127, 1, LAUNCH_CONTROL, arrived));
+
+      expect(marks).toEqual([{ kind: 'mute', startMs: arrived, fromController: true }]);
+    });
+
+    it('leaves no arrival behind once the message is handled', () => {
+      map(ccSource(9), CUTOFF_A, style('absolute'));
+
+      h.engine.handle(cc(9, 100, 1, LAUNCH_CONTROL, performance.now() - 5));
+
+      expect(origin.fromController(performance.now())).toBe(false);
+    });
+
+    it('leaves no arrival behind when the command throws', () => {
+      map(ccSource(9), CUTOFF_A, style('absolute'));
+      vi.spyOn(h.mixerService, 'setFilterKnob').mockImplementation(() => {
+        throw new Error('boom');
+      });
+
+      expect(() => h.engine.handle(cc(9, 100, 1, LAUNCH_CONTROL, performance.now() - 5))).toThrow(
+        'boom'
+      );
+      expect(origin.fromController(performance.now())).toBe(false);
+    });
+
+    it('starts a press from the screen at its mark, as before', () => {
+      h.mixerService.setKeySemitones('A', 2);
+
+      expect(marks).toEqual([{ kind: 'knob', startMs: expect.any(Number), fromController: false }]);
+    });
+
+    it('applies an unmapped message as before, with nothing marked', () => {
+      h.engine.handle(cc(99, 100, 1, LAUNCH_CONTROL, performance.now() - 5));
+
+      expect(marks).toEqual([]);
+      expect(origin.fromController(performance.now())).toBe(false);
+    });
+  });
 
   describe('matching', () => {
     it('does nothing for a source with no mapping, or one on another channel or controller', () => {

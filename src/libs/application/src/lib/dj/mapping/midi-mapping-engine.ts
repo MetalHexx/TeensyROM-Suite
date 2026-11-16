@@ -1,7 +1,8 @@
 import { DOCUMENT } from '@angular/common';
-import { DestroyRef, Injectable, computed, inject } from '@angular/core';
+import { DestroyRef, Injectable, computed, inject, isDevMode } from '@angular/core';
 import { clamp } from '@sidablist/core';
 import { logWarn } from '@teensyrom-nx/utils';
+import { PressOrigin } from '../bench/press-origin';
 import type { HandTarget } from '../deck-hand';
 import { HAND_GRIP_SECONDS } from './hand-settings';
 import { slowTurnStep } from '../mixer/slow-turn';
@@ -62,6 +63,8 @@ function quantize(control: ValueControl, value: number): number {
 export class MidiMappingEngine {
   private readonly store = inject(MidiMappingStore);
   private readonly controls = inject(MappableControls);
+  /** Dev builds only: where a press caused by a message learns when that message arrived. */
+  private readonly pressOrigin = isDevMode() ? inject(PressOrigin) : null;
 
   private readonly bySource = computed(
     () => new Map(this.store.mappings().map((mapping) => [sourceKey(mapping.source), mapping]))
@@ -90,8 +93,22 @@ export class MidiMappingEngine {
   }
 
   /** Applies one message. Ignores a source with no mapping, and one whose control is not on the
-   *  list. */
+   *  list. In a dev build, a press it causes is timed from the message's arrival. */
   handle(event: SourceEvent): void {
+    const origin = this.pressOrigin;
+    if (origin === null) {
+      this.apply(event);
+      return;
+    }
+    origin.begin(event.timeStampMs);
+    try {
+      this.apply(event);
+    } finally {
+      origin.end();
+    }
+  }
+
+  private apply(event: SourceEvent): void {
     const key = sourceKey(event);
     const mapping = this.bySource().get(key);
     if (mapping === undefined) {
