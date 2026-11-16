@@ -207,6 +207,8 @@ export function createFakeAsidSink(): FakeAsidSink {
     deliverNow: vi.fn(),
     retime: vi.fn(),
     reset: vi.fn(),
+    passedCount: vi.fn(() => 0),
+    replaceFrom: vi.fn(() => 0),
     readAt: vi.fn(() => ({ kind: 'unknown' as const, inFlight: 0 })),
     showText: vi.fn(),
     setScheduleAhead: vi.fn(),

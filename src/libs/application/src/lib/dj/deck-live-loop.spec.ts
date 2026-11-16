@@ -8,7 +8,7 @@ import type {
   ReplayResponse,
   ReplayRunner,
 } from '@sidablist/core';
-import { FakeDeckClock } from './testing/deck-runtime-fakes';
+import { ENGINE_TEST_PROVIDERS, FakeDeckClock } from './testing/deck-runtime-fakes';
 import type { MidiOutputPort } from '@sidablist/asid';
 import { InMemoryLoopPositionsStore } from '@sidablist/tunes';
 import type { LoopMarker, Playable, TuneIdentity } from '@sidablist/tunes';
@@ -190,6 +190,7 @@ describe('DeckLiveLoop', () => {
           provide: REGISTER_RECORDER_FACTORY,
           useValue: () => ({ record: () => Promise.resolve(record), dispose: () => undefined }),
         },
+        ...ENGINE_TEST_PROVIDERS,
         {
           provide: REPLAY_RUNNER_FACTORY,
           useValue: (): ReplayRunner => {

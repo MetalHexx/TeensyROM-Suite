@@ -3,7 +3,7 @@ import { signal } from '@angular/core';
 import { describe, it, expect, beforeEach, vi, type MockInstance } from 'vitest';
 import { milliseconds, replayToFrame } from '@sidablist/core';
 import type { ReplayRequest, ReplayResponse, ReplayRunner } from '@sidablist/core';
-import { FakeDeckClock } from './testing/deck-runtime-fakes';
+import { ENGINE_TEST_PROVIDERS, FakeDeckClock } from './testing/deck-runtime-fakes';
 import type { MidiOutputPort } from '@sidablist/asid';
 import { InMemoryLoopPositionsStore } from '@sidablist/tunes';
 import type { LoopMarker, LoopPositionsStore, Playable, TuneIdentity } from '@sidablist/tunes';
@@ -212,6 +212,7 @@ describe('DeckLoops', () => {
           provide: REGISTER_RECORDER_FACTORY,
           useValue: () => ({ record: () => Promise.resolve(null), dispose: () => undefined }),
         },
+        ...ENGINE_TEST_PROVIDERS,
         {
           provide: REPLAY_RUNNER_FACTORY,
           useValue: (): ReplayRunner => {

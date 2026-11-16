@@ -4,7 +4,7 @@ import { describe, it, expect, beforeEach, afterEach, vi, type MockInstance } fr
 import { of, throwError } from 'rxjs';
 import { frames, milliseconds, replayToFrame } from '@sidablist/core';
 import type { ReplayRequest, ReplayResponse, ReplayRunner } from '@sidablist/core';
-import { FakeDeckClock } from './testing/deck-runtime-fakes';
+import { ENGINE_TEST_PROVIDERS, FakeDeckClock } from './testing/deck-runtime-fakes';
 import type { MidiOutputPort } from '@sidablist/asid';
 import {
   InMemorySetStore,
@@ -332,6 +332,7 @@ describe('DeckService', () => {
             return clock;
           },
         },
+        ...ENGINE_TEST_PROVIDERS,
         { provide: REPLAY_RUNNER_FACTORY, useValue: (): ReplayRunner => new FakeReplayRunner() },
         {
           provide: REGISTER_RECORDER_FACTORY,

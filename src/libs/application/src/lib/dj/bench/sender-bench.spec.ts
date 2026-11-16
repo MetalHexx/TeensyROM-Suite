@@ -21,6 +21,7 @@ import { DeckSendRoute, SENDER_SCHEDULE_AHEAD_MS } from '../sender/deck-send-rou
 import { TICK_MS } from '../sender/sender-health';
 import { SenderSupervisor } from '../sender/sender-supervisor';
 import {
+  ENGINE_TEST_PROVIDERS,
   FakeDeckClock,
   FakeRegisterRecorder,
   FakeReplayRunner,
@@ -136,6 +137,7 @@ describe('sender bench', () => {
           useValue: { warning: vi.fn(), info: vi.fn() } as unknown as IAlertService,
         },
         { provide: FRAME_CLOCK_FACTORY, useValue: (): FakeDeckClock => new FakeDeckClock() },
+        ...ENGINE_TEST_PROVIDERS,
         { provide: REPLAY_RUNNER_FACTORY, useValue: (): ReplayRunner => new FakeReplayRunner() },
         {
           provide: REGISTER_RECORDER_FACTORY,

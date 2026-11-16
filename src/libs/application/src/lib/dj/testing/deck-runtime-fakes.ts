@@ -1,10 +1,15 @@
-import { signal, type WritableSignal } from '@angular/core';
+import { signal, type Provider, type WritableSignal } from '@angular/core';
 import { vi } from 'vitest';
-import { FakeClock } from '@sidablist/core';
+import { FakeClock, milliseconds } from '@sidablist/core';
 import type { RegisterRecord, ReplayRunner } from '@sidablist/core';
 import type { MidiOutputPort } from '@sidablist/asid';
 import type { Playable } from '@sidablist/tunes';
-import type { IMidiAccess, MidiAccessState, MidiPermission, MidiPortOption } from '../ports/midi-access';
+import type {
+  IMidiAccess,
+  MidiAccessState,
+  MidiPermission,
+  MidiPortOption,
+} from '../ports/midi-access';
 import type {
   AsidSenderEvent,
   DeckFrameClock,
@@ -15,6 +20,7 @@ import type {
   TickSource,
   WakeReadings,
 } from '../ports';
+import { ENGINE_LOG, ENGINE_TIME } from '../ports';
 import type { SenderTimingReport } from '@teensyrom-nx/asid-sender-protocol';
 
 /** Only `dispose()` is exercised in most specs, so `run` is never expected to be called. */
@@ -86,6 +92,12 @@ export class FakeRegisterRecorder implements RegisterRecorder {
   }
 }
 
+/** The engine's time source and log, for a spec that builds a `DeckRuntime` and does not look at them. */
+export const ENGINE_TEST_PROVIDERS: Provider[] = [
+  { provide: ENGINE_TIME, useValue: { now: () => milliseconds(performance.now()) } },
+  { provide: ENGINE_LOG, useValue: { warn: () => undefined, error: () => undefined } },
+];
+
 export function recordOf(frames: number): RegisterRecord {
   return {
     frames,
@@ -115,7 +127,7 @@ export function recordingPort(
     portId,
     supportsCancel,
     send: (bytes: Uint8Array, timestampMs?: number): void => {
-      sent.push(bytes);
+      sent.push(Uint8Array.from(bytes));
       stamps.push(timestampMs);
       timeline?.push('mixer:send');
     },
@@ -222,7 +234,7 @@ export class FakeSenderLink implements IAsidSenderLink {
   }
 
   send(token: string, bytes: Uint8Array, dueAtMs?: number): void {
-    this.sends.push({ token, bytes, dueAtMs });
+    this.sends.push({ token, bytes: Uint8Array.from(bytes), dueAtMs });
     this.timeline.push('link:send');
   }
 

@@ -36,6 +36,8 @@ import {
   REPLAY_RUNNER_FACTORY,
   REGISTER_RECORDER_FACTORY,
   MIDI_ACCESS,
+  ENGINE_TIME,
+  ENGINE_LOG,
 } from './ports';
 import type { DeckFrameClock, RegisterRecorder, TickSource } from './ports';
 import type { Slot } from './slot';
@@ -132,6 +134,8 @@ export class DeckRuntime {
   private readonly clockFactory = inject(FRAME_CLOCK_FACTORY);
   private readonly replayFactory = inject(REPLAY_RUNNER_FACTORY);
   private readonly recorderFactory = inject(REGISTER_RECORDER_FACTORY);
+  private readonly time = inject(ENGINE_TIME);
+  private readonly log = inject(ENGINE_LOG);
   private readonly midiAccess = inject(MIDI_ACCESS);
   private readonly route = inject(DeckSendRoute);
   private readonly pressOrigin = inject(PressOrigin);
@@ -185,13 +189,20 @@ export class DeckRuntime {
     }
 
     const port = this.createOutputPort(slot, facade);
-    const sink = createAsidSink(port, { scheduleAheadMs });
+    const sink = createAsidSink(port, { time: this.time, scheduleAheadMs, log: this.log });
     const clock = this.clockFactory();
     clock.setSource(tickSourceOf(this.route.path()));
     const replay = this.replayFactory();
     const prepare = this.replayFactory();
     const recorder = this.recorderFactory();
-    const player = createSidPlayer({ sink, clock, replayRunner: replay, prepareRunner: prepare });
+    const player = createSidPlayer({
+      sink,
+      clock,
+      replayRunner: replay,
+      prepareRunner: prepare,
+      time: this.time,
+      log: this.log,
+    });
     player.setRepeatTrack(true);
 
     this.slots.set(slot, { player, sink, clock, replay, prepare, recorder });
@@ -662,6 +673,10 @@ export class DeckRuntime {
    * token, and only when the helper lists that cartridge; otherwise it is dropped, warning once per
    * stretch. The helper cannot withdraw a frame it holds, so on that path the façade never claims
    * it can cancel.
+   *
+   * `send` forwards its bytes synchronously — to Web MIDI's `send` or to `postMessage` on the sender
+   * path, both of which copy — and the press probe keeps none, so the façade holds no bytes past the
+   * call, as `MidiOutputPort.send` requires.
    */
   private createOutputPort(slot: Slot, facade: FacadeState): MidiOutputPort {
     const resolve = (): MidiOutputPort | null =>

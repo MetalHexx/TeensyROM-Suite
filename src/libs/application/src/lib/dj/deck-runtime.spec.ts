@@ -1,7 +1,7 @@
 import { TestBed } from '@angular/core/testing';
 import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest';
 import { frames, milliseconds } from '@sidablist/core';
-import type { ReplayRunner, SidPlayer } from '@sidablist/core';
+import type { EngineLog, ReplayRunner, SidPlayer, TimeSource } from '@sidablist/core';
 import type { MidiOutputPort } from '@sidablist/asid';
 import { PressOrigin } from './bench/press-origin';
 import { DeckRuntime } from './deck-runtime';
@@ -11,10 +11,13 @@ import {
   REGISTER_RECORDER_FACTORY,
   MIDI_ACCESS,
   ASID_SENDER_LINK,
+  ENGINE_LOG,
+  ENGINE_TIME,
 } from './ports';
 import type { RegisterRecorder, WakeReadings } from './ports';
 import { DeckSendRoute, SENDER_SCHEDULE_AHEAD_MS } from './sender/deck-send-route';
 import {
+  ENGINE_TEST_PROVIDERS,
   FakeDeckClock,
   FakeRegisterRecorder,
   FakeReplayRunner,
@@ -30,6 +33,8 @@ import {
 } from './testing/deck-runtime-fakes';
 
 const createdPlayers = vi.hoisted((): unknown[] => []);
+const playerOptions = vi.hoisted((): { time?: unknown; log?: unknown }[] => []);
+const sinkOptions = vi.hoisted((): { time?: unknown; log?: unknown }[] => []);
 
 // The runtime keeps its players private, so the real `createSidPlayer` is wrapped to hand each
 // built player to the specs.
@@ -40,7 +45,19 @@ vi.mock('@sidablist/core', async (importOriginal) => {
     createSidPlayer: (...args: Parameters<typeof actual.createSidPlayer>) => {
       const player = actual.createSidPlayer(...args);
       createdPlayers.push(player);
+      playerOptions.push(args[0]);
       return player;
+    },
+  };
+});
+
+vi.mock('@sidablist/asid', async (importOriginal) => {
+  const actual = await importOriginal<typeof import('@sidablist/asid')>();
+  return {
+    ...actual,
+    createAsidSink: (...args: Parameters<typeof actual.createAsidSink>) => {
+      sinkOptions.push(args[1] ?? {});
+      return actual.createAsidSink(...args);
     },
   };
 });
@@ -52,9 +69,15 @@ describe('DeckRuntime', () => {
   let replayRunners: FakeReplayRunner[];
   let recorders: FakeRegisterRecorder[];
   let outputPortFor: ReturnType<typeof vi.fn>;
+  let engineTime: TimeSource;
+  let engineLog: EngineLog;
 
   beforeEach(() => {
     createdPlayers.length = 0;
+    playerOptions.length = 0;
+    sinkOptions.length = 0;
+    engineTime = { now: () => milliseconds(0) };
+    engineLog = { warn: vi.fn(), error: vi.fn() };
     replayRunners = [];
     recorders = [];
     clockFactory = vi.fn((): FakeDeckClock => new FakeDeckClock());
@@ -70,6 +93,8 @@ describe('DeckRuntime', () => {
         DeckRuntime,
         { provide: FRAME_CLOCK_FACTORY, useValue: clockFactory },
         { provide: REPLAY_RUNNER_FACTORY, useValue: replayFactory },
+        { provide: ENGINE_TIME, useFactory: () => engineTime },
+        { provide: ENGINE_LOG, useFactory: () => engineLog },
         {
           provide: REGISTER_RECORDER_FACTORY,
           useValue: (): RegisterRecorder => {
@@ -78,10 +103,25 @@ describe('DeckRuntime', () => {
             return recorder;
           },
         },
-        { provide: MIDI_ACCESS, useValue: fakeMidiAccess((id) => outputPortFor(id) as MidiOutputPort | null) },
+        {
+          provide: MIDI_ACCESS,
+          useValue: fakeMidiAccess((id) => outputPortFor(id) as MidiOutputPort | null),
+        },
       ],
     });
     runtime = TestBed.inject(DeckRuntime);
+  });
+
+  it('gives the sink and the player of every slot the same engine time and log', () => {
+    runtime.build('A');
+    runtime.build('B');
+
+    expect(sinkOptions).toHaveLength(2);
+    expect(playerOptions).toHaveLength(2);
+    for (const options of [...sinkOptions, ...playerOptions]) {
+      expect(options.time).toBe(engineTime);
+      expect(options.log).toBe(engineLog);
+    }
   });
 
   it('builds a slot once: a second build call does not rebuild its clock or replay threads', () => {
@@ -139,7 +179,11 @@ describe('DeckRuntime', () => {
   describe('resync', () => {
     /** The SID-type packet's chip flag, then the start packet — what `AsidSink.begin` sends. */
     function handshake(port: { readonly sent: readonly Uint8Array[] }) {
-      return { count: port.sent.length, is8580: port.sent[0]?.[4] === 1, startLength: port.sent[1]?.length };
+      return {
+        count: port.sent.length,
+        is8580: port.sent[0]?.[4] === 1,
+        startLength: port.sent[1]?.length,
+      };
     }
 
     it("re-sends the loaded tune's SID type and the start packet through the slot's port", () => {
@@ -499,7 +543,7 @@ describe('DeckRuntime', () => {
       expect(seek).toHaveBeenCalledExactlyOnceWith(320, settings);
     });
 
-    it('passes a loop\'s lap phase through setActiveLoop, changeLoopAt, startShadow and queueJump', () => {
+    it("passes a loop's lap phase through setActiveLoop, changeLoopAt, startShadow and queueJump", () => {
       const player = playerFor(0);
       const loop = vi.spyOn(player, 'setActiveLoop').mockImplementation(() => undefined);
       const change = vi.spyOn(player, 'changeLoopAt').mockImplementation(() => true);
@@ -562,6 +606,7 @@ describe('DeckRuntime', () => {
         providers: [
           DeckRuntime,
           { provide: FRAME_CLOCK_FACTORY, useValue: clockFactory },
+          ...ENGINE_TEST_PROVIDERS,
           { provide: REPLAY_RUNNER_FACTORY, useValue: replayFactory },
           {
             provide: REGISTER_RECORDER_FACTORY,
@@ -606,6 +651,7 @@ describe('DeckRuntime with a timing helper', () => {
             return clock;
           },
         },
+        ...ENGINE_TEST_PROVIDERS,
         { provide: REPLAY_RUNNER_FACTORY, useValue: (): ReplayRunner => new FakeReplayRunner() },
         {
           provide: REGISTER_RECORDER_FACTORY,
@@ -827,7 +873,9 @@ describe('DeckRuntime with a timing helper', () => {
 
     it('sends the same bytes with the same stamps whether or not a press is being measured', async () => {
       vi.spyOn(performance, 'now').mockReturnValue(50_000);
-      const run = async (press: boolean): Promise<{ sent: Uint8Array[]; stamps: (number | undefined)[] }> => {
+      const run = async (
+        press: boolean
+      ): Promise<{ sent: Uint8Array[]; stamps: (number | undefined)[] }> => {
         configure();
         runtime.build('A');
         runtime.setPort('A', 'port-a');

@@ -20,6 +20,7 @@ import type { IMidiSettingsRepository, RegisterRecorder, SendSettingsRecord } fr
 import { MidiSettingsPersistence } from '../midi-settings-persistence';
 import type { Slot } from '../slot';
 import {
+  ENGINE_TEST_PROVIDERS,
   FakeDeckClock,
   FakeRegisterRecorder,
   FakeReplayRunner,
@@ -100,6 +101,7 @@ describe('SenderSupervisor', () => {
             return clock;
           },
         },
+        ...ENGINE_TEST_PROVIDERS,
         { provide: REPLAY_RUNNER_FACTORY, useValue: (): ReplayRunner => new FakeReplayRunner() },
         {
           provide: REGISTER_RECORDER_FACTORY,
@@ -772,6 +774,7 @@ describe('SenderSupervisor with no link', () => {
         { provide: ALERT_SERVICE, useValue: { warning: vi.fn(), info: vi.fn() } },
         { provide: MIDI_ACCESS, useValue: fakeMidiAccess(() => null) },
         { provide: FRAME_CLOCK_FACTORY, useValue: (): FakeDeckClock => new FakeDeckClock() },
+        ...ENGINE_TEST_PROVIDERS,
         { provide: REPLAY_RUNNER_FACTORY, useValue: (): ReplayRunner => new FakeReplayRunner() },
         {
           provide: REGISTER_RECORDER_FACTORY,
