@@ -183,7 +183,8 @@ the code; compare against "Expected results" below before concluding either way.
   `Connection__PreferredTransport`) does three things, not one: it orders the start occasion's own
   cached-row confirm (preferred endpoint first, then the row's other cached endpoint once,
   `DeviceConnectionManager.TryConfirmCachedRow`), orders Reconnect's confirm the same way, and decides
-  which transport survives when a scan sees a chip on both (`CartFinder.DeduplicateByDeviceId`).
+  which transport survives when a scan sees a chip on both (`CartFinder.GroupEndpointsByCart`, before
+  storage is probed; `CartFinder.DeduplicateByDeviceId` afterwards when one side was in minimal firmware).
 - Changing the setting and restarting is enough on its own **when the cached row already holds an
   endpoint for the new preferred transport** - the next start tries that endpoint first, no full scan
   needed. A row missing that endpoint still needs a fresh discovery (Discover Devices, or the search a
