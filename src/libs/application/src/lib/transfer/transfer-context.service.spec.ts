@@ -379,7 +379,7 @@ describe('TransferContextService', () => {
       expect(store.transfers()['device-1'].phase).toBe('nothing-to-transfer');
     });
 
-    it('keeps what the scan left out so the modal can say why nothing was sent', async () => {
+    it('keeps what the scan skipped so the modal can say why nothing was sent', async () => {
       const scanSkipped = [{ reason: 'unsupportedType' as const, count: 3, types: ['.xyz'] }];
       mockDropScanner.scan.mockResolvedValue({ ...emptyScan, skipped: scanSkipped });
 

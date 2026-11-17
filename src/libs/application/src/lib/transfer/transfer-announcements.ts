@@ -4,7 +4,7 @@ import {
   TransferLaunchState,
   TransferOriginKind,
 } from '@teensyrom-nx/domain';
-import { describeSkips } from './transfer-skips';
+import { describeSkipHint, describeSkips } from './transfer-skips';
 
 export interface TransferAnnouncement {
   severity: 'info' | 'success' | 'error';
@@ -67,18 +67,25 @@ function completedMessage(snapshot: TransferJobSnapshot, deviceName: string): st
 
 /**
  * The end alert. Only a clean `Completed` — nothing failed to arrive, and any launch worked or
- * was not attempted — is a success; every other ending is an error. A job that left files out
- * adds the shared "left out" sentence after the outcome, whichever way it ended.
+ * was not attempted — is a success; every other ending is an error. A job that skipped files adds
+ * the "skipped" sentence after the outcome, and the hint for the job's own skips after that.
  */
 export function buildEndAnnouncement(
   snapshot: TransferJobSnapshot,
   deviceName: string
 ): TransferAnnouncement {
   const announcement = buildEndOutcome(snapshot, deviceName);
-  const leftOut = describeSkips(snapshot.skipped);
-  return leftOut === null
-    ? announcement
-    : { ...announcement, message: `${announcement.message.replace(/\.$/, '')}. ${leftOut}` };
+  const skipped = describeSkips(snapshot.skipped);
+  if (skipped === null) {
+    return announcement;
+  }
+  const hint = describeSkipHint(
+    [],
+    snapshot.skipped,
+    snapshot.origin.kind === TransferOriginKind.WatchFolder
+  );
+  const tail = hint === null ? skipped : `${skipped} ${hint}`;
+  return { ...announcement, message: `${announcement.message.replace(/\.$/, '')}. ${tail}` };
 }
 
 function buildEndOutcome(

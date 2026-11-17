@@ -21,7 +21,7 @@ export interface DropScanResult {
   rootName: string | null;
   /** Number of entries admitted as archives — one per archive file, regardless of its contents. */
   archiveCount: number;
-  /** What a folder walk left out, by reason. Loose files are never filtered, so never counted. */
+  /** What a folder walk skipped, by reason. Loose files are never filtered, so never counted. */
   skipped: TransferSkip[];
 }
 

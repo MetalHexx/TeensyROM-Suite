@@ -83,6 +83,6 @@ export interface TransferJobSnapshot {
   /** Path of the file the engine launched (or tried to); null when no launch applies. */
   launchedPath: string | null;
   launchError: string | null;
-  /** Files the job left out, by reason. Empty when nothing was left out. */
+  /** Files the job skipped, by reason. Empty when nothing was skipped. */
   skipped: TransferSkip[];
 }

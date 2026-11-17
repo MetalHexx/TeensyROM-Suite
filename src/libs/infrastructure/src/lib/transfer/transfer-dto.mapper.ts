@@ -60,7 +60,7 @@ export class TransferDtoMapper {
       launchState: this.toLaunchState(dto.launchState),
       launchedPath: dto.launchedPath ?? null,
       launchError: dto.launchError ?? null,
-      // Absent from an older API, so treated as nothing left out.
+      // Absent from an older API, so treated as nothing skipped.
       skipped: this.toSkips(dto.skipped ?? []),
     };
   }

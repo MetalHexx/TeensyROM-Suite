@@ -56,7 +56,7 @@ export interface DeviceTransferState {
   scanTotal: number;
   archivesSent: number; // number of archive entries sent, of scanTotal
   scanTotalBytes: number; // sum of the manifest's sizeBytes — the browser-to-API byte denominator
-  scanSkipped: TransferSkip[]; // what the drop scan left out of a folder, by reason
+  scanSkipped: TransferSkip[]; // what the drop scan skipped in a folder, by reason
   uploadedBytes: number; // bytes the browser has put on the wire
   uploadBytesPerSecond: number; // live while running; the lifetime average once the job is terminal
   uploadFailedCount: number; // files that exhausted their upload attempts locally
