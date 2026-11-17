@@ -246,6 +246,157 @@ public class CartFinderTests
     }
 
     [Fact]
+    public async Task FindDevices_WithSameChipIdOnSerialAndTcp_ProbesStorageOnlyOnTheKeptConnection()
+    {
+        var serialPort = CreatePort();
+        var tcpPort = CreatePort(ConnectionType.Tcp);
+        SetupDiscoveryStrategy(
+            CreateTestEndpoint(serialPort, FullReply(), "COM3"),
+            CreateTestEndpoint(tcpPort, FullReply(), "192.168.1.10", connectionType: ConnectionType.Tcp));
+        SetupProbes(StoragePresence.Present, StoragePresence.Absent);
+
+        var result = await _sut.FindDevices(CancellationToken.None);
+
+        var device = result.Should().ContainSingle().Subject;
+        device.ConnectionType.Should().Be(ConnectionType.Tcp);
+        device.Connection.TransportInUse.Should().Be(ConnectionType.Tcp);
+        device.Connection.TcpEndpoint.Should().Be("192.168.1.10:80");
+        device.Connection.SerialPortName.Should().Be("COM3");
+        device.Connection.Mode.Should().Be(DeviceMode.FullIdle);
+        device.Cart.SdStorage.Available.Should().BeTrue();
+        device.Cart.UsbStorage.Available.Should().BeFalse();
+        _mockInterrogator.Received(1).ProbeStorage(tcpPort, TeensyStorageType.SD);
+        _mockInterrogator.Received(1).ProbeStorage(tcpPort, TeensyStorageType.USB);
+        _mockInterrogator.DidNotReceive().ProbeStorage(serialPort, Arg.Any<TeensyStorageType>());
+        serialPort.Received(1).Dispose();
+        tcpPort.DidNotReceive().Dispose();
+    }
+
+    [Fact]
+    public async Task FindDevices_WithSameChipIdOnSerialAndTcp_WhenTheKeptConnectionDoesNotList_ListsTheOtherConnection()
+    {
+        var serialPort = CreatePort();
+        var tcpPort = CreatePort(ConnectionType.Tcp);
+        SetupDiscoveryStrategy(
+            CreateTestEndpoint(serialPort, FullReply(), "COM3"),
+            CreateTestEndpoint(tcpPort, FullReply(), "192.168.1.10", connectionType: ConnectionType.Tcp));
+        _mockInterrogator.ProbeStorage(Arg.Any<ICommunicationPort>(), Arg.Any<TeensyStorageType>())
+            .Returns(call => call.Arg<ICommunicationPort>() == tcpPort ? throw new IOException("link dropped") : StoragePresence.Present);
+
+        var result = await _sut.FindDevices(CancellationToken.None);
+
+        var device = result.Should().ContainSingle().Subject;
+        device.ConnectionType.Should().Be(ConnectionType.Serial);
+        device.Connection.TransportInUse.Should().Be(ConnectionType.Serial);
+        device.Connection.SerialPortName.Should().Be("COM3");
+        device.Connection.TcpEndpoint.Should().BeNull();
+        _mockInterrogator.Received(1).ProbeStorage(serialPort, TeensyStorageType.SD);
+        tcpPort.Received(1).Dispose();
+        serialPort.DidNotReceive().Dispose();
+    }
+
+    [Fact]
+    public async Task FindDevices_WithSameChipIdOnSerialAndTcp_AndOneInMinimalFirmware_BuildsEachConnectionThenMerges()
+    {
+        var serialPort = CreatePort();
+        var tcpPort = CreatePort(ConnectionType.Tcp);
+        SetupDiscoveryStrategy(
+            CreateTestEndpoint(serialPort, MinimalReply(), "COM3"),
+            CreateTestEndpoint(tcpPort, FullReply(), "192.168.1.10", connectionType: ConnectionType.Tcp));
+        SetupProbes(StoragePresence.Present, StoragePresence.Present);
+        _mockRecovery.RecoverAsync(Arg.Any<TeensyRomDevice>(), RecoveryReason.LeaveMinimal, Arg.Any<CancellationToken>())
+            .Returns(new RecoveryOutcome(DeviceMode.FullIdle, TimeSpan.Zero, TimeSpan.Zero, null));
+
+        var result = await _sut.FindDevices(CancellationToken.None);
+
+        var device = result.Should().ContainSingle().Subject;
+        device.ConnectionType.Should().Be(ConnectionType.Tcp);
+        device.Connection.TransportInUse.Should().Be(ConnectionType.Tcp);
+        device.Connection.TcpEndpoint.Should().Be("192.168.1.10:80");
+        device.Connection.SerialPortName.Should().Be("COM3");
+        device.Connection.Mode.Should().Be(DeviceMode.FullIdle);
+        await _mockRecovery.Received(1).RecoverAsync(Arg.Any<TeensyRomDevice>(), RecoveryReason.LeaveMinimal, Arg.Any<CancellationToken>());
+        _mockInterrogator.Received(1).ProbeStorage(tcpPort, TeensyStorageType.SD);
+        serialPort.Received(1).Dispose();
+        tcpPort.DidNotReceive().Dispose();
+    }
+
+    [Fact]
+    public async Task FindDevices_WithSameChipIdOnSerialAndTcp_AndKeptConnectionBusy_StaysBusyWithBothEndpoints()
+    {
+        var serialPort = CreatePort();
+        var tcpPort = CreatePort(ConnectionType.Tcp);
+        SetupDiscoveryStrategy(
+            CreateTestEndpoint(serialPort, FullReply(), "COM3"),
+            CreateTestEndpoint(tcpPort, FullReply(), "192.168.1.10", connectionType: ConnectionType.Tcp));
+        SetupProbes(
+            new Queue<StoragePresence>([StoragePresence.Busy, StoragePresence.Busy]),
+            new Queue<StoragePresence>([StoragePresence.Busy, StoragePresence.Busy]));
+
+        var result = await _sut.FindDevices(CancellationToken.None);
+
+        var device = result.Should().ContainSingle().Subject;
+        device.Connection.Mode.Should().Be(DeviceMode.FullBusy);
+        device.Connection.TransportInUse.Should().Be(ConnectionType.Tcp);
+        device.Connection.SerialPortName.Should().Be("COM3");
+        _mockInterrogator.DidNotReceive().ProbeStorage(serialPort, Arg.Any<TeensyStorageType>());
+    }
+
+    [Fact]
+    public async Task FindDevices_WithSameChipIdOnSerialAndTcp_AndKeptConnectionResetStillBooting_KeepsTheMenuBootPending()
+    {
+        var serialPort = CreatePort();
+        var tcpPort = CreatePort(ConnectionType.Tcp);
+        AnswerResetWithMenuBootTokenOnly(tcpPort);
+        SetupDiscoveryStrategy(
+            CreateTestEndpoint(serialPort, FullReply(), "COM3"),
+            CreateTestEndpoint(tcpPort, FullReply(), "192.168.1.10", connectionType: ConnectionType.Tcp));
+        SetupProbes(
+            new Queue<StoragePresence>([StoragePresence.Busy, StoragePresence.Present]),
+            new Queue<StoragePresence>([StoragePresence.Busy, StoragePresence.Present]));
+
+        var result = await _sut.FindDevices(CancellationToken.None);
+
+        var device = result.Should().ContainSingle().Subject;
+        device.Connection.TransportInUse.Should().Be(ConnectionType.Tcp);
+        device.Connection.SerialPortName.Should().Be("COM3");
+        device.Connection.Mode.Should().Be(DeviceMode.FullIdle);
+        device.Connection.MenuBootPending.Should().BeTrue();
+    }
+
+    [Fact]
+    public async Task BuildDevice_WithStorageBusyOnce_AndResetStillBooting_MarksMenuBootPending()
+    {
+        var port = CreatePort(ConnectionType.Tcp);
+        AnswerResetWithMenuBootTokenOnly(port);
+        var endpoint = CreateTestEndpoint(port, FullReply(), "192.168.1.10", connectionType: ConnectionType.Tcp);
+        SetupProbes(
+            new Queue<StoragePresence>([StoragePresence.Busy, StoragePresence.Present]),
+            new Queue<StoragePresence>([StoragePresence.Busy, StoragePresence.Present]));
+
+        var device = await _sut.BuildDevice(endpoint, CancellationToken.None);
+
+        device.Should().NotBeNull();
+        device!.Connection.Mode.Should().Be(DeviceMode.FullIdle);
+        device.Connection.MenuBootPending.Should().BeTrue();
+    }
+
+    /// <summary>
+    /// After the reset token, the port hands back the menu's boot-time SID token and then reads as closed,
+    /// so the reset sees the menu come up but never sees its boot complete: <see cref="MenuBootOutcome.StillBooting"/>.
+    /// </summary>
+    private static void AnswerResetWithMenuBootTokenOnly(ICommunicationPort port)
+    {
+        var token = BitConverter.GetBytes((ushort)TeensyToken.GoodSIDToken.Value);
+        port.BytesToRead.Returns(token.Length);
+        port.Read(Arg.Any<byte[]>(), 0, token.Length).Returns(call =>
+        {
+            token.CopyTo(call.ArgAt<byte[]>(0), 0);
+            return token.Length;
+        });
+    }
+
+    [Fact]
     public async Task FindDevices_WithAbsentProbeResult_MarksStorageUnavailable()
     {
         var port = CreatePort();

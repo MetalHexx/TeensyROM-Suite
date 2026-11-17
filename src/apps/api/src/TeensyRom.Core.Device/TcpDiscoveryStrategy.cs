@@ -150,7 +150,9 @@ public class TcpDiscoveryStrategy : IDiscoveryStrategy
     /// <inheritdoc cref="ITcpProbe"/>
     private sealed class TcpProbe(ILoggingService log) : ITcpProbe
     {
-        private const int _connectTimeoutMs = 100;
+        // Every address is tried at once, so this is roughly what one sweep takes, not a cost per address.
+        // 100 ms missed live carts whose first connection in the sweep took 170-460 ms (macOS, behind a travel router).
+        private const int _connectTimeoutMs = 1000;
 
         public async Task<ICommunicationPort> Connect(IPAddress ip, int port)
         {

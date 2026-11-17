@@ -13,7 +13,10 @@ namespace TeensyRom.Core.Device
 {
 	public interface ICartFinder
 	{
-		/// <summary>Runs every discovery strategy, builds a device per confirmed endpoint, dedupes by chip, and ensures settings.</summary>
+		/// <summary>
+		/// Runs every discovery strategy, builds one device per cart (a cart seen on one serial and one TCP
+		/// endpoint is built once, on the preferred transport), dedupes by chip, and ensures settings.
+		/// </summary>
 		Task<List<TeensyRomDevice>> FindDevices(CancellationToken ct);
 
 		/// <summary>
@@ -70,11 +73,11 @@ namespace TeensyRom.Core.Device
 
 				log.Internal($"{methodName} Found {endpoints.Count} endpoint(s), validating each as TeensyROM device");
 
-				foreach (var endpoint in endpoints)
+				foreach (var candidates in GroupEndpointsByCart(endpoints))
 				{
 					ct.ThrowIfCancellationRequested();
 
-					var device = await BuildDevice(endpoint, ct);
+					var device = await BuildFirstListable(candidates, ct);
 					if (device != null)
 					{
 						foundDevices.Add(device);
@@ -103,7 +106,8 @@ namespace TeensyRom.Core.Device
 		}
 
 		/// <summary>
-		/// Runs all discovery strategies in parallel and merges the results.
+		/// Runs the discovery strategies and merges the results. They run one after the other, not in
+		/// parallel: the serial strategy finishes before it returns, so the TCP sweep starts after it.
 		/// </summary>
 		private async Task<List<DiscoveredEndpoint>> DiscoverAllEndpoints(CancellationToken ct)
 		{
@@ -137,6 +141,92 @@ namespace TeensyRom.Core.Device
 
 			return allEndpoints;
 		}
+
+		/// <summary>
+		/// Groups the endpoints into one list per device to build. A cart whose version reply names the same
+		/// chip on exactly one Serial and one TCP endpoint, both in full firmware, is one group with the
+		/// preferred transport first, so its storage is probed once: storage belongs to the cart, not the
+		/// connection, and the version reply has already confirmed the other address. Every other endpoint
+		/// is a group of its own and is built as before, with <see cref="DeduplicateByDeviceId"/> merging
+		/// anything that turns out to be the same chip afterwards.
+		/// </summary>
+		private List<List<DiscoveredEndpoint>> GroupEndpointsByCart(List<DiscoveredEndpoint> endpoints)
+		{
+			var pairs = endpoints
+				.Where(e => e.Version.ChipId is not null && !e.Version.IsMinimalFirmware)
+				.GroupBy(e => e.Version.ChipId!)
+				.Where(g => g.Count() == 2
+					&& g.Any(e => e.ConnectionType == ConnectionType.Serial)
+					&& g.Any(e => e.ConnectionType == ConnectionType.Tcp))
+				.ToDictionary(g => g.Key, g => g.OrderBy(e => e.ConnectionType == options.PreferredTransport ? 0 : 1).ToList());
+
+			var groups = new List<List<DiscoveredEndpoint>>();
+			var grouped = new HashSet<string>();
+
+			foreach (var endpoint in endpoints)
+			{
+				if (endpoint.Version.ChipId is { } chipId
+					&& pairs.TryGetValue(chipId, out var pair)
+					&& pair.Any(e => ReferenceEquals(e, endpoint)))
+				{
+					if (grouped.Add(chipId))
+					{
+						groups.Add(pair);
+					}
+
+					continue;
+				}
+
+				groups.Add([endpoint]);
+			}
+
+			return groups;
+		}
+
+		/// <summary>
+		/// Builds the first endpoint in <paramref name="candidates"/> that lists. The ones after it are the
+		/// same cart on its other transport: their ports are closed and their addresses written onto the
+		/// device's record without probing storage again. When an endpoint of a pair does not list, its port
+		/// is closed and the next is tried; a lone endpoint that does not list is left as before.
+		/// </summary>
+		private async Task<TeensyRomDevice?> BuildFirstListable(List<DiscoveredEndpoint> candidates, CancellationToken ct)
+		{
+			for (var i = 0; i < candidates.Count; i++)
+			{
+				var device = await BuildDevice(candidates[i], ct);
+
+				if (device is null)
+				{
+					// The same cart is still reachable on its other transport: close this one so its port
+					// (on TCP, the device's single client connection) is not held while that one is tried.
+					if (candidates.Count > 1)
+					{
+						candidates[i].CommunicationPort.Dispose();
+					}
+
+					continue;
+				}
+
+				foreach (var other in candidates.Skip(i + 1))
+				{
+					log.Internal($"CartFinder.FindDevices: Device {device.DeviceId} found on {candidates.Count} transport(s), keeping {device.ConnectionType}; {other.Display} recorded without probing storage again");
+					other.CommunicationPort.Dispose();
+					RecordOtherEndpoint(device, other.ConnectionType, other.Display);
+				}
+
+				return device;
+			}
+
+			return null;
+		}
+
+		/// <summary>
+		/// Writes the same cart's endpoint on another transport onto <paramref name="preferred"/>'s record as
+		/// a known address. The record is not confirmed again, so everything building the device left there
+		/// stays as it is: the preferred transport in use, a busy mode, and a pending menu boot after a reset.
+		/// </summary>
+		private static void RecordOtherEndpoint(TeensyRomDevice preferred, ConnectionType otherType, string otherEndpoint) =>
+			preferred.Connection.RememberEndpoint(otherType, otherEndpoint);
 
 		/// <summary>
 		/// Builds a device from one confirmed endpoint. Identity and hardware facts come from the
@@ -282,12 +372,12 @@ namespace TeensyRom.Core.Device
 		}
 
 		/// <summary>
-		/// Deduplicates devices discovered on multiple transports. When the same chip is found via Serial
-		/// and TCP, <see cref="ConnectionOptions.PreferredTransport"/> wins: the other port is disposed and
-		/// its endpoint is written onto the surviving device's record, so the one record carries both
-		/// endpoints while <c>TransportInUse</c> ends as the preferred transport.
-		/// <see cref="DeviceConnectionRecord.Confirm"/> rejects <see cref="DeviceMode.FullBusy"/>, so a busy
-		/// survivor is confirmed as idle and then re-marked busy to preserve its actual state.
+		/// Deduplicates devices that were built separately but turn out to be the same chip - the endpoints
+		/// <see cref="GroupEndpointsByCart"/> leaves to build on their own, such as a cart in minimal firmware
+		/// on one transport. <see cref="ConnectionOptions.PreferredTransport"/> wins: the other port is
+		/// disposed and its endpoint is recorded on the surviving device's record by
+		/// <see cref="RecordOtherEndpoint"/>, so the one record carries both endpoints while
+		/// <c>TransportInUse</c> stays the preferred transport.
 		/// </summary>
 		private List<TeensyRomDevice> DeduplicateByDeviceId(List<TeensyRomDevice> devices)
 		{
@@ -316,17 +406,7 @@ namespace TeensyRom.Core.Device
 				{
 					if (match is not null && device.ConnectionType != preferred.ConnectionType && device.Connection.EndpointFor(device.ConnectionType) is { } otherEndpoint)
 					{
-						var wasBusy = preferred.Connection.Mode == DeviceMode.FullBusy;
-						var confirmMode = wasBusy ? DeviceMode.FullIdle : preferred.Connection.Mode;
-						var preferredEndpoint = preferred.Connection.EndpointFor(preferred.ConnectionType) ?? preferred.ComPort;
-
-						preferred.Confirm(device.ConnectionType, otherEndpoint, confirmMode);
-						preferred.Confirm(preferred.ConnectionType, preferredEndpoint, confirmMode);
-
-						if (wasBusy)
-						{
-							preferred.MarkBusy();
-						}
+						RecordOtherEndpoint(preferred, device.ConnectionType, otherEndpoint);
 					}
 
 					log.Internal($"CartFinder.DeduplicateByDeviceId: Disposing duplicate {device.ConnectionType} connection for {device.Cart.DeviceId}");

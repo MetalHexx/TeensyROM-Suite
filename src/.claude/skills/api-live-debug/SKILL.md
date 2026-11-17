@@ -300,7 +300,8 @@ trusting them — a coder or reviewer spot-checks by opening the file, not by tr
 | `…/TRStreamExtensions.cs:281` | `WaitForMenuBootToken`'s success exit — its read loop itself is off-limits, see the gotcha above | `timeoutMs`, `stopwatch.ElapsedMilliseconds` |
 | `TeensyRom.Core.Serial/Commands/Reset/ResetCommandHandler.cs:12` | explicit resets (when the gate doesn't shortcut them) | `request.DeviceId` |
 | `TeensyRom.Core.Device/CartFinder.cs:171` | `BuildDevice` — the minimal-firmware check right after one confirmed endpoint's version reply is mapped | `endpoint.Display`, `endpoint.ConnectionType`, `reply.IsMinimalFirmware` |
-| `…/CartFinder.cs:321` | `DeduplicateByDeviceId` — a chip found on two transports, the preferred one kept | `group.Key`, `group.Count()`, `match?.ConnectionType` |
+| `…/CartFinder.cs:212` | `BuildFirstListable` — the usual chip on one serial and one TCP endpoint, both full firmware: built once on the kept transport, the other address recorded without a storage probe | `device.DeviceId`, `device.ConnectionType`, `other.Display`, `candidates.Count` |
+| `…/CartFinder.cs:402` | `DeduplicateByDeviceId` — a chip built on two transports anyway (e.g. one side in minimal firmware), the preferred one kept | `group.Key`, `group.Count()`, `match?.ConnectionType` |
 | `TeensyRom.Core.Device/DeviceConnectionManager.cs:122` | every `FindDevices` call (page load vs. full scan) | `fullScan`, `_byChip.Count` |
 | `…/DeviceConnectionManager.cs:152` | `ReconnectAsync` — every reconnect request's entry (expression body; the statement line, not the signature line above it) | `deviceId` |
 | `…/DeviceConnectionManager.cs:155` | `ForgetAsync` — every forget request's entry (same caveat) | `deviceId` |
