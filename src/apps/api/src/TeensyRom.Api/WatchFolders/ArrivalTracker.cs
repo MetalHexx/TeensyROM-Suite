@@ -39,7 +39,7 @@ namespace TeensyRom.Api.WatchFolders
         private readonly Dictionary<string, DateTimeOffset> _dispatched = new(PathComparer);
         private OpenSet? _open;
 
-        // What this folder left out since it last said so; written out when its next set goes, or when none follows.
+        // What this folder skipped since it last said so; written out when its next set goes, or when none follows.
         private readonly TransferSkipTally _skips = new();
         private DateTimeOffset _lastSkipAt;
 

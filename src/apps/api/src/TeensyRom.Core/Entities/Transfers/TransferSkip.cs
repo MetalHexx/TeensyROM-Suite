@@ -1,6 +1,6 @@
 namespace TeensyRom.Core.Entities.Transfers
 {
-    /// <summary>Why a file was left out of a transfer. The declaration order is the order skips are reported in.</summary>
+    /// <summary>Why a file was skipped in a transfer. The declaration order is the order skips are reported in.</summary>
     public enum TransferSkipReason
     {
         UnsupportedType,
@@ -9,7 +9,7 @@ namespace TeensyRom.Core.Entities.Transfers
     }
 
     /// <summary>
-    /// A count of files left out for one reason. <paramref name="Types"/> is filled only for
+    /// A count of files skipped for one reason. <paramref name="Types"/> is filled only for
     /// <see cref="TransferSkipReason.UnsupportedType"/>: the distinct lower-case extensions (with the dot), sorted
     /// ordinally, where a name with no extension contributes "(no extension)". Empty for the other reasons.
     /// </summary>
@@ -64,11 +64,11 @@ namespace TeensyRom.Core.Entities.Transfers
                 .ToArray();
     }
 
-    /// <summary>The one wording every surface uses to say what was left out.</summary>
+    /// <summary>The one wording every surface uses to say what was skipped.</summary>
     public static class TransferSkipWording
     {
         /// <summary>
-        /// E.g. "3 files left out (.bin, .xyz): not a file type the TeensyROM takes; 2 hidden or system files left out."
+        /// E.g. "3 files skipped (.bin, .xyz, no extension): not a file type the TeensyROM takes; 2 hidden or system files skipped."
         /// Empty when there are no skips.
         /// </summary>
         public static string Describe(IEnumerable<TransferSkip> skips)
@@ -79,15 +79,31 @@ namespace TeensyRom.Core.Entities.Transfers
                 .Select(s => s.Reason switch
                 {
                     TransferSkipReason.UnsupportedType =>
-                        $"{s.Count} {(s.Count == 1 ? "file" : "files")} left out ({string.Join(", ", s.Types)}): not a file type the TeensyROM takes",
+                        $"{s.Count} {(s.Count == 1 ? "file" : "files")} skipped{TypeList(s.Types)}: not a file type the TeensyROM takes",
                     TransferSkipReason.HiddenOrSystem =>
-                        $"{s.Count} hidden or system {(s.Count == 1 ? "file" : "files")} left out",
+                        $"{s.Count} hidden or system {(s.Count == 1 ? "file" : "files")} skipped",
                     _ =>
-                        $"{s.Count} unfinished {(s.Count == 1 ? "download" : "downloads")} left out"
+                        $"{s.Count} unfinished {(s.Count == 1 ? "download" : "downloads")} skipped"
                 })
                 .ToList();
 
             return parts.Count == 0 ? string.Empty : string.Join("; ", parts) + ".";
+        }
+
+        /// <summary>
+        /// " (.bin, .xyz, no extension)": the extensions in ordinal order, with the no-extension token rendered last
+        /// and without its parentheses. Empty when there are no types.
+        /// </summary>
+        private static string TypeList(IReadOnlyList<string> types)
+        {
+            var listed = types
+                .Where(t => t != TransferSkipTally.NoExtension)
+                .OrderBy(t => t, StringComparer.Ordinal)
+                .ToList();
+
+            if (types.Contains(TransferSkipTally.NoExtension)) listed.Add("no extension");
+
+            return listed.Count == 0 ? string.Empty : $" ({string.Join(", ", listed)})";
         }
     }
 }

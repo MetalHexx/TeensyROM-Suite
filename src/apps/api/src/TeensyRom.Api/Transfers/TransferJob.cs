@@ -36,7 +36,7 @@ namespace TeensyRom.Api.Transfers
         private long _expansionBytesWritten; // for that archive only — resets when the next one starts
         private long _expansionBytesDeclared; // for that archive only
         private int _expandedFileCount;      // job-wide running total
-        private readonly TransferSkipTally _skips = new(); // archive entries expansion left out, by reason
+        private readonly TransferSkipTally _skips = new(); // archive entries expansion skipped, by reason
         private int _archivesAccepted;       // archives uploaded and handed to expansion
         private int _archivesOutstanding;    // accepted but not yet finished expanding
         private int _archiveSlotsPendingRelease; // finished archives whose own PendingCount slot is still held

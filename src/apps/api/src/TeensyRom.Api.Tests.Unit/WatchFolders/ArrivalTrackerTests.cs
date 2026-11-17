@@ -373,7 +373,7 @@ public class ArrivalTrackerTests
 
         Run(15).Should().BeEmpty();
         _log.Received(1).Internal(
-            $"Watch folder {_root}: 1 file left out (.doc): not a file type the TeensyROM takes.", Arg.Any<string?>());
+            $"Watch folder {_root}: 1 file skipped (.doc): not a file type the TeensyROM takes.", Arg.Any<string?>());
         _log.DidNotReceiveWithAnyArgs().InternalWarning(default!, default);
     }
 
@@ -394,7 +394,7 @@ public class ArrivalTrackerTests
 
         Paths(set).Should().Equal("game.prg");
         _log.Received(1).Internal(
-            $"Watch folder {_root}: 2 files left out (.bin, .xyz): not a file type the TeensyROM takes; 1 hidden or system file left out; 1 unfinished download left out.",
+            $"Watch folder {_root}: 2 files skipped (.bin, .xyz): not a file type the TeensyROM takes; 1 hidden or system file skipped; 1 unfinished download skipped.",
             Arg.Any<string?>());
     }
 
@@ -409,7 +409,7 @@ public class ArrivalTrackerTests
         Run(10);
 
         _log.Received(2).Internal(
-            $"Watch folder {_root}: 1 file left out (.xyz): not a file type the TeensyROM takes.", Arg.Any<string?>());
+            $"Watch folder {_root}: 1 file skipped (.xyz): not a file type the TeensyROM takes.", Arg.Any<string?>());
     }
 
     [Fact]
@@ -467,7 +467,7 @@ public class ArrivalTrackerTests
         Run(15).Should().BeEmpty();
         _log.DidNotReceiveWithAnyArgs().InternalWarning(default!, default);
         _log.Received(1).Internal(
-            $"Watch folder {_root}: 3 files left out ((no extension), .doc): not a file type the TeensyROM takes; 1 hidden or system file left out.",
+            $"Watch folder {_root}: 3 files skipped (.doc, no extension): not a file type the TeensyROM takes; 1 hidden or system file skipped.",
             Arg.Any<string?>());
     }
 
@@ -719,7 +719,7 @@ public class ArrivalTrackerTests
         Created("dot.zip");
 
         Run(10).Should().BeEmpty();
-        _log.Received(1).Internal($"Watch folder {_root}: 1 hidden or system file left out.", Arg.Any<string?>());
+        _log.Received(1).Internal($"Watch folder {_root}: 1 hidden or system file skipped.", Arg.Any<string?>());
     }
 
     [Fact]

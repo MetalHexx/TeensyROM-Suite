@@ -3,7 +3,7 @@ using TeensyRom.Core.Entities.Transfers;
 
 namespace TeensyRom.Api.Models
 {
-    /// <summary>How many files a transfer left out for one reason, and for an unsupported type, which types.</summary>
+    /// <summary>How many files a transfer skipped for one reason, and for an unsupported type, which types.</summary>
     public class TransferSkipDto
     {
         [Required] public TransferSkipReason Reason { get; set; }
