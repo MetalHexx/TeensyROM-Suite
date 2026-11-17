@@ -16,6 +16,7 @@ on:
       - 'src/apps/api/src/TeensyRom.Api/**'
       - 'src/apps/Version.props'
       - 'src/apps/packaging/**'
+      - 'global.json'
   workflow_dispatch:
 
 permissions:
