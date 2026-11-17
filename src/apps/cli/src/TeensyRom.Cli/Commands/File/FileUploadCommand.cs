@@ -132,7 +132,7 @@ internal sealed class FileUploadCommand(
         var job = run.Job;
         var report = BuildReport(to, run);
 
-        NoticeSkips(report.Skipped!);
+        NoticeSkips(report.Skipped!, job.Skipped);
 
         var succeeded = report.Totals.Failed == 0 && job.State == TransferJobState.Completed;
 
@@ -198,7 +198,7 @@ internal sealed class FileUploadCommand(
 
     /// <summary>
     /// Nothing is left to send. Named paths that don't exist are the results (exit 5); a walked folder that was empty or
-    /// had every file left out is not an error: the report has no files, and a notice says why.
+    /// had every file skipped is not an error: the report has no files, and a notice says why.
     /// </summary>
     private int NothingToSend()
     {
@@ -210,11 +210,12 @@ internal sealed class FileUploadCommand(
             var why = SkipTally.Describe(skipped);
 
             Output.Notice(why.Length > 0 ? $"There's nothing to upload in {where}: {why}" : $"There's nothing to upload in {where}.");
+            NoticeHint(SkipTally.Hint(_plan.SkippedFiles, []));
             CopyResults.Show(Output, new CopyReportJson([], new CopyTotalsJson(0, 0), skipped));
 
             return 0;
         }
-        NoticeSkips(skipped);
+        NoticeSkips(skipped, []);
 
         var results = _plan.NotFound.Select(path => CopyResults.Failed(path, string.Empty, CopyResults.NotFoundMessage)).ToList();
 
@@ -223,9 +224,17 @@ internal sealed class FileUploadCommand(
         return BatchOutcome.Finish(Output, results.Count, results.Count, anyFailedForOtherReasons: false, "files");
     }
 
-    private void NoticeSkips(IReadOnlyList<CopySkipJson> skipped)
+    /// <summary>Says on stderr what was skipped, then how to send the skipped types when some were skipped for their type.</summary>
+    private void NoticeSkips(IReadOnlyList<CopySkipJson> skipped, IEnumerable<TransferSkipDto> jobSkipped)
     {
         if (skipped.Count > 0) Output.Notice(SkipTally.Describe(skipped));
+
+        NoticeHint(SkipTally.Hint(_plan.SkippedFiles, jobSkipped));
+    }
+
+    private void NoticeHint(string hint)
+    {
+        if (hint.Length > 0) Output.Notice(hint);
     }
 
     /// <summary>Says on stderr how a launch tr-web made came out; a launch that wasn't tried says nothing.</summary>

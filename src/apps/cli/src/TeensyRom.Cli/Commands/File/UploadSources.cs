@@ -13,7 +13,7 @@ internal sealed record UploadFile(string LocalPath, string RelativePath, long Si
 
 /// <summary>
 /// What the named sources come to: the files to send, the named paths that don't exist, the folders that were walked,
-/// and the walked files that were left out, with the reason for each.
+/// and the walked files that were skipped, with the reason for each.
 /// </summary>
 internal sealed record UploadPlan(
     IReadOnlyList<UploadFile> Files,
@@ -21,7 +21,7 @@ internal sealed record UploadPlan(
     IReadOnlyList<string> Folders,
     IReadOnlyList<SkippedFile>? Skipped = null)
 {
-    /// <summary>The walked files left out, hidden and partial ones from the walk, unsupported types once <see cref="WithFolderTypes"/> has run.</summary>
+    /// <summary>The walked files skipped, hidden and partial ones from the walk, unsupported types once <see cref="WithFolderTypes"/> has run.</summary>
     public IReadOnlyList<SkippedFile> SkippedFiles => Skipped ?? [];
 
     public long TotalSize => Files.Sum(file => file.Size);
@@ -107,7 +107,7 @@ internal static class UploadSources
     /// No names at all means the contents of <paramref name="currentFolder"/>. A named file is
     /// always kept, whatever its type. Walked files are kept with their type tagged, except linked ones, which are never
     /// followed, and hidden, system (a file, or anything under a hidden or system folder), <see cref="IsExcluded"/> and
-    /// <see cref="IsPartialDownload"/> ones, which are left out and recorded in <see cref="UploadPlan.SkippedFiles"/>. The
+    /// <see cref="IsPartialDownload"/> ones, which are skipped and recorded in <see cref="UploadPlan.SkippedFiles"/>. The
     /// exclusions are judged below the named folder, so a folder named <c>.stash</c> still sends its contents; the rule
     /// mirrors <c>TransferExclusions</c>.
     /// </summary>

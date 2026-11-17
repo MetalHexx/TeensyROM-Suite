@@ -27,7 +27,7 @@ internal sealed record CopyLaunchJson(LaunchStatus Status, string? Path, string?
 
 /// <summary>
 /// A copy run's JSON document: <c>{ "files": [ { "localPath", "devicePath", "ok", "message" } ], "totals": { "copied", "failed" } }</c>.
-/// An upload also carries <c>skipped</c>, always, listing the files it left out by reason (empty when none), and
+/// An upload also carries <c>skipped</c>, always, listing the files it skipped by reason (empty when none), and
 /// <c>launched</c> when tr-web tried to launch a file. A download has neither.
 /// </summary>
 internal sealed record CopyReportJson(

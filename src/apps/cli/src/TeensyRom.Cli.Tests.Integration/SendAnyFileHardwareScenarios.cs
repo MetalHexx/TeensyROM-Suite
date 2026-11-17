@@ -100,7 +100,7 @@ public sealed partial class HardwareScenarios
     }
 
     /// <summary>
-    /// A folder walk without --all-types sends the known types and says how many files it left out; with --all-types it
+    /// A folder walk without --all-types sends the known types and says how many files it skipped; with --all-types it
     /// sends everything.
     /// </summary>
     [SkippableFact]
@@ -122,14 +122,14 @@ public sealed partial class HardwareScenarios
                 var plain = await RunJsonAsync("file", "upload", Path.Combine(local, "walk"), "--to", $"{run}/plain", "--device", device.DeviceId, "--storage", storage, "--json");
 
                 plain.ExitCode.Should().Be(0, plain.Error);
-                plain.Error.Should().Contain("2 files left out (.bin, .xyz): not a file type the TeensyROM takes.");
+                plain.Error.Should().Contain("2 files skipped (.bin, .xyz): not a file type the TeensyROM takes.");
                 plain.Json.GetProperty("skipped")[0].GetProperty("count").GetInt32().Should().Be(2);
                 Names((await ListAsync($"{run}/plain/walk", device.DeviceId, storage)).Json).Should().Equal("game.prg", "readme.txt");
 
                 var all = await RunJsonAsync("file", "upload", Path.Combine(local, "walk"), "--all-types", "--to", $"{run}/all", "--device", device.DeviceId, "--storage", storage, "--json");
 
                 all.ExitCode.Should().Be(0, all.Error);
-                all.Error.Should().NotContain("left out");
+                all.Error.Should().NotContain("not a file type");
                 Names((await ListAsync($"{run}/all/walk", device.DeviceId, storage)).Json).Should().Equal("blob.bin", "game.prg", "notes.xyz", "readme.txt");
             });
         }
@@ -167,7 +167,7 @@ public sealed partial class HardwareScenarios
 
                 upload.ExitCode.Should().Be(0, upload.Error);
                 upload.Json.GetProperty("totals").GetProperty("copied").GetInt32().Should().Be(1);
-                upload.Error.Should().Contain("1 file left out (.xyz): not a file type the TeensyROM takes; 1 hidden or system file left out; 2 unfinished downloads left out.");
+                upload.Error.Should().Contain("1 file skipped (.xyz): not a file type the TeensyROM takes; 1 hidden or system file skipped; 2 unfinished downloads skipped.");
                 upload.Json.GetProperty("skipped").EnumerateArray().Select(skip => skip.GetProperty("reason").GetString())
                     .Should().Equal("unsupportedType", "hiddenOrSystem", "partialDownload");
                 var listing = await ListAsync($"{run}/.stash", device.DeviceId, storage);
@@ -506,7 +506,7 @@ public sealed partial class HardwareScenarios
     }
 
     /// <summary>
-    /// A folder walk reports what it left out by reason: without --all-types the unknown types, the hidden file and the
+    /// A folder walk reports what it skipped by reason: without --all-types the unknown types, the hidden file and the
     /// unfinished download; with it, only the last two.
     /// </summary>
     [SkippableFact]

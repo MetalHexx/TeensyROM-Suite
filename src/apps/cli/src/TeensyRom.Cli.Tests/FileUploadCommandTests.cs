@@ -184,6 +184,8 @@ public sealed class FileUploadCommandTests : IDisposable
 
     private static string[] Lines(TestHost host) => host.Consoles.StdOut.Replace("\r\n", "\n").Split('\n', StringSplitOptions.RemoveEmptyEntries);
 
+    private static string[] ErrLines(TestHost host) => host.Consoles.StdErr.Replace("\r\n", "\n").Split('\n', StringSplitOptions.RemoveEmptyEntries);
+
     private static JsonElement LastError(TestHost host) =>
         Parse(host.Consoles.StdErr.TrimEnd().Split('\n')[^1]).GetProperty("error");
 
@@ -338,7 +340,7 @@ public sealed class FileUploadCommandTests : IDisposable
     // ---- the file-type filter, the notice and the total ----------------------------------------------------------------
 
     [Fact]
-    public async Task AFolder_SendsOnlySupportedTypes_IgnoringCase_AndSaysHowManyWereLeftOut()
+    public async Task AFolder_SendsOnlySupportedTypes_IgnoringCase_AndSaysHowManyWereSkipped()
     {
         Write("mixed/a.sid", 10);
         Write("mixed/B.PRG", 10);
@@ -353,8 +355,8 @@ public sealed class FileUploadCommandTests : IDisposable
 
         exitCode.Should().Be(0, host.Consoles.StdErr);
         Uploaded().Should().Equal("mixed/B.PRG", "mixed/a.sid", "mixed/deep/c.d64", "mixed/deep/pack.ZIP");
-        host.Consoles.StdErr.Should().Contain("2 files left out (.doc): not a file type the TeensyROM takes; 1 hidden or system file left out.");
-        host.Consoles.StdOut.Should().NotContain("left out");
+        host.Consoles.StdErr.Should().Contain("2 files skipped (.doc): not a file type the TeensyROM takes; 1 hidden or system file skipped.");
+        host.Consoles.StdOut.Should().NotContain("not a file type");
     }
 
     [Fact]
@@ -376,11 +378,11 @@ public sealed class FileUploadCommandTests : IDisposable
         Uploaded().Should().BeEquivalentTo(
             "firmware/info.nfo", "firmware/disk.d71", "firmware/disk.d81", "firmware/cart.reu",
             "firmware/cart.trh", "firmware/readme.md", "firmware/art.ocp", "firmware/pic.pic");
-        host.Consoles.StdErr.Should().NotContain("left out");
+        host.Consoles.StdErr.Should().NotContain("skipped (");
     }
 
     [Fact]
-    public async Task TheLeftOutSentence_IsOnStderrOnly_AndTheJsonCarriesTheCounts_AndASingleFileReadsInTheSingular()
+    public async Task TheSkippedSentence_IsOnStderrOnly_AndTheJsonCarriesTheCounts_AndASingleFileReadsInTheSingular()
     {
         Write("mixed/a.sid", 10);
         Write("mixed/notes.doc", 10);
@@ -392,8 +394,8 @@ public sealed class FileUploadCommandTests : IDisposable
         exitCode.Should().Be(0, host.Consoles.StdErr);
         var report = Parse(host.Consoles.StdOut);
         report.GetProperty("totals").GetProperty("failed").GetInt32().Should().Be(0);
-        host.Consoles.StdOut.Should().NotContain("left out");
-        host.Consoles.StdErr.Should().Contain("1 file left out (.doc): not a file type the TeensyROM takes; 1 hidden or system file left out.");
+        host.Consoles.StdOut.Should().NotContain("not a file type");
+        host.Consoles.StdErr.Should().Contain("1 file skipped (.doc): not a file type the TeensyROM takes; 1 hidden or system file skipped.");
         report.GetProperty("skipped").GetArrayLength().Should().Be(2);
     }
 
@@ -406,7 +408,10 @@ public sealed class FileUploadCommandTests : IDisposable
         var exitCode = await host.RunAsync("file", "upload", "docs", "--to", "/x");
 
         exitCode.Should().Be(0, host.Consoles.StdErr);
-        host.Consoles.StdErr.Should().Contain("nothing to upload").And.Contain("1 file left out (.doc): not a file type the TeensyROM takes.");
+        var errLines = ErrLines(host);
+        var notice = Array.FindIndex(errLines, line => line.StartsWith("There's nothing to upload"));
+        errLines[notice].Should().Contain("1 file skipped (.doc): not a file type the TeensyROM takes.");
+        errLines[notice + 1].Should().Be(FoldersHint);
         await host.Engine.ReceivedWithAnyArgs(1).EnsureRunningAsync(default);
         await _transferSettings.ReceivedWithAnyArgs(1).GetAsync(default);
         _calls.Should().BeEmpty();
@@ -452,7 +457,7 @@ public sealed class FileUploadCommandTests : IDisposable
     }
 
     [Fact]
-    public async Task AFolder_WithTheSwitchOffAndNoFlag_SendsOnlyTheKnownTypes_AndSaysWhatWasLeftOut()
+    public async Task AFolder_WithTheSwitchOffAndNoFlag_SendsOnlyTheKnownTypes_AndSaysWhatWasSkipped()
     {
         WriteMixedFolder();
         var host = NewHost();
@@ -461,7 +466,7 @@ public sealed class FileUploadCommandTests : IDisposable
 
         exitCode.Should().Be(0, host.Consoles.StdErr);
         Uploaded().Should().Equal("mixed/a.prg");
-        host.Consoles.StdErr.Should().Contain("1 file left out (.bin): not a file type the TeensyROM takes; 5 hidden or system files left out.");
+        host.Consoles.StdErr.Should().Contain("1 file skipped (.bin): not a file type the TeensyROM takes; 5 hidden or system files skipped.");
         await _transferSettings.ReceivedWithAnyArgs(1).GetAsync(default);
     }
 
@@ -476,7 +481,7 @@ public sealed class FileUploadCommandTests : IDisposable
 
         exitCode.Should().Be(0, host.Consoles.StdErr);
         Uploaded().Should().Equal("mixed/a.prg", "mixed/notes.bin");
-        host.Consoles.StdErr.Should().Contain("5 hidden or system files left out.").And.NotContain("not a file type");
+        host.Consoles.StdErr.Should().Contain("5 hidden or system files skipped.").And.NotContain("not a file type");
     }
 
     private void WritePartialFolder()
@@ -498,7 +503,7 @@ public sealed class FileUploadCommandTests : IDisposable
 
         exitCode.Should().Be(0, host.Consoles.StdErr);
         Uploaded().Should().Equal("partial/a.prg", "partial/notes.bin");
-        host.Consoles.StdErr.Should().Contain("2 unfinished downloads left out.").And.NotContain("not a file type");
+        host.Consoles.StdErr.Should().Contain("2 unfinished downloads skipped.").And.NotContain("not a file type");
     }
 
     [Fact]
@@ -511,7 +516,7 @@ public sealed class FileUploadCommandTests : IDisposable
 
         exitCode.Should().Be(0, host.Consoles.StdErr);
         Uploaded().Should().Equal("partial/a.prg");
-        host.Consoles.StdErr.Should().Contain("1 file left out (.bin): not a file type the TeensyROM takes; 2 unfinished downloads left out.");
+        host.Consoles.StdErr.Should().Contain("1 file skipped (.bin): not a file type the TeensyROM takes; 2 unfinished downloads skipped.");
     }
 
     [Fact]
@@ -998,7 +1003,7 @@ public sealed class FileUploadCommandTests : IDisposable
         report.GetProperty("skipped").EnumerateArray().Select(skip => skip.GetProperty("reason").GetString()!).ToArray();
 
     [Fact]
-    public async Task AFolderWalk_CountsEveryFileItLeavesOut_ByReason_AndSendsTheRest()
+    public async Task AFolderWalk_CountsEveryFileItSkips_ByReason_AndSendsTheRest()
     {
         Write("walk/a.prg", 10);
         Write("walk/b.xyz", 10);
@@ -1016,11 +1021,11 @@ public sealed class FileUploadCommandTests : IDisposable
         skipped.Select(skip => skip.GetProperty("count").GetInt32()).Should().Equal(2, 1, 1);
         skipped[0].GetProperty("types").EnumerateArray().Select(type => type.GetString()).Should().Equal(".bin", ".xyz");
         skipped[1].TryGetProperty("types", out _).Should().BeFalse();
-        host.Consoles.StdErr.Should().Contain("2 files left out (.bin, .xyz): not a file type the TeensyROM takes; 1 hidden or system file left out; 1 unfinished download left out.");
+        host.Consoles.StdErr.Should().Contain("2 files skipped (.bin, .xyz): not a file type the TeensyROM takes; 1 hidden or system file skipped; 1 unfinished download skipped.");
     }
 
     [Fact]
-    public async Task AFolderWalk_LeavesOutHiddenAndSystemFiles_AndEverythingUnderAHiddenFolder_WithoutADotInItsName()
+    public async Task AFolderWalk_SkipsHiddenAndSystemFiles_AndEverythingUnderAHiddenFolder_WithoutADotInItsName()
     {
         var hiddenFolder = OperatingSystem.IsWindows() ? "plainhidden" : ".plainhidden";
         Write("walk/a.prg", 10);
@@ -1053,7 +1058,7 @@ public sealed class FileUploadCommandTests : IDisposable
     }
 
     [Fact]
-    public async Task ANamedFile_IsNeverCountedAsLeftOut()
+    public async Task ANamedFile_IsNeverCountedAsSkipped()
     {
         Write(".hidden.bin", 10, hidden: true);
         var host = NewHost();
@@ -1062,7 +1067,7 @@ public sealed class FileUploadCommandTests : IDisposable
 
         exitCode.Should().Be(0, host.Consoles.StdErr);
         Parse(host.Consoles.StdOut).GetProperty("skipped").GetArrayLength().Should().Be(0);
-        host.Consoles.StdErr.Should().NotContain("left out");
+        host.Consoles.StdErr.Should().NotContain("hidden or system file skipped");
     }
 
     [Fact]
@@ -1086,7 +1091,56 @@ public sealed class FileUploadCommandTests : IDisposable
         var skipped = Parse(host.Consoles.StdOut).GetProperty("skipped").EnumerateArray().ToArray();
         skipped.Select(skip => skip.GetProperty("count").GetInt32()).Should().Equal(4, 3, 1);
         skipped[0].GetProperty("types").EnumerateArray().Select(type => type.GetString()).Should().Equal(".bin", ".nfo2");
-        host.Consoles.StdErr.Should().Contain("4 files left out (.bin, .nfo2): not a file type the TeensyROM takes; 3 hidden or system files left out; 1 unfinished download left out.");
+        host.Consoles.StdErr.Should().Contain("4 files skipped (.bin, .nfo2): not a file type the TeensyROM takes; 3 hidden or system files skipped; 1 unfinished download skipped.");
+    }
+
+    private const string FoldersHint = "To send other file types, add --all-types, or turn it on for every upload with 'trom transfer set all-types true'.";
+    private const string ArchivesHint = "To send other file types, add --all-in-archives, or turn it on for every upload with 'trom transfer set all-in-archives true'.";
+    private const string BothHint = "To send other file types, add --all-types and --all-in-archives, or turn them on for every upload with 'trom transfer set all-types true' and 'trom transfer set all-in-archives true'.";
+
+    [Theory]
+    [InlineData(true, false, FoldersHint)]
+    [InlineData(false, true, ArchivesHint)]
+    [InlineData(true, true, BothHint)]
+    public async Task AFolderOrArchiveSkippedForItsType_SaysHowToSendIt_OnItsOwnLine(bool folderSkip, bool archiveSkip, string hint)
+    {
+        Write("hint/a.prg", 10);
+        if (folderSkip) Write("hint/b.xyz", 10);
+        if (archiveSkip) _jobSkips = [new TransferSkipDto { Reason = TransferSkipReason.UnsupportedType, Count = 1, Types = [".xyz"] }];
+        var host = NewHost();
+
+        var exitCode = await host.RunAsync("file", "upload", "hint", "--to", "/x");
+
+        exitCode.Should().Be(0, host.Consoles.StdErr);
+        ErrLines(host).Should().Contain(hint);
+    }
+
+    [Fact]
+    public async Task AFolderSkippingOnlyHiddenFiles_SaysSoOnStderr_WithNoHint()
+    {
+        Write("hidden/a.prg", 10);
+        Write("hidden/.hidden.prg", 10, hidden: true);
+        var host = NewHost();
+
+        var exitCode = await host.RunAsync("file", "upload", "hidden", "--to", "/x");
+
+        exitCode.Should().Be(0, host.Consoles.StdErr);
+        ErrLines(host).Should().Contain("1 hidden or system file skipped.");
+        host.Consoles.StdErr.Should().NotContain("To send other file types");
+    }
+
+    [Fact]
+    public async Task WithAllTypesOn_NothingIsSkippedForItsType_SoNoHint()
+    {
+        Write("hint/a.prg", 10);
+        Write("hint/b.xyz", 10);
+        var host = NewHost();
+
+        var exitCode = await host.RunAsync("file", "upload", "hint", "--to", "/x", "--all-types");
+
+        exitCode.Should().Be(0, host.Consoles.StdErr);
+        Uploaded().Should().Contain("hint/b.xyz");
+        host.Consoles.StdErr.Should().NotContain("To send other file types");
     }
 
     [Theory]

@@ -2,14 +2,14 @@ using TeensyRom.Cli.Api.Generated;
 
 namespace TeensyRom.Cli.Commands.File;
 
-/// <summary>A file a folder walk left out, and why.</summary>
+/// <summary>A file a folder walk skipped, and why.</summary>
 internal sealed record SkippedFile(TransferSkipReason Reason, string Path);
 
-/// <summary>How many files were left out for one reason; <paramref name="Types"/> is filled only for <see cref="TransferSkipReason.UnsupportedType"/>.</summary>
+/// <summary>How many files were skipped for one reason; <paramref name="Types"/> is filled only for <see cref="TransferSkipReason.UnsupportedType"/>.</summary>
 internal sealed record CopySkipJson(TransferSkipReason Reason, int Count, IReadOnlyList<string>? Types = null);
 
 /// <summary>
-/// Counts left-out files by reason, from the local folder walk and from the job's own skips, and words them. Mirrors the
+/// Counts skipped files by reason, from the local folder walk and from the job's own skips, and words them. Mirrors the
 /// API's <c>TransferSkipTally</c> and <c>TransferSkipWording</c>, so every surface reads the same.
 /// </summary>
 internal sealed class SkipTally
@@ -46,8 +46,8 @@ internal sealed class SkipTally
             .ToArray();
 
     /// <summary>
-    /// E.g. "3 files left out (.bin, .xyz): not a file type the TeensyROM takes; 2 hidden or system files left out."
-    /// Empty when nothing was left out.
+    /// E.g. "3 files skipped (.bin, .xyz, no extension): not a file type the TeensyROM takes; 2 hidden or system files skipped."
+    /// Empty when nothing was skipped.
     /// </summary>
     public static string Describe(IEnumerable<CopySkipJson> skips)
     {
@@ -57,15 +57,44 @@ internal sealed class SkipTally
             .Select(skip => skip.Reason switch
             {
                 TransferSkipReason.UnsupportedType =>
-                    $"{skip.Count} {(skip.Count == 1 ? "file" : "files")} left out ({string.Join(", ", skip.Types ?? [])}): not a file type the TeensyROM takes",
+                    $"{skip.Count} {(skip.Count == 1 ? "file" : "files")} skipped ({TypeList(skip.Types ?? [])}): not a file type the TeensyROM takes",
                 TransferSkipReason.HiddenOrSystem =>
-                    $"{skip.Count} hidden or system {(skip.Count == 1 ? "file" : "files")} left out",
+                    $"{skip.Count} hidden or system {(skip.Count == 1 ? "file" : "files")} skipped",
                 _ =>
-                    $"{skip.Count} unfinished {(skip.Count == 1 ? "download" : "downloads")} left out"
+                    $"{skip.Count} unfinished {(skip.Count == 1 ? "download" : "downloads")} skipped"
             })
             .ToList();
 
         return parts.Count == 0 ? string.Empty : string.Join("; ", parts) + ".";
+    }
+
+    /// <summary>
+    /// The hint for unsupported types, or empty: folders from the walk, archives from the job's own skips. Nothing is
+    /// skipped for its type once <c>--all-types</c> or <c>--all-in-archives</c> is on, so no hint shows then.
+    /// </summary>
+    public static string Hint(IEnumerable<SkippedFile> walked, IEnumerable<TransferSkipDto> job)
+    {
+        var folders = walked.Any(file => file.Reason == TransferSkipReason.UnsupportedType);
+        var archives = job.Any(skip => skip.Reason == TransferSkipReason.UnsupportedType && skip.Count > 0);
+
+        return (folders, archives) switch
+        {
+            (true, true) => "To send other file types, add --all-types and --all-in-archives, or turn them on for every upload with 'trom transfer set all-types true' and 'trom transfer set all-in-archives true'.",
+            (true, false) => "To send other file types, add --all-types, or turn it on for every upload with 'trom transfer set all-types true'.",
+            (false, true) => "To send other file types, add --all-in-archives, or turn it on for every upload with 'trom transfer set all-in-archives true'.",
+            _ => string.Empty
+        };
+    }
+
+    /// <summary>The extensions as written, with <see cref="NoExtension"/> worded last as "no extension".</summary>
+    private static string TypeList(IEnumerable<string> types)
+    {
+        var list = types.ToList();
+        var named = list.Where(type => type != NoExtension).ToList();
+
+        if (list.Contains(NoExtension)) named.Add("no extension");
+
+        return string.Join(", ", named);
     }
 
     private static string ExtensionOf(string path)
