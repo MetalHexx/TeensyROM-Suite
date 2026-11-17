@@ -4,12 +4,7 @@ import { FakeClock, milliseconds } from '@sidablist/core';
 import type { RegisterRecord, ReplayRunner } from '@sidablist/core';
 import type { MidiOutputPort } from '@sidablist/asid';
 import type { Playable } from '@sidablist/tunes';
-import type {
-  IMidiAccess,
-  MidiAccessState,
-  MidiPermission,
-  MidiPortOption,
-} from '../ports/midi-access';
+import type { IMidiAccess, MidiAccessState, MidiPermission, MidiPortOption } from '../ports/midi-access';
 import type {
   AsidSenderEvent,
   DeckFrameClock,

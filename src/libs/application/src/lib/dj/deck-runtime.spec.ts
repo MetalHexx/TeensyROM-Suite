@@ -103,10 +103,7 @@ describe('DeckRuntime', () => {
             return recorder;
           },
         },
-        {
-          provide: MIDI_ACCESS,
-          useValue: fakeMidiAccess((id) => outputPortFor(id) as MidiOutputPort | null),
-        },
+        { provide: MIDI_ACCESS, useValue: fakeMidiAccess((id) => outputPortFor(id) as MidiOutputPort | null) },
       ],
     });
     runtime = TestBed.inject(DeckRuntime);
@@ -179,11 +176,7 @@ describe('DeckRuntime', () => {
   describe('resync', () => {
     /** The SID-type packet's chip flag, then the start packet — what `AsidSink.begin` sends. */
     function handshake(port: { readonly sent: readonly Uint8Array[] }) {
-      return {
-        count: port.sent.length,
-        is8580: port.sent[0]?.[4] === 1,
-        startLength: port.sent[1]?.length,
-      };
+      return { count: port.sent.length, is8580: port.sent[0]?.[4] === 1, startLength: port.sent[1]?.length };
     }
 
     it("re-sends the loaded tune's SID type and the start packet through the slot's port", () => {
@@ -543,7 +536,7 @@ describe('DeckRuntime', () => {
       expect(seek).toHaveBeenCalledExactlyOnceWith(320, settings);
     });
 
-    it("passes a loop's lap phase through setActiveLoop, changeLoopAt, startShadow and queueJump", () => {
+    it('passes a loop\'s lap phase through setActiveLoop, changeLoopAt, startShadow and queueJump', () => {
       const player = playerFor(0);
       const loop = vi.spyOn(player, 'setActiveLoop').mockImplementation(() => undefined);
       const change = vi.spyOn(player, 'changeLoopAt').mockImplementation(() => true);
@@ -873,9 +866,7 @@ describe('DeckRuntime with a timing helper', () => {
 
     it('sends the same bytes with the same stamps whether or not a press is being measured', async () => {
       vi.spyOn(performance, 'now').mockReturnValue(50_000);
-      const run = async (
-        press: boolean
-      ): Promise<{ sent: Uint8Array[]; stamps: (number | undefined)[] }> => {
+      const run = async (press: boolean): Promise<{ sent: Uint8Array[]; stamps: (number | undefined)[] }> => {
         configure();
         runtime.build('A');
         runtime.setPort('A', 'port-a');
