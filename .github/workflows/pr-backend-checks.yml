@@ -6,6 +6,7 @@ on:
     paths:
       - 'src/apps/api/**'
       - 'src/apps/Version.props'
+      - 'global.json'
   workflow_dispatch:
 
 concurrency:

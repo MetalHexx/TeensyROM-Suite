@@ -8,6 +8,7 @@ on:
       - 'src/apps/api/**'
       - 'src/apps/Version.props'
       - '.github/workflows/pr-cli-checks.yml'
+      - 'global.json'
   workflow_dispatch:
 
 concurrency:
