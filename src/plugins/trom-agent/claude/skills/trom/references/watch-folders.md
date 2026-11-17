@@ -72,7 +72,7 @@ A TeensyROM takes one transfer at a time. If a file lands while its TeensyROM is
 - lacked the storage, or
 - had a destination path that is not valid.
 
-The engine logs a line for each skip and will not retry. A file a watch folder leaves out for its type, or because it is hidden, system or an unfinished download, is logged too, as one line counted by reason, in the same words an upload's `skipped` uses. The file is still in the watched folder, so the user can copy it with `trom file upload` once the TeensyROM is free. That copy is a normal upload and needs their confirmation. To find the log line, `trom engine status --json` gives the engine's `logFile`.
+The engine logs a line for each skip and will not retry. A file a watch folder skips for its type, or because it is hidden, system or an unfinished download, is logged too, as one line counted by reason, in the same words an upload's `skipped` uses. The file is still in the watched folder, so the user can copy it with `trom file upload` once the TeensyROM is free. That copy is a normal upload and needs their confirmation. To find the log line, `trom engine status --json` gives the engine's `logFile`.
 
 While a folder is sending to a TeensyROM, every command to that TeensyROM exits 6.
 
