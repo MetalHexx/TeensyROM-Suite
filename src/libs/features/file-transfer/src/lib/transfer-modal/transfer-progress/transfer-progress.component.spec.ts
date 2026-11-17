@@ -14,6 +14,14 @@ function feedEntry(index: number, success = true): TransferFeedEntry {
   };
 }
 
+const HAND_TEST_LINES = [
+  '3 files not a file type the TeensyROM takes (.bin, .xyz, no extension)',
+  '1 hidden or system file',
+  '1 unfinished download',
+];
+const HINT_FOLDERS =
+  'To send other file types, turn on "All file types in folders" under Uploads in Transfer Settings.';
+
 function baseVm(overrides: Partial<TransferProgressVm> = {}): TransferProgressVm {
   return {
     state: 'receiving',
@@ -41,7 +49,8 @@ function baseVm(overrides: Partial<TransferProgressVm> = {}): TransferProgressVm
     failureOverflow: 0,
     elapsedLabel: '14:22 elapsed',
     reason: null,
-    skippedSummary: null,
+    skippedLines: [],
+    skippedHint: null,
     ...overrides,
   };
 }
@@ -164,13 +173,27 @@ describe('TransferProgressComponent', () => {
       );
     });
 
-    it('says nothing was sent and why when files were left out', async () => {
-      const skippedSummary = '3 files left out (.xyz): not a file type the TeensyROM takes.';
-      await setup(baseVm({ state: 'nothing-to-transfer', skippedSummary }));
+    it('says nothing was sent, then lists what was skipped with the hint', async () => {
+      await setup(
+        baseVm({ state: 'nothing-to-transfer', skippedLines: HAND_TEST_LINES, skippedHint: HINT_FOLDERS })
+      );
 
-      const banner = q('transfer-progress-banner')?.textContent ?? '';
-      expect(banner).toContain(`Nothing was sent. ${skippedSummary}`);
-      expect(banner).not.toContain('No files valid');
+      const banner = q('transfer-progress-banner');
+      expect(banner?.textContent).toContain('Nothing was sent.');
+      expect(banner?.textContent).toContain('Skipped');
+      expect(banner?.querySelectorAll('li').length).toBe(3);
+      expect(banner?.querySelector('li')?.textContent?.trim()).toBe(HAND_TEST_LINES[0]);
+      expect(q('transfer-progress-skipped-hint')?.textContent?.trim()).toBe(HINT_FOLDERS);
+      expect(banner?.textContent).not.toContain('No files valid');
+    });
+
+    it('lists the skipped lines without a hint when no unsupported type was skipped', async () => {
+      await setup(
+        baseVm({ state: 'nothing-to-transfer', skippedLines: ['1 hidden or system file'], skippedHint: null })
+      );
+
+      expect(q('transfer-progress-banner')?.querySelectorAll('li').length).toBe(1);
+      expect(q('transfer-progress-skipped-hint')).toBeFalsy();
     });
   });
 
@@ -547,16 +570,25 @@ describe('TransferProgressComponent', () => {
       expect(q('transfer-progress-elapsed')?.textContent).toContain('14:22 elapsed');
     });
 
-    it('shows a Left out line under the metrics when files were left out', async () => {
-      await setup(baseVm({ state: 'completed', skippedSummary: '1 hidden or system file left out.' }));
+    it('lists what was skipped under the metrics, with the hint', async () => {
+      await setup(baseVm({ state: 'completed', skippedLines: HAND_TEST_LINES, skippedHint: HINT_FOLDERS }));
 
-      expect(q('transfer-progress-skipped')?.textContent?.replace(/\s+/g, ' ').trim()).toBe(
-        'Left out: 1 hidden or system file left out.'
-      );
+      const block = q('transfer-progress-skipped');
+      expect(block?.querySelector('.skipped-heading')?.textContent?.trim()).toBe('Skipped');
+      expect(block?.querySelectorAll('li').length).toBe(3);
+      expect(block?.querySelector('li')?.textContent?.trim()).toBe(HAND_TEST_LINES[0]);
+      expect(q('transfer-progress-skipped-hint')?.textContent?.trim()).toBe(HINT_FOLDERS);
     });
 
-    it('omits the Left out line when nothing was left out', async () => {
-      await setup(baseVm({ state: 'completed', skippedSummary: null }));
+    it('lists the skipped lines without a hint when none applies', async () => {
+      await setup(baseVm({ state: 'completed', skippedLines: ['1 hidden or system file'], skippedHint: null }));
+
+      expect(q('transfer-progress-skipped')?.querySelectorAll('li').length).toBe(1);
+      expect(q('transfer-progress-skipped-hint')).toBeFalsy();
+    });
+
+    it('omits the skipped block when nothing was skipped', async () => {
+      await setup(baseVm({ state: 'completed', skippedLines: [], skippedHint: null }));
       expect(q('transfer-progress-skipped')).toBeFalsy();
     });
 

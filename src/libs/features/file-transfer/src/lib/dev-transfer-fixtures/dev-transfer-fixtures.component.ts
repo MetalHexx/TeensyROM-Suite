@@ -55,7 +55,8 @@ function baseVm(overrides: Partial<TransferProgressVm> = {}): TransferProgressVm
     failureOverflow: 0,
     elapsedLabel: '14:22 elapsed',
     reason: null,
-    skippedSummary: null,
+    skippedLines: [],
+    skippedHint: null,
     ...overrides,
   };
 }

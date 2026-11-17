@@ -14,7 +14,8 @@ import { filter } from 'rxjs';
 import { ConfirmationDialogComponent } from '@teensyrom-nx/ui/components';
 import {
   DeviceStore,
-  describeSkips,
+  describeSkipHint,
+  describeSkipLines,
   formatElapsedLabel,
   ITransferContext,
   mergeSkips,
@@ -22,6 +23,7 @@ import {
   TransferModalState,
   TransferStore,
 } from '@teensyrom-nx/application';
+import { TransferOriginKind } from '@teensyrom-nx/domain';
 import { watchFolderLabel } from '../transfer-origin-label';
 import {
   STATE_SHAPES,
@@ -98,6 +100,8 @@ export class TransferModalComponent {
     }
     const transfer = this.deviceTransfer();
     const job = transfer?.job ?? null;
+    const scan = transfer?.scanSkipped ?? [];
+    const jobSkips = job?.skipped ?? [];
     const metrics = this.metrics();
     const summary = this.summary();
     const deviceId = this.deviceId();
@@ -133,7 +137,12 @@ export class TransferModalComponent {
       failureOverflow: summary.failureOverflow,
       elapsedLabel: this.elapsedLabel(),
       reason: summary.reason,
-      skippedSummary: describeSkips(mergeSkips(transfer?.scanSkipped ?? [], job?.skipped ?? [])),
+      skippedLines: describeSkipLines(mergeSkips(scan, jobSkips)),
+      skippedHint: describeSkipHint(
+        scan,
+        jobSkips,
+        job?.origin.kind === TransferOriginKind.WatchFolder
+      ),
     };
     return this.lastVm;
   });

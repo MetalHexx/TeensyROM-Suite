@@ -37,8 +37,11 @@
       @case ('nothing-to-transfer') {
         <div class="reason-banner neutral" data-testid="transfer-progress-banner">
           <lib-styled-icon icon="folder_off" size="medium"></lib-styled-icon>
-          @if (vm().skippedSummary; as skippedSummary) {
-            <span>Nothing was sent. {{ skippedSummary }}</span>
+          @if (vm().skippedLines.length > 0) {
+            <div class="banner-body">
+              <span>Nothing was sent.</span>
+              <ng-container [ngTemplateOutlet]="skippedDetail"></ng-container>
+            </div>
           } @else {
             <span>No files valid for TeensyROM were found in what you dropped.</span>
           }
@@ -170,10 +173,10 @@
           </div>
         </dl>
 
-        @if (vm().skippedSummary; as skippedSummary) {
-          <p class="skipped-summary" data-testid="transfer-progress-skipped">
-            <span class="skipped-label">Left out:</span> {{ skippedSummary }}
-          </p>
+        @if (vm().skippedLines.length > 0) {
+          <div class="skipped-block" data-testid="transfer-progress-skipped">
+            <ng-container [ngTemplateOutlet]="skippedDetail"></ng-container>
+          </div>
         }
 
         <div class="write-bars">
@@ -277,4 +280,16 @@
   }
 
   <div class="visually-hidden" aria-live="polite" data-testid="transfer-progress-live-region">{{ liveRegionText() }}</div>
+
+  <ng-template #skippedDetail>
+    <p class="skipped-heading">Skipped</p>
+    <ul class="skipped-list">
+      @for (line of vm().skippedLines; track $index) {
+        <li>{{ line }}</li>
+      }
+    </ul>
+    @if (vm().skippedHint; as hint) {
+      <p class="skipped-hint" data-testid="transfer-progress-skipped-hint">{{ hint }}</p>
+    }
+  </ng-template>
 </div>

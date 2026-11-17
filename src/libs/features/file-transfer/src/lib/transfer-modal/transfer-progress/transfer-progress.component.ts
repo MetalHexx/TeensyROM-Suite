@@ -1,5 +1,5 @@
 import { ChangeDetectionStrategy, Component, computed, effect, input, output, signal, untracked } from '@angular/core';
-import { DecimalPipe } from '@angular/common';
+import { DecimalPipe, NgTemplateOutlet } from '@angular/common';
 import { MatProgressBarModule } from '@angular/material/progress-bar';
 import { ActionButtonComponent, IconLabelComponent, StyledIconComponent } from '@teensyrom-nx/ui/components';
 import { TransferFeedEntry, TransferModalState } from '@teensyrom-nx/application';
@@ -32,8 +32,10 @@ export interface TransferProgressVm {
   failureOverflow: number;
   elapsedLabel: string | null;
   reason: string | null;
-  /** What the drop scan and the job left out, worded for display; null when nothing was. */
-  skippedSummary: string | null;
+  /** The bullet lines for what the drop scan and the job skipped; [] when nothing was. */
+  skippedLines: string[];
+  /** The hint for unsupported types; null when none applies. */
+  skippedHint: string | null;
 }
 
 /** Which family of frame a state renders — several states share the same layout shape. */
@@ -156,7 +158,14 @@ const ANNOUNCE_DELTA_FLOOR_MS = 1000;
  */
 @Component({
   selector: 'lib-transfer-progress',
-  imports: [DecimalPipe, MatProgressBarModule, ActionButtonComponent, IconLabelComponent, StyledIconComponent],
+  imports: [
+    DecimalPipe,
+    NgTemplateOutlet,
+    MatProgressBarModule,
+    ActionButtonComponent,
+    IconLabelComponent,
+    StyledIconComponent,
+  ],
   templateUrl: './transfer-progress.component.html',
   styleUrl: './transfer-progress.component.scss',
   changeDetection: ChangeDetectionStrategy.OnPush,
