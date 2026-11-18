@@ -82,9 +82,6 @@ Video is optional but recommended.
 - **Large folders:** browsing stays smooth in folders with thousands of files.
 - **Back and forward:** retrace your steps through folders, like a browser.
 - **Several carts:** browse multiple connected carts at the same time.
-- **Every file listed:** files the TeensyROM can't launch show up too, so the list matches the card.
-- **Refresh a folder:** the refresh button re-reads the shown folder and everything below it from the cart.
-- **Listings stay current:** file lists, the folder tree and search update by themselves after a transfer, from anywhere.
 
 ## Mobile and responsive
 
@@ -117,9 +114,8 @@ Send files from your computer to your cart's storage.
 - **Drag, or choose:** drop files or whole folders in, or pick them.
 - **Live progress:** each transfer shows how far it has come, the speed, how long it has taken and which files failed. You can cancel a transfer while it runs.
 - **Archives:** `.zip`, `.7z` and `.rar` files are unpacked on the way in.
-- **File types:** files you pick or drop on their own are always sent. Folders and archives send only the types a TeensyROM recognizes, unless *All file types in folders* or *All file types in archives* is on in Transfer Settings. Hidden and system files and unfinished browser downloads are never sent.
-- **What was skipped:** the transfer's details list the files that weren't sent and why, with a hint on how to send them.
-- **Auto launch:** a file you upload can start on the cart as soon as its transfer finishes. Turn it on in Transfer Settings.
+- **File types:** files you pick or drop on their own are always sent. Folders and archives send recognized types unless you turn on more in Transfer Settings.
+- **Auto launch:** a transferred file can start on the cart as soon as its transfer finishes.
 - **Several carts at once:** each cart takes one transfer at a time, and different carts transfer side by side. If a cart is busy, you can retry once it is free.
 - **Every transfer in one place:** transfers started from [Trom Terminal](trom-terminal.md) or a watch folder show here too. Open one for its details, or hide them without stopping it.
 
@@ -137,12 +133,11 @@ For each watch folder you choose:
 - **Cart and storage:** which cart gets the files, on SD or USB.
 - **Cart folder:** where on the cart the files go.
 - **Auto launch:** start a file on the cart as soon as it lands.
-- **File types:** by default only the types a TeensyROM recognizes are sent. Switch on *All file types*, or *All file types in archives*, to send the rest.
 - **More carts:** send the same folder to several carts.
 
 Add as many watch folders as you like. You can edit a destination, turn a folder off and on, and remove it.
 
-Only files that arrive after you add the folder are sent, and hidden and system files never are. Archives are unpacked on the cart. Your files stay in the folder: they are copied, never moved or deleted. Files that land close together go as one transfer. A file that lands while its cart is busy with another transfer is skipped, and a file that lands while its folder is turned off is not sent later. A transfer from a watch folder resets the cart like any other, which stops what is running.
+Only files that arrive after you add the folder are sent, and only of types the TeensyROM takes. Archives are unpacked on the cart. Your files stay in the folder: they are copied, never moved or deleted. Files that land close together go as one transfer. A file that lands while its cart is busy with another transfer is skipped, and a file that lands while its folder is turned off is not sent later. A transfer from a watch folder resets the cart like any other, which stops what is running.
 
 You can also manage watch folders from [Trom Terminal](trom-terminal.md) with `trom watch-folder`.
 
