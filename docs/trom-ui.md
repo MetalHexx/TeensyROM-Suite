@@ -82,9 +82,9 @@ Video is optional but recommended.
 - **Large folders:** browsing stays smooth in folders with thousands of files.
 - **Back and forward:** retrace your steps through folders, like a browser.
 - **Several carts:** browse multiple connected carts at the same time.
-- **Every file listed:** files the TeensyROM can't launch are listed too, but they can't be played.
-- **Re-index a folder:** the refresh button re-reads the shown folder and every folder below it from the TeensyROM, so the list matches what's on the card. On the top folder it re-reads the whole storage, and a large folder can take a few minutes. The button asks you to confirm first; switch on "Don't ask again" in that dialog to skip the question from then on in this browser.
-- **Listings stay current:** when a transfer into the shown folder finishes, whether from this tab, another tab, `trom` or a watch folder, the file list, folder tree, search results and DJ list update by themselves, without a loading flicker. They also catch up after the connection to the API drops and comes back.
+- **Every file listed:** files the TeensyROM can't launch show up too, so the list matches the card.
+- **Refresh a folder:** the refresh button re-reads the shown folder and everything below it from the cart.
+- **Listings stay current:** file lists, the folder tree and search update by themselves after a transfer, from anywhere.
 
 ## Mobile and responsive
 
@@ -117,9 +117,9 @@ Send files from your computer to your cart's storage.
 - **Drag, or choose:** drop files or whole folders in, or pick them.
 - **Live progress:** each transfer shows how far it has come, the speed, how long it has taken and which files failed. You can cancel a transfer while it runs.
 - **Archives:** `.zip`, `.7z` and `.rar` files are unpacked on the way in.
-- **File types:** files you pick or drop on their own are always sent. Files found in a folder you drop, or inside an archive, are sent only if the TeensyROM recognizes their type, unless *All file types in folders* or *All file types in archives* is on in the Transfer Settings panel's Uploads section. Hidden and system files found in a folder or an archive are never sent, and neither are unfinished browser downloads (`.crdownload` and `.part`) found in a folder you drop (not inside an archive); a file you pick or drop on its own is sent even if its name starts with a dot.
-- **What was skipped:** when a folder or archive had files the transfer didn't send, the transfer's modal shows a *Skipped* heading with one bullet per reason: files that aren't a file type the TeensyROM takes (with their types), hidden or system files, and unfinished downloads. If a setting that is off would have sent some of them, a hint under the heading names it, for example "To send other file types, turn on "All file types in folders" under Uploads in Transfer Settings." Skipped archive entries get the *All file types in archives* hint, or both hints as one sentence when both kinds were skipped. A watch folder's archive hint names that folder's own setting instead. If nothing at all could be sent, the modal's banner reads "Nothing was sent." and repeats the heading, bullets and hint; with nothing skipped, it reads "No files valid for TeensyROM were found in what you dropped." The alert that ends a transfer, including one from Trom Terminal or a watch folder, adds the one-line sentence, for example "Sent 5 files to TR-1. 3 files skipped (.doc): not a file type the TeensyROM takes.", and the archive hint only when the job itself skipped archive entries. Files a dropped folder skipped show in the modal, not in the alert.
-- **Auto launch:** a file you upload can start on the cart as soon as its transfer finishes. Turn it on or off in the Uploads section of the Transfer Settings panel. Each watch-folder device has its own.
+- **File types:** files you pick or drop on their own are always sent. Folders and archives send only the types a TeensyROM recognizes, unless *All file types in folders* or *All file types in archives* is on in Transfer Settings. Hidden and system files and unfinished browser downloads are never sent.
+- **What was skipped:** the transfer's details list the files that weren't sent and why, with a hint on how to send them.
+- **Auto launch:** a file you upload can start on the cart as soon as its transfer finishes. Turn it on in Transfer Settings.
 - **Several carts at once:** each cart takes one transfer at a time, and different carts transfer side by side. If a cart is busy, you can retry once it is free.
 - **Every transfer in one place:** transfers started from [Trom Terminal](trom-terminal.md) or a watch folder show here too. Open one for its details, or hide them without stopping it.
 
@@ -136,14 +136,13 @@ For each watch folder you choose:
 - **Folder to watch:** a folder on the computer that runs the suite. Files that land in it or its subfolders are sent.
 - **Cart and storage:** which cart gets the files, on SD or USB.
 - **Cart folder:** where on the cart the files go.
-- **Auto launch:** start a file on the cart as soon as it lands. Each cart you add to the folder has its own.
-- **All file types:** send every file that lands, not only the types the TeensyROM recognizes. Off by default.
-- **All file types in archives:** send everything inside an archive that lands, not only the types the TeensyROM recognizes. Off by default.
+- **Auto launch:** start a file on the cart as soon as it lands.
+- **File types:** by default only the types a TeensyROM recognizes are sent. Switch on *All file types*, or *All file types in archives*, to send the rest.
 - **More carts:** send the same folder to several carts.
 
-Add as many watch folders as you like. Adding a folder you already watch adds the cart to it and leaves its file-type switches as they are, so use the folder's own switches to change them. You can edit a destination, change a folder's file types, turn a folder off and on, and remove it.
+Add as many watch folders as you like. You can edit a destination, turn a folder off and on, and remove it.
 
-Only files that arrive after you add the folder are sent, and by default only of types the TeensyROM recognizes; turn on *All file types* to send the rest. Hidden and system files, and a browser's unfinished downloads, are never sent. Archives are unpacked on the cart, and what comes out follows *All file types in archives*. Your files stay in the folder: they are copied, never moved or deleted. Files that land close together go as one transfer. A file that lands while its cart is busy with another transfer is skipped, and a file that lands while its folder is turned off is not sent later. A transfer from a watch folder resets the cart like any other, which stops what is running.
+Only files that arrive after you add the folder are sent, and hidden and system files never are. Archives are unpacked on the cart. Your files stay in the folder: they are copied, never moved or deleted. Files that land close together go as one transfer. A file that lands while its cart is busy with another transfer is skipped, and a file that lands while its folder is turned off is not sent later. A transfer from a watch folder resets the cart like any other, which stops what is running.
 
 You can also manage watch folders from [Trom Terminal](trom-terminal.md) with `trom watch-folder`.
 
