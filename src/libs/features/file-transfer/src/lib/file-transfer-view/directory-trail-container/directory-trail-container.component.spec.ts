@@ -2,7 +2,7 @@ import { ComponentFixture, TestBed } from '@angular/core/testing';
 import { provideNoopAnimations } from '@angular/platform-browser/animations';
 import { signal } from '@angular/core';
 import { vi } from 'vitest';
-import { StorageStore, NavigationHistory } from '@teensyrom-nx/application';
+import { DeviceStore, StorageStore, NavigationHistory } from '@teensyrom-nx/application';
 import { StorageType } from '@teensyrom-nx/domain';
 import { DirectoryTrailContainerComponent } from './directory-trail-container.component';
 
@@ -14,7 +14,7 @@ interface MockStorageStore {
   navigateDirectoryBackward: ReturnType<typeof vi.fn>;
   navigateDirectoryForward: ReturnType<typeof vi.fn>;
   navigateUpOneDirectory: ReturnType<typeof vi.fn>;
-  refreshDirectory: ReturnType<typeof vi.fn>;
+  refreshAfterIndex: ReturnType<typeof vi.fn>;
 }
 
 function seedHistory(paths: string[], currentIndex: number): NavigationHistory {
@@ -28,11 +28,16 @@ describe('DirectoryTrailContainerComponent', () => {
   let fixture: ComponentFixture<DirectoryTrailContainerComponent>;
   let component: DirectoryTrailContainerComponent;
   let mockStorageStore: MockStorageStore;
+  let mockDeviceStore: { indexStorage: ReturnType<typeof vi.fn> };
 
   const setup = async (deviceId = 'device-1') => {
     await TestBed.configureTestingModule({
       imports: [DirectoryTrailContainerComponent],
-      providers: [provideNoopAnimations(), { provide: StorageStore, useValue: mockStorageStore }],
+      providers: [
+        provideNoopAnimations(),
+        { provide: StorageStore, useValue: mockStorageStore },
+        { provide: DeviceStore, useValue: mockDeviceStore },
+      ],
     }).compileComponents();
 
     fixture = TestBed.createComponent(DirectoryTrailContainerComponent);
@@ -42,6 +47,7 @@ describe('DirectoryTrailContainerComponent', () => {
   };
 
   beforeEach(() => {
+    mockDeviceStore = { indexStorage: vi.fn().mockResolvedValue(true) };
     mockStorageStore = {
       getSelectedDirectoryState: vi.fn(() =>
         signal({
@@ -70,7 +76,7 @@ describe('DirectoryTrailContainerComponent', () => {
       navigateDirectoryBackward: vi.fn(),
       navigateDirectoryForward: vi.fn(),
       navigateUpOneDirectory: vi.fn(),
-      refreshDirectory: vi.fn(),
+      refreshAfterIndex: vi.fn().mockResolvedValue(undefined),
     };
   });
 
@@ -136,13 +142,26 @@ describe('DirectoryTrailContainerComponent', () => {
       });
     });
 
-    it('calls refreshDirectory on refresh click', async () => {
+    it('re-indexes the shown folder, then refreshes after the index, on refresh click', async () => {
       await setup();
-      component.onRefreshClick();
-      expect(mockStorageStore.refreshDirectory).toHaveBeenCalledWith({
+      await component.onRefreshClick();
+      expect(mockDeviceStore.indexStorage).toHaveBeenCalledWith(
+        'device-1',
+        StorageType.Sd,
+        '/games/arcade'
+      );
+      expect(mockStorageStore.refreshAfterIndex).toHaveBeenCalledWith({
         deviceId: 'device-1',
         storageType: StorageType.Sd,
+        path: '/games/arcade',
       });
+    });
+
+    it('does not refresh when the index fails', async () => {
+      mockDeviceStore.indexStorage.mockResolvedValue(false);
+      await setup();
+      await component.onRefreshClick();
+      expect(mockStorageStore.refreshAfterIndex).not.toHaveBeenCalled();
     });
 
     it('calls navigateToDirectory with the requested path on breadcrumb activation', async () => {
@@ -170,9 +189,9 @@ describe('DirectoryTrailContainerComponent', () => {
       mockStorageStore.getSelectedDirectoryForDevice = vi.fn(() => null);
       await setup();
       component.onUpClick();
-      component.onRefreshClick();
+      await component.onRefreshClick();
       expect(mockStorageStore.navigateUpOneDirectory).not.toHaveBeenCalled();
-      expect(mockStorageStore.refreshDirectory).not.toHaveBeenCalled();
+      expect(mockDeviceStore.indexStorage).not.toHaveBeenCalled();
     });
   });
 });

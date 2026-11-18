@@ -7,6 +7,8 @@ const dto: WatchFolderDto = {
   id: 'f1',
   path: 'C:\\Games',
   enabled: true,
+  allFileTypes: false,
+  allFileTypesInArchives: false,
   state: 'Watching',
   destinations: [
     { id: 'd1', deviceId: 'dev-1', deviceName: 'Rack', storageType: 'SD', path: '/auto', launch: false },
@@ -27,6 +29,7 @@ describe('WatchFolderService', () => {
     addWatchFolder: ReturnType<typeof vi.fn>;
     setWatchFolderDevice: ReturnType<typeof vi.fn>;
     setWatchFolderEnabled: ReturnType<typeof vi.fn>;
+    setWatchFolderFileTypes: ReturnType<typeof vi.fn>;
     removeWatchFolder: ReturnType<typeof vi.fn>;
     removeWatchFolderDevice: ReturnType<typeof vi.fn>;
   };
@@ -38,6 +41,7 @@ describe('WatchFolderService', () => {
       addWatchFolder: vi.fn(),
       setWatchFolderDevice: vi.fn(),
       setWatchFolderEnabled: vi.fn(),
+      setWatchFolderFileTypes: vi.fn(),
       removeWatchFolder: vi.fn(),
       removeWatchFolderDevice: vi.fn(),
     };
@@ -55,15 +59,17 @@ describe('WatchFolderService', () => {
       expect(folders[0].destinations[0].storageType).toBe(StorageType.Sd);
     });
 
-    it('adds a folder with the API storage type and returns the mapped folder', async () => {
+    it('adds a folder with the API storage type and returns the mapped folder and created', async () => {
       api.addWatchFolder.mockResolvedValue({ watchFolder: dto, created: true });
 
-      const folder = await service.add({
+      const result = await service.add({
         path: 'C:\\Games',
         deviceId: 'dev-1',
         storageType: StorageType.Usb,
         devicePath: null,
         launch: true,
+        allFileTypes: true,
+        allFileTypesInArchives: false,
       });
 
       expect(api.addWatchFolder).toHaveBeenCalledWith({
@@ -73,9 +79,29 @@ describe('WatchFolderService', () => {
           storageType: 'USB',
           devicePath: null,
           launch: true,
+          allFileTypes: true,
+          allFileTypesInArchives: false,
         },
       });
-      expect(folder.id).toBe('f1');
+      expect(result.watchFolder.id).toBe('f1');
+      expect(result.created).toBe(true);
+    });
+
+    it('reports created false when the add joined a folder already watched', async () => {
+      api.addWatchFolder.mockResolvedValue({ watchFolder: dto, created: false });
+
+      const result = await service.add({
+        path: 'C:\\Games',
+        deviceId: 'dev-2',
+        storageType: StorageType.Sd,
+        devicePath: null,
+        launch: false,
+        allFileTypes: true,
+        allFileTypesInArchives: false,
+      });
+
+      expect(result.created).toBe(false);
+      expect(result.watchFolder.id).toBe('f1');
     });
 
     it('sends only the changed fields when setting a destination', async () => {
@@ -102,6 +128,21 @@ describe('WatchFolderService', () => {
       expect(folder.state).toBe(WatchFolderState.Off);
     });
 
+    it('sends only the changed file-type switches and maps the returned folder', async () => {
+      api.setWatchFolderFileTypes.mockResolvedValue({
+        watchFolder: { ...dto, allFileTypesInArchives: true },
+      });
+
+      const folder = await service.setFileTypes('f1', { allFileTypesInArchives: true });
+
+      expect(api.setWatchFolderFileTypes).toHaveBeenCalledWith({
+        watchFolderId: 'f1',
+        setWatchFolderFileTypesBody: { allFileTypes: undefined, allFileTypesInArchives: true },
+      });
+      expect(folder.allFileTypesInArchives).toBe(true);
+      expect(folder.allFileTypes).toBe(false);
+    });
+
     it('reports a removed folder with no remaining watch folder', async () => {
       api.removeWatchFolderDevice.mockResolvedValue({ folderRemoved: true, watchFolder: null });
 
@@ -125,7 +166,7 @@ describe('WatchFolderService', () => {
     const rejectedBy = async (error: unknown): Promise<WatchFolderRejectedError> => {
       api.addWatchFolder.mockRejectedValue(error);
       const thrown = await service
-        .add({ path: 'p', deviceId: 'd', storageType: StorageType.Sd, devicePath: null, launch: false })
+        .add({ path: 'p', deviceId: 'd', storageType: StorageType.Sd, devicePath: null, launch: false, allFileTypes: false, allFileTypesInArchives: false })
         .catch((e) => e);
       expect(thrown).toBeInstanceOf(WatchFolderRejectedError);
       return thrown as WatchFolderRejectedError;
@@ -196,6 +237,14 @@ describe('WatchFolderService', () => {
       api.setWatchFolderEnabled.mockRejectedValue(failure);
 
       await expect(service.setEnabled('f1', true)).rejects.toBe(failure);
+    });
+
+    it('turns a refused file-type change into a rejection', async () => {
+      api.setWatchFolderFileTypes.mockRejectedValue(refusal(404, 'Watch folder not found'));
+
+      await expect(service.setFileTypes('f1', { allFileTypes: true })).rejects.toBeInstanceOf(
+        WatchFolderRejectedError
+      );
     });
   });
 });

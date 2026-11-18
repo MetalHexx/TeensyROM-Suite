@@ -6,6 +6,7 @@ import { vi } from 'vitest';
 import { DeviceStore, SettingsStore } from '@teensyrom-nx/application';
 import {
   Device,
+  FileTransferSettings,
   ISettingsService,
   PlayerFilterType,
   SETTINGS_SERVICE,
@@ -24,6 +25,8 @@ const folder = (id: string, overrides: Partial<WatchFolder> = {}): WatchFolder =
   path: `C:\\Watch\\${id}`,
   enabled: true,
   state: WatchFolderState.Watching,
+  allFileTypes: false,
+  allFileTypesInArchives: false,
   destinations: [
     {
       id: `${id}-1`,
@@ -48,7 +51,14 @@ const device = (deviceId: string, name: string, usb: boolean): Device =>
 const rackDevice = device('dev-1', 'Rack TeensyROM', false);
 const benchDevice = device('dev-2', 'Bench TeensyROM', true);
 
-const settings = (autoLaunch = false): Settings =>
+const uploadSettings = (overrides: Partial<FileTransferSettings> = {}): FileTransferSettings => ({
+  autoLaunchOnCopyEnabled: false,
+  allFileTypesInFolders: false,
+  allFileTypesInArchives: false,
+  ...overrides,
+});
+
+const settings = (): Settings =>
   ({
     playerSettings: {
       repeatModeOnStartup: false,
@@ -59,7 +69,7 @@ const settings = (autoLaunch = false): Settings =>
       startupLaunchEnabled: false,
       startupLaunchRandom: false,
     },
-    fileTransferSettings: { autoLaunchOnCopyEnabled: autoLaunch },
+    fileTransferSettings: uploadSettings(),
     searchSettings: {
       weights: {
         nameWeight: 1,
@@ -78,7 +88,14 @@ const settings = (autoLaunch = false): Settings =>
 
 describe('TransferSettingsPanelComponent', () => {
   let fixture: ComponentFixture<TransferSettingsPanelComponent>;
-  let settingsService: { getSettings: ReturnType<typeof vi.fn>; saveSettings: ReturnType<typeof vi.fn> };
+  let settingsService: {
+    getSettings: ReturnType<typeof vi.fn>;
+    saveSettings: ReturnType<typeof vi.fn>;
+    getFileTransferSettings: ReturnType<typeof vi.fn>;
+    saveFileTransferSettings: ReturnType<typeof vi.fn>;
+  };
+  /** What the engine holds for the three Uploads switches. */
+  let engineUploads: FileTransferSettings;
   let watchFolders: Record<string, ReturnType<typeof vi.fn>>;
   let settingsStore: InstanceType<typeof SettingsStore>;
   let initialFolders: WatchFolder[];
@@ -95,17 +112,32 @@ describe('TransferSettingsPanelComponent', () => {
     fixture.detectChanges();
   };
 
-  const setup = async (options: { folders?: WatchFolder[]; withSettings?: boolean } = {}) => {
+  const added = (watchFolder: WatchFolder, created = true) => ({ watchFolder, created });
+
+  const setup = async (options: { folders?: WatchFolder[]; failedLoads?: number } = {}) => {
     initialFolders = options.folders ?? [];
+    engineUploads = uploadSettings();
     settingsService = {
-      getSettings: vi.fn().mockReturnValue(of(settings())),
+      getSettings: vi.fn().mockImplementation(() =>
+        settingsService.getSettings.mock.calls.length <= (options.failedLoads ?? 0)
+          ? timer(0).pipe(switchMap(() => throwError(() => new Error('Engine offline'))))
+          : of(settings())
+      ),
       saveSettings: vi.fn().mockReturnValue(of(undefined)),
+      getFileTransferSettings: vi.fn().mockImplementation(() => of({ ...engineUploads })),
+      saveFileTransferSettings: vi
+        .fn()
+        .mockImplementation((change: Partial<FileTransferSettings>) => {
+          engineUploads = { ...engineUploads, ...change };
+          return of({ ...engineUploads });
+        }),
     };
     watchFolders = {
       list: vi.fn().mockImplementation(async () => initialFolders),
       add: vi.fn(),
       setDestination: vi.fn(),
       setEnabled: vi.fn(),
+      setFileTypes: vi.fn(),
       remove: vi.fn().mockResolvedValue(undefined),
       removeDestination: vi.fn(),
     };
@@ -121,9 +153,7 @@ describe('TransferSettingsPanelComponent', () => {
     }).compileComponents();
 
     settingsStore = TestBed.inject(SettingsStore);
-    if (options.withSettings !== false) {
-      await settingsStore.loadSettings();
-    }
+    await settingsStore.loadSettings();
 
     fixture = TestBed.createComponent(TransferSettingsPanelComponent);
     fixture.componentRef.setInput('open', true);
@@ -133,57 +163,99 @@ describe('TransferSettingsPanelComponent', () => {
 
   afterEach(() => fixture?.destroy());
 
-  describe('global auto-launch', () => {
-    it('reflects the stored setting', async () => {
+  describe('uploads', () => {
+    const switches = [
+      { testId: 'auto-launch-switch', key: 'autoLaunchOnCopyEnabled' },
+      { testId: 'all-types-in-folders-switch', key: 'allFileTypesInFolders' },
+      { testId: 'all-types-in-archives-switch', key: 'allFileTypesInArchives' },
+    ] as const;
+    const isOn = (testId: string) =>
+      query(testId)?.querySelector('button')?.getAttribute('aria-checked');
+
+    it('reflects each stored setting', async () => {
       await setup();
-      expect(query('auto-launch-switch')?.querySelector('button')?.getAttribute('aria-checked')).toBe(
-        'false'
-      );
+      expect(switches.map(({ testId }) => isOn(testId))).toEqual(['false', 'false', 'false']);
 
       settingsStore.updateSettings({
-        settings: { fileTransferSettings: { autoLaunchOnCopyEnabled: true } },
+        settings: { fileTransferSettings: uploadSettings({ allFileTypesInFolders: true }) },
       });
       await settle();
 
-      expect(query('auto-launch-switch')?.querySelector('button')?.getAttribute('aria-checked')).toBe(
-        'true'
-      );
+      expect(switches.map(({ testId }) => isOn(testId))).toEqual(['false', 'true', 'false']);
     });
 
-    it('updates the setting and saves it when toggled', async () => {
-      await setup();
+    for (const { testId, key } of switches) {
+      it(`saves only its own setting when ${key} is toggled`, async () => {
+        await setup();
 
-      query('auto-launch-switch')?.querySelector('button')?.click();
-      await settle();
+        clickButton(query(testId));
+        await settle();
 
-      expect(settingsStore.getSettings()()?.fileTransferSettings.autoLaunchOnCopyEnabled).toBe(true);
-      expect(settingsService.saveSettings).toHaveBeenCalledTimes(1);
-      expect(settingsService.saveSettings.mock.calls[0][0].fileTransferSettings).toEqual({
-        autoLaunchOnCopyEnabled: true,
+        expect(settingsService.saveFileTransferSettings).toHaveBeenCalledTimes(1);
+        expect(settingsService.saveFileTransferSettings).toHaveBeenCalledWith({ [key]: true });
+        expect(settingsService.saveSettings).not.toHaveBeenCalled();
+        expect(settingsStore.getSettings()()?.fileTransferSettings[key]).toBe(true);
+        expect(isOn(testId)).toBe('true');
       });
-    });
+    }
 
-    it('shows the failure and puts the switch back when the save fails', async () => {
+    it('shows the failure and keeps the switch at the saved value when the save fails', async () => {
       await setup();
-      settingsService.saveSettings.mockImplementation(() =>
+      settingsService.saveFileTransferSettings.mockImplementation(() =>
         timer(0).pipe(switchMap(() => throwError(() => new Error('Engine offline'))))
       );
 
-      query('auto-launch-switch')?.querySelector('button')?.click();
+      clickButton(query('all-types-in-folders-switch'));
       await settle();
       await settle();
 
       expect(query('settings-error')?.textContent).toContain('Engine offline');
-      expect(settingsStore.getSettings()()?.fileTransferSettings.autoLaunchOnCopyEnabled).toBe(false);
-      expect(query('auto-launch-switch')?.querySelector('button')?.getAttribute('aria-checked')).toBe(
-        'false'
-      );
+      expect(settingsStore.getSettings()()?.fileTransferSettings.allFileTypesInFolders).toBe(false);
+      expect(isOn('all-types-in-folders-switch')).toBe('false');
     });
 
-    it('is disabled while settings have not loaded', async () => {
-      await setup({ withSettings: false });
+    it('re-reads the engine settings each time the panel opens', async () => {
+      await setup();
+      expect(settingsService.getFileTransferSettings).toHaveBeenCalledTimes(1);
 
-      expect(query('auto-launch-switch')?.querySelector('button')?.disabled).toBe(true);
+      fixture.componentRef.setInput('open', false);
+      fixture.detectChanges();
+      engineUploads = uploadSettings({ allFileTypesInArchives: true });
+      fixture.componentRef.setInput('open', true);
+      fixture.detectChanges();
+      await settle();
+      await settle();
+
+      expect(settingsService.getFileTransferSettings).toHaveBeenCalledTimes(2);
+      expect(isOn('all-types-in-archives-switch')).toBe('true');
+    });
+
+    it('stays disabled and shows the error while the settings still fail to load', async () => {
+      await setup({ failedLoads: 2 });
+
+      expect(settingsService.getSettings).toHaveBeenCalledTimes(2);
+      for (const { testId } of switches) {
+        expect(query(testId)?.querySelector('button')?.disabled).toBe(true);
+      }
+      expect(query('settings-error')?.textContent).toContain('Engine offline');
+    });
+
+    it('loads the full settings on open after a failed startup load, which enables the switches', async () => {
+      await setup({ failedLoads: 1 });
+
+      expect(settingsService.getSettings).toHaveBeenCalledTimes(2);
+      expect(settingsService.getFileTransferSettings).not.toHaveBeenCalled();
+      for (const { testId } of switches) {
+        expect(query(testId)?.querySelector('button')?.disabled).toBe(false);
+      }
+      expect(query('settings-error')).toBeNull();
+    });
+
+    it('only refreshes the Uploads settings on open once the settings have loaded', async () => {
+      await setup();
+
+      expect(settingsService.getSettings).toHaveBeenCalledTimes(1);
+      expect(settingsService.getFileTransferSettings).toHaveBeenCalledTimes(1);
     });
   });
 
@@ -302,6 +374,54 @@ describe('TransferSettingsPanelComponent', () => {
       expect(
         query('watch-folder-switch')?.querySelector('button')?.getAttribute('aria-checked')
       ).toBe('true');
+    });
+
+    it('names each folder file-type switch for its folder and shows the saved values', async () => {
+      await setup({ folders: [folder('a', { allFileTypesInArchives: true }), folder('b')] });
+
+      const buttons = (testId: string) =>
+        queryAll(testId).map((host) => host.querySelector('button'));
+      expect(buttons('watch-folder-all-types-switch').map((b) => b?.getAttribute('aria-label'))).toEqual([
+        'All file types for C:\\Watch\\a',
+        'All file types for C:\\Watch\\b',
+      ]);
+      expect(
+        buttons('watch-folder-all-in-archives-switch').map((b) => b?.getAttribute('aria-label'))
+      ).toEqual([
+        'All file types in archives for C:\\Watch\\a',
+        'All file types in archives for C:\\Watch\\b',
+      ]);
+      expect(
+        buttons('watch-folder-all-in-archives-switch').map((b) => b?.getAttribute('aria-checked'))
+      ).toEqual(['true', 'false']);
+    });
+
+    it('saves a flipped file-type switch through the store and redraws from the answer', async () => {
+      await setup({ folders: [folder('a')] });
+      watchFolders['setFileTypes'].mockResolvedValue(folder('a', { allFileTypes: true }));
+
+      clickButton(query('watch-folder-all-types-switch'));
+      await settle();
+
+      expect(watchFolders['setFileTypes']).toHaveBeenCalledWith('a', { allFileTypes: true });
+      expect(
+        query('watch-folder-all-types-switch')?.querySelector('button')?.getAttribute('aria-checked')
+      ).toBe('true');
+    });
+
+    it('keeps a file-type switch where it was and shows the error when the save fails', async () => {
+      await setup({ folders: [folder('a')] });
+      watchFolders['setFileTypes'].mockRejectedValue(new Error('Watch folder not found'));
+
+      clickButton(query('watch-folder-all-in-archives-switch'));
+      await settle();
+
+      expect(query('watch-folders-error')?.textContent).toContain('Watch folder not found');
+      expect(
+        query('watch-folder-all-in-archives-switch')
+          ?.querySelector('button')
+          ?.getAttribute('aria-checked')
+      ).toBe('false');
     });
 
     it('asks before removing a folder, then removes it', async () => {
@@ -435,6 +555,147 @@ describe('TransferSettingsPanelComponent', () => {
         expect(query('form-launch')?.querySelector('button')?.getAttribute('aria-checked')).toBe('false');
       });
 
+      it('starts with both file-type switches off and sends them as chosen', async () => {
+        await setup();
+        watchFolders['add'].mockResolvedValue(added(folder('new', { allFileTypes: true })));
+        await fillAddFolder();
+        const checked = (testId: string) =>
+          query(testId)?.querySelector('button')?.getAttribute('aria-checked');
+        expect(checked('form-all-types')).toBe('false');
+        expect(checked('form-all-in-archives')).toBe('false');
+
+        clickButton(query('form-all-types'));
+        clickButton(query('form-all-in-archives'));
+        await settle();
+        await submit();
+
+        expect(watchFolders['add']).toHaveBeenCalledWith(
+          expect.objectContaining({ allFileTypes: true, allFileTypesInArchives: true })
+        );
+      });
+
+      describe('already-watched notice', () => {
+        const notice = () => query('watch-folders-notice');
+        const addExisting = async (switches: string[], created = false) => {
+          watchFolders['add'].mockResolvedValue(added(folder('new'), created));
+          await fillAddFolder();
+          for (const testId of switches) {
+            clickButton(query(testId));
+            await settle();
+          }
+          await submit();
+        };
+
+        it.each([['form-all-types'], ['form-all-in-archives']])(
+          'closes the form and says the file types stay when %s was on for a folder already watched',
+          async (toggle) => {
+            await setup();
+
+            await addExisting([toggle]);
+
+            expect(query('watch-folder-form')).toBeNull();
+            expect(notice()?.textContent).toContain('already watched');
+            expect(notice()?.textContent).toContain('stay as they are');
+          }
+        );
+
+        it('shows no notice when both switches were off', async () => {
+          await setup();
+
+          await addExisting([]);
+
+          expect(query('watch-folder-form')).toBeNull();
+          expect(notice()).toBeNull();
+        });
+
+        it('shows no notice when the add created the folder', async () => {
+          await setup();
+
+          await addExisting(['form-all-types', 'form-all-in-archives'], true);
+
+          expect(query('watch-folder-form')).toBeNull();
+          expect(notice()).toBeNull();
+        });
+
+        it('shows no notice when the add was refused, and keeps the form open', async () => {
+          await setup();
+          watchFolders['add'].mockRejectedValue(reject('folder', 'Not found'));
+          await fillAddFolder();
+          clickButton(query('form-all-types'));
+          await settle();
+
+          await submit();
+
+          expect(query('watch-folder-form')).not.toBeNull();
+          expect(notice()).toBeNull();
+        });
+
+        it('shows no notice from an Add device form', async () => {
+          await setup({ folders: [folder('a', { allFileTypes: true })] });
+          watchFolders['add'].mockResolvedValue(
+            added(folder('a', { allFileTypes: true }), false)
+          );
+          query<HTMLButtonElement>('add-device')?.click();
+          await settle();
+
+          await submit();
+
+          expect(query('watch-folder-device-form')).toBeNull();
+          expect(notice()).toBeNull();
+        });
+
+        it('clears when any form opens', async () => {
+          await setup({ folders: [folder('a')] });
+          await addExisting(['form-all-types']);
+          expect(notice()).not.toBeNull();
+
+          query<HTMLButtonElement>('add-device')?.click();
+          await settle();
+
+          expect(notice()).toBeNull();
+        });
+
+        it('clears when the panel is reopened', async () => {
+          await setup();
+          await addExisting(['form-all-types']);
+          expect(notice()).not.toBeNull();
+
+          fixture.componentRef.setInput('open', false);
+          fixture.detectChanges();
+          fixture.componentRef.setInput('open', true);
+          fixture.detectChanges();
+          await settle();
+
+          expect(notice()).toBeNull();
+        });
+
+        it('shows nothing when the form changed before the save resolved', async () => {
+          await setup();
+          let resolveAdd: (value: ReturnType<typeof added>) => void = () => undefined;
+          watchFolders['add'].mockReturnValue(
+            new Promise((resolve) => {
+              resolveAdd = resolve;
+            })
+          );
+          await fillAddFolder();
+          clickButton(query('form-all-types'));
+          await settle();
+          submitButton()?.click();
+          await settle();
+
+          clickButton(query('form-cancel'));
+          await settle();
+          clickButton(query('add-watch-folder'));
+          await settle();
+          resolveAdd(added(folder('new'), false));
+          await settle();
+          await settle();
+
+          expect(query('watch-folder-form')).not.toBeNull();
+          expect(notice()).toBeNull();
+        });
+      });
+
       it('gates Add on the folder, since the rest starts filled in', async () => {
         await setup();
         clickButton(query('add-watch-folder'));
@@ -482,19 +743,21 @@ describe('TransferSettingsPanelComponent', () => {
       it('saves the trimmed folder and the chosen device, then closes and lists it', async () => {
         await setup();
         watchFolders['add'].mockResolvedValue(
-          folder('new', {
-            path: 'D:\\Incoming',
-            destinations: [
-              {
-                id: 'new-1',
-                deviceId: 'dev-2',
-                deviceName: 'Bench TeensyROM',
-                storageType: StorageType.Sd,
-                path: '/auto-transfer',
-                launch: false,
-              },
-            ],
-          })
+          added(
+            folder('new', {
+              path: 'D:\\Incoming',
+              destinations: [
+                {
+                  id: 'new-1',
+                  deviceId: 'dev-2',
+                  deviceName: 'Bench TeensyROM',
+                  storageType: StorageType.Sd,
+                  path: '/auto-transfer',
+                  launch: false,
+                },
+              ],
+            })
+          )
         );
 
         await fillAddFolder();
@@ -506,6 +769,8 @@ describe('TransferSettingsPanelComponent', () => {
           storageType: StorageType.Sd,
           devicePath: '/auto-transfer',
           launch: false,
+          allFileTypes: false,
+          allFileTypesInArchives: false,
         });
         expect(query('watch-folder-form')).toBeNull();
         expect(query('watch-folder-path')?.textContent).toContain('D:\\Incoming');
@@ -695,22 +960,37 @@ describe('TransferSettingsPanelComponent', () => {
         expect(query('add-device')).toBeNull();
       });
 
+      it('passes the folder current file-type switches along', async () => {
+        await setup({ folders: [folder('a', { allFileTypes: true })] });
+        watchFolders['add'].mockResolvedValue(added(folder('a', { allFileTypes: true }), false));
+        query<HTMLButtonElement>('add-device')?.click();
+        await settle();
+
+        await submit();
+
+        expect(watchFolders['add']).toHaveBeenCalledWith(
+          expect.objectContaining({ allFileTypes: true, allFileTypesInArchives: false })
+        );
+      });
+
       it('saves through add with the folder path and closes', async () => {
         await setup({ folders: [folder('a')] });
         watchFolders['add'].mockResolvedValue(
-          folder('a', {
-            destinations: [
-              ...folder('a').destinations,
-              {
-                id: 'a-2',
-                deviceId: 'dev-2',
-                deviceName: 'Bench TeensyROM',
-                storageType: StorageType.Usb,
-                path: '/auto-transfer',
-                launch: false,
-              },
-            ],
-          })
+          added(
+            folder('a', {
+              destinations: [
+                ...folder('a').destinations,
+                {
+                  id: 'a-2',
+                  deviceId: 'dev-2',
+                  deviceName: 'Bench TeensyROM',
+                  storageType: StorageType.Usb,
+                  path: '/auto-transfer',
+                  launch: false,
+                },
+              ],
+            })
+          )
         );
         query<HTMLButtonElement>('add-device')?.click();
         await settle();
@@ -724,6 +1004,8 @@ describe('TransferSettingsPanelComponent', () => {
           storageType: StorageType.Usb,
           devicePath: '/auto-transfer',
           launch: false,
+          allFileTypes: false,
+          allFileTypesInArchives: false,
         });
         expect(query('watch-folder-device-form')).toBeNull();
         expect(queryAll('watch-folder-device-row')).toHaveLength(2);
@@ -732,19 +1014,21 @@ describe('TransferSettingsPanelComponent', () => {
       it('returns focus to the last device when adding it leaves nothing more to add', async () => {
         await setup({ folders: [folder('a')] });
         watchFolders['add'].mockResolvedValue(
-          folder('a', {
-            destinations: [
-              ...folder('a').destinations,
-              {
-                id: 'a-2',
-                deviceId: 'dev-2',
-                deviceName: 'Bench TeensyROM',
-                storageType: StorageType.Sd,
-                path: '/auto-transfer',
-                launch: false,
-              },
-            ],
-          })
+          added(
+            folder('a', {
+              destinations: [
+                ...folder('a').destinations,
+                {
+                  id: 'a-2',
+                  deviceId: 'dev-2',
+                  deviceName: 'Bench TeensyROM',
+                  storageType: StorageType.Sd,
+                  path: '/auto-transfer',
+                  launch: false,
+                },
+              ],
+            })
+          )
         );
         query<HTMLButtonElement>('add-device')?.click();
         await settle();
@@ -879,7 +1163,7 @@ describe('TransferSettingsPanelComponent', () => {
     });
   });
 
-  it('moves focus to the Global switch', async () => {
+  it('moves focus to the first Uploads switch', async () => {
     await setup();
 
     fixture.componentInstance.focusEntry();

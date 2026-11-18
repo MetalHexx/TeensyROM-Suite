@@ -1,7 +1,7 @@
 import { ComponentFixture, TestBed } from '@angular/core/testing';
 import { signal } from '@angular/core';
 import { vi } from 'vitest';
-import { StorageStore } from '@teensyrom-nx/application';
+import { DeviceStore, StorageStore } from '@teensyrom-nx/application';
 import { StorageType } from '@teensyrom-nx/domain';
 import { DjDirectoryTrailComponent } from './dj-directory-trail.component';
 import type { ActiveStorage } from '../active-storage';
@@ -18,7 +18,7 @@ function createStorageStoreStub(overrides: Record<string, unknown> = {}) {
     navigateDirectoryBackward: vi.fn().mockResolvedValue(undefined),
     navigateDirectoryForward: vi.fn().mockResolvedValue(undefined),
     navigateUpOneDirectory: vi.fn().mockResolvedValue(undefined),
-    refreshDirectory: vi.fn().mockResolvedValue(undefined),
+    refreshAfterIndex: vi.fn().mockResolvedValue(undefined),
     navigateToDirectory: vi.fn().mockResolvedValue(undefined),
     ...overrides,
   };
@@ -26,10 +26,14 @@ function createStorageStoreStub(overrides: Record<string, unknown> = {}) {
 
 function render(activeStorage: ActiveStorage, storageStoreOverrides: Record<string, unknown> = {}) {
   const storageStore = createStorageStoreStub(storageStoreOverrides);
+  const deviceStore = { indexStorage: vi.fn().mockResolvedValue(true) };
 
   TestBed.configureTestingModule({
     imports: [DjDirectoryTrailComponent],
-    providers: [{ provide: StorageStore, useValue: storageStore }],
+    providers: [
+      { provide: StorageStore, useValue: storageStore },
+      { provide: DeviceStore, useValue: deviceStore },
+    ],
   });
 
   const fixture: ComponentFixture<DjDirectoryTrailComponent> =
@@ -37,7 +41,7 @@ function render(activeStorage: ActiveStorage, storageStoreOverrides: Record<stri
   fixture.componentRef.setInput('activeStorage', activeStorage);
   fixture.detectChanges();
 
-  return { fixture, component: fixture.componentInstance, storageStore };
+  return { fixture, component: fixture.componentInstance, storageStore, deviceStore };
 }
 
 describe('DjDirectoryTrailComponent', () => {
@@ -100,15 +104,28 @@ describe('DjDirectoryTrailComponent', () => {
     expect(storageStore.navigateUpOneDirectory).not.toHaveBeenCalled();
   });
 
-  it('calls refreshDirectory with the active device and storage type on refresh click', () => {
-    const { component, storageStore } = render(active);
+  it('re-indexes the shown folder, then refreshes after the index, on refresh click', async () => {
+    const { component, storageStore, deviceStore } = render(active, {
+      getSelectedDirectoryState: vi.fn(() => signal({ currentPath: '/games' })),
+    });
 
-    component.onRefreshClick();
+    await component.onRefreshClick();
 
-    expect(storageStore.refreshDirectory).toHaveBeenCalledWith({
+    expect(deviceStore.indexStorage).toHaveBeenCalledWith('device-a', StorageType.Sd, '/games');
+    expect(storageStore.refreshAfterIndex).toHaveBeenCalledWith({
       deviceId: 'device-a',
       storageType: StorageType.Sd,
+      path: '/games',
     });
+  });
+
+  it('does not refresh when the index fails', async () => {
+    const { component, storageStore, deviceStore } = render(active);
+    deviceStore.indexStorage.mockResolvedValue(false);
+
+    await component.onRefreshClick();
+
+    expect(storageStore.refreshAfterIndex).not.toHaveBeenCalled();
   });
 
   it('calls navigateToDirectory with the requested path on a crumb click', () => {

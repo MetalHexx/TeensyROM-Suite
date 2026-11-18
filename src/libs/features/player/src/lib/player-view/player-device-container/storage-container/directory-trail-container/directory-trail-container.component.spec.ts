@@ -1,6 +1,6 @@
 import { vi } from 'vitest';
 import { TestBed } from '@angular/core/testing';
-import { StorageStore } from '@teensyrom-nx/application';
+import { DeviceStore, StorageStore } from '@teensyrom-nx/application';
 import { StorageType, STORAGE_SERVICE } from '@teensyrom-nx/domain';
 import { DirectoryTrailComponent } from '@teensyrom-nx/ui/components';
 import { renderPlayerComponent } from '../../../../../testing/render-player-component';
@@ -11,13 +11,17 @@ describe('DirectoryTrailContainerComponent', () => {
   const deviceId = 'test-device';
 
   function render(options: { realChildren?: (typeof DirectoryTrailComponent)[] } = {}) {
+    const deviceStore = { indexStorage: vi.fn().mockResolvedValue(true) };
     const result = renderPlayerComponent(DirectoryTrailContainerComponent, {
       inputs: { deviceId },
-      providers: [{ provide: STORAGE_SERVICE, useValue: createMockStorageService() }],
+      providers: [
+        { provide: STORAGE_SERVICE, useValue: createMockStorageService() },
+        { provide: DeviceStore, useValue: deviceStore },
+      ],
       realChildren: options.realChildren,
     });
     const storageStore = TestBed.inject(StorageStore);
-    return { ...result, storageStore };
+    return { ...result, storageStore, deviceStore };
   }
 
   it('creates the component', () => {
@@ -120,16 +124,32 @@ describe('DirectoryTrailContainerComponent', () => {
     expect(navigateUpOneDirectory).toHaveBeenCalledWith({ deviceId, storageType: StorageType.Sd });
   });
 
-  it('calls refreshDirectory on refresh click', async () => {
-    const { component, storageStore } = render();
+  it('re-indexes the shown folder, then refreshes after the index, on refresh click', async () => {
+    const { component, storageStore, deviceStore } = render();
     await storageStore.navigateToDirectory({ deviceId, storageType: StorageType.Sd, path: '/games' });
-    const refreshDirectory = vi
-      .spyOn(storageStore, 'refreshDirectory')
+    const refreshAfterIndex = vi
+      .spyOn(storageStore, 'refreshAfterIndex')
       .mockImplementation(async () => undefined);
 
-    component.onRefreshClick();
+    await component.onRefreshClick();
 
-    expect(refreshDirectory).toHaveBeenCalledWith({ deviceId, storageType: StorageType.Sd });
+    expect(deviceStore.indexStorage).toHaveBeenCalledWith(deviceId, StorageType.Sd, '/games');
+    expect(refreshAfterIndex).toHaveBeenCalledWith({
+      deviceId,
+      storageType: StorageType.Sd,
+      path: '/games',
+    });
+  });
+
+  it('does not refresh when the index fails', async () => {
+    const { component, storageStore, deviceStore } = render();
+    await storageStore.navigateToDirectory({ deviceId, storageType: StorageType.Sd, path: '/games' });
+    deviceStore.indexStorage.mockResolvedValue(false);
+    const refreshAfterIndex = vi.spyOn(storageStore, 'refreshAfterIndex');
+
+    await component.onRefreshClick();
+
+    expect(refreshAfterIndex).not.toHaveBeenCalled();
   });
 
   it('calls navigateToDirectory with the requested path on navigation request', async () => {
@@ -245,13 +265,12 @@ describe('DirectoryTrailContainerComponent', () => {
       expect(navigateUpOneDirectory).not.toHaveBeenCalled();
     });
 
-    it('is a no-op on refresh click', () => {
-      const { component, storageStore } = render();
-      const refreshDirectory = vi.spyOn(storageStore, 'refreshDirectory');
+    it('is a no-op on refresh click', async () => {
+      const { component, deviceStore } = render();
 
-      component.onRefreshClick();
+      await component.onRefreshClick();
 
-      expect(refreshDirectory).not.toHaveBeenCalled();
+      expect(deviceStore.indexStorage).not.toHaveBeenCalled();
     });
 
     it('is a no-op on navigation request', () => {

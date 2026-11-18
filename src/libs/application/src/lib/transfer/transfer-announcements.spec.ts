@@ -35,6 +35,7 @@ const createSnapshot = (overrides: Partial<TransferJobSnapshot> = {}): TransferJ
   launchState: TransferLaunchState.None,
   launchedPath: null,
   launchError: null,
+  skipped: [],
   ...overrides,
 });
 
@@ -173,6 +174,96 @@ describe('buildEndAnnouncement', () => {
         severity: 'error',
         message: "Sent 2 of 3 files to TR · 1 didn't arrive · launched a.prg",
       });
+    });
+  });
+
+  describe('skipped', () => {
+    const skipped: TransferJobSnapshot['skipped'] = [
+      { reason: 'unsupportedType', count: 2, types: ['.xyz'] },
+      { reason: 'hiddenOrSystem', count: 3, types: [] },
+    ];
+    const archivesHint =
+      'To send other file types, turn on "All file types in archives" under Uploads in Transfer Settings.';
+
+    it('appends the skipped sentence and the archives hint, keeping the severity', () => {
+      expect(buildEndAnnouncement(completed({ skipped }), 'TR')).toEqual({
+        severity: 'success',
+        message: `Sent 4 files to TR. 2 files skipped (.xyz): not a file type the TeensyROM takes; 3 hidden or system files skipped. ${archivesHint}`,
+      });
+    });
+
+    it('ends an upload whose archives skipped one unsupported type with the hint', () => {
+      expect(
+        buildEndAnnouncement(
+          completed({ skipped: [{ reason: 'unsupportedType', count: 1, types: ['.xyz'] }] }),
+          'TR'
+        ).message
+      ).toBe(
+        `Sent 4 files to TR. 1 file skipped (.xyz): not a file type the TeensyROM takes. ${archivesHint}`
+      );
+    });
+
+    it('ends a watch-folder job with the watch-folder archives hint', () => {
+      expect(
+        buildEndAnnouncement(
+          completed({
+            skipped: [{ reason: 'unsupportedType', count: 1, types: ['.xyz'] }],
+            origin: watchFolder,
+          }),
+          'TR'
+        ).message
+      ).toBe(
+        'Sent 4 files to TR. 1 file skipped (.xyz): not a file type the TeensyROM takes. To send other file types, turn on "All file types in archives" for this watch folder in Transfer Settings.'
+      );
+    });
+
+    it('adds no hint when only non-type skips were counted', () => {
+      expect(
+        buildEndAnnouncement(
+          completed({ skipped: [{ reason: 'partialDownload', count: 1, types: [] }] }),
+          'TR'
+        ).message
+      ).toBe('Sent 4 files to TR. 1 unfinished download skipped.');
+    });
+
+    it('appends it after the launch suffix and to a stopped transfer', () => {
+      const launched = completed({
+        skipped,
+        launchState: TransferLaunchState.Launched,
+        launchedPath: '/games/a.prg',
+      });
+      expect(buildEndAnnouncement(launched, 'TR').message).toBe(
+        'Sent 4 files to TR · launched a.prg. 2 files skipped (.xyz): not a file type the TeensyROM takes; 3 hidden or system files skipped. To send other file types, turn on "All file types in archives" under Uploads in Transfer Settings.'
+      );
+      expect(
+        buildEndAnnouncement(
+          createSnapshot({ state: TransferJobState.Cancelled, filesSent: 2, skipped }),
+          'TR'
+        ).message
+      ).toBe(
+        'Transfer to TR cancelled · 2 files sent. 2 files skipped (.xyz): not a file type the TeensyROM takes; 3 hidden or system files skipped. To send other file types, turn on "All file types in archives" under Uploads in Transfer Settings.'
+      );
+    });
+
+    it('does not double the full stop when the outcome already ends with one', () => {
+      const failedLaunch = completed({
+        skipped: [{ reason: 'partialDownload', count: 1, types: [] }],
+        launchState: TransferLaunchState.Failed,
+        launchedPath: '/games/a.prg',
+        launchError: 'device did not answer.',
+      });
+      expect(buildEndAnnouncement(failedLaunch, 'TR').message).toBe(
+        "Sent 4 files to TR · couldn't launch a.prg: device did not answer. 1 unfinished download skipped."
+      );
+    });
+
+    it('adds nothing when no skip has a count', () => {
+      expect(
+        buildEndAnnouncement(
+          completed({ skipped: [{ reason: 'hiddenOrSystem', count: 0, types: [] }] }),
+          'TR'
+        ).message
+      ).toBe('Sent 4 files to TR');
     });
   });
 

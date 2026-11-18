@@ -51,6 +51,7 @@ export * from './version.model';
 // Transfer models
 export * from './transfer-job-snapshot.model';
 export * from './transfer-manifest-entry.model';
+export * from './transfer-skip.model';
 
 // Watch folder models
 export * from './watch-folder.model';

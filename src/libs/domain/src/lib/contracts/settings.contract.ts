@@ -1,5 +1,5 @@
 import { Observable } from 'rxjs';
-import { Settings } from '../models/settings.model';
+import { FileTransferSettings, Settings } from '../models/settings.model';
 import { InjectionToken } from '@angular/core';
 
 /**
@@ -29,6 +29,21 @@ export interface ISettingsService {
    * @returns Observable emitting the saved settings object
    */
   saveSettings(settings: Settings): Observable<Settings>;
+
+  /**
+   * Retrieves only the upload (file transfer) settings from the backend.
+   *
+   * @returns Observable emitting the engine's current upload settings
+   */
+  getFileTransferSettings(): Observable<FileTransferSettings>;
+
+  /**
+   * Saves only the given upload settings, leaving every other setting untouched on the engine.
+   *
+   * @param change - The upload switches to change
+   * @returns Observable emitting the upload settings as saved
+   */
+  saveFileTransferSettings(change: Partial<FileTransferSettings>): Observable<FileTransferSettings>;
 }
 
 /**

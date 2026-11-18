@@ -44,6 +44,14 @@ internal sealed class CliSession(CommandApp app, CommandApp errHelpApp, ICliOutp
 
     private int Report(Exception ex, string[] args)
     {
+        if (ex is CliCancelledException)
+        {
+            output.Notice(ex.Message);
+            if (output.Mode == OutputMode.Json) output.Json(new CancelledJson(true));
+
+            return 0;
+        }
+
         var prefix = CommandRouting.HelpPrefix(args, nouns, commands);
         var error = ExitCodeMapper.Map(ex, $"trom {string.Join(' ', prefix.Append("--help"))}");
 
@@ -53,4 +61,7 @@ internal sealed class CliSession(CommandApp app, CommandApp errHelpApp, ICliOutp
 
         return (int)error.Code;
     }
+
+    /// <summary>The stdout document of a declined confirmation under <c>--json</c>.</summary>
+    private sealed record CancelledJson(bool Cancelled);
 }

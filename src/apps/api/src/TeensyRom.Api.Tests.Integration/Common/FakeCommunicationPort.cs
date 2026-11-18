@@ -21,10 +21,15 @@ namespace TeensyRom.Api.Tests.Integration.Common
     /// </summary>
     public sealed class FakeCommunicationPort : ICommunicationPort
     {
-        private enum Stage { AwaitToken, AwaitLength, AwaitChecksum, AwaitStorageToken, AwaitPath, AwaitBody, AwaitDeleteStorageToken, AwaitDeletePath }
+        private enum Stage
+        {
+            AwaitToken, AwaitLength, AwaitChecksum, AwaitStorageToken, AwaitPath, AwaitBody, AwaitDeleteStorageToken, AwaitDeletePath,
+            AwaitListStorageToken, AwaitListSkip, AwaitListTake, AwaitListPath
+        }
 
         private readonly object _gate = new();
         private readonly ConcurrentQueue<FakeReceivedFile> _received = new();
+        private readonly ConcurrentQueue<string> _directoryReads = new();
 
         private Stage _stage = Stage.AwaitToken;
         private uint _pendingLength;
@@ -61,6 +66,9 @@ namespace TeensyRom.Api.Tests.Integration.Common
         public bool SimulateDeviceLoss { get; set; }
 
         public IReadOnlyList<FakeReceivedFile> Received => [.. _received];
+
+        /// <summary>Every folder the device was asked to list, in the order asked.</summary>
+        public IReadOnlyList<string> DirectoryReads => [.. _directoryReads];
 
         /// <summary>How many reset tokens the device has been sent, whoever sent them - the pump or the command gate.</summary>
         public int ResetCount
@@ -141,9 +149,25 @@ namespace TeensyRom.Api.Tests.Integration.Common
                     _hasUnreadResponse = true;
                     return;
                 }
+                if (numBytes == 2 && intToSend == TeensyToken.ListDirectory.Value)
+                {
+                    _stage = Stage.AwaitListStorageToken;
+                    _nextTwoByteResponse = TeensyToken.Ack.Value;
+                    _hasUnreadResponse = true;
+                    return;
+                }
 
                 switch (_stage)
                 {
+                    case Stage.AwaitListStorageToken:
+                        _stage = Stage.AwaitListSkip;
+                        break;
+                    case Stage.AwaitListSkip:
+                        _stage = Stage.AwaitListTake;
+                        break;
+                    case Stage.AwaitListTake:
+                        _stage = Stage.AwaitListPath;
+                        break;
                     case Stage.AwaitLength:
                         _pendingLength = intToSend;
                         _stage = Stage.AwaitChecksum;
@@ -186,6 +210,53 @@ namespace TeensyRom.Api.Tests.Integration.Common
                 {
                     _stage = Stage.AwaitToken;
                 }
+                else if (_stage == Stage.AwaitListPath)
+                {
+                    EnqueueDirectoryListing(path);
+                    _nextTwoByteResponse = TeensyToken.Ack.Value;
+                    _hasUnreadResponse = true;
+                    _stage = Stage.AwaitToken;
+                }
+            }
+        }
+
+        /// <summary>
+        /// Queues the device's reply to a non-recursive directory read: the start token, one JSON line for each
+        /// file sent into <paramref name="folder"/> and for each folder holding something sent below it, then the
+        /// end token. The caller holds <see cref="_gate"/>.
+        /// </summary>
+        private void EnqueueDirectoryListing(string folder)
+        {
+            _directoryReads.Enqueue(folder);
+
+            var files = new Dictionary<string, long>(StringComparer.OrdinalIgnoreCase);
+            var subfolders = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+
+            foreach (var received in _received)
+            {
+                if (!received.Path.StartsWith(folder, StringComparison.OrdinalIgnoreCase)) continue;
+
+                var relative = received.Path[folder.Length..];
+                var slash = relative.IndexOf('/');
+
+                if (slash < 0)
+                {
+                    files[relative] = received.DeclaredLength;
+                }
+                else
+                {
+                    subfolders.Add(relative[..slash]);
+                }
+            }
+
+            var lines = subfolders.Select(name => $"{{\"type\":\"dir\",\"name\":\"{name}\"}}\r\n")
+                .Concat(files.Select(file => $"{{\"type\":\"file\",\"name\":\"{file.Key}\",\"size\":{file.Value}}}\r\n"));
+
+            foreach (var textByte in new byte[] { 0x5A, 0x5A }
+                .Concat(Encoding.UTF8.GetBytes(string.Concat(lines)))
+                .Concat(new byte[] { 0xA5, 0xA5 }))
+            {
+                _replyText.Enqueue(textByte);
             }
         }
 

@@ -2,6 +2,7 @@ using System.Reactive.Linq;
 using System.Reactive.Threading.Tasks;
 using AutoFixture;
 using TeensyRom.Core.Common;
+using TeensyRom.Core.Entities.Storage;
 using TeensyRom.Core.Logging;
 using TeensyRom.Core.Settings;
 
@@ -1659,6 +1660,196 @@ public class SettingsServiceTests : IDisposable
         subscription.Dispose();
         // Should not emit because values are the same (record value equality)
         knownDevicesEmissions.Should().HaveCount(1, "DistinctUntilChanged uses value equality for records");
+    }
+
+    #endregion
+
+    #region Settings Upgrade Tests
+
+    private static string FileWithWatchFolder(bool autoLaunch, int? version, bool destinationLaunch = true) => $$"""
+        {
+          {{(version is { } v ? $"\"settingsVersion\": {v}," : "")}}
+          "fileTransferSettings": { "autoLaunchOnCopyEnabled": {{(autoLaunch ? "true" : "false")}} },
+          "watchFolders": [
+            {
+              "id": "f1",
+              "path": "/watched",
+              "destinations": [
+                { "id": "d1", "deviceId": "CHIP1", "path": "/in/", "launch": {{(destinationLaunch ? "true" : "false")}} },
+                { "id": "d2", "deviceId": "CHIP2", "path": "/in/", "launch": true }
+              ]
+            }
+          ]
+        }
+        """;
+
+    private void GivenSettingsFile(string json)
+    {
+        Directory.CreateDirectory(Path.GetDirectoryName(_settingsFilePath)!);
+        File.WriteAllText(_settingsFilePath, json);
+    }
+
+    [Fact]
+    public void GetSettings_FileWithoutTheNewFields_LoadsWithEverySwitchOff()
+    {
+        GivenSettingsFile("""
+            {
+              "fileTransferSettings": { "autoLaunchOnCopyEnabled": true },
+              "watchFolders": [ { "id": "f1", "path": "/watched", "destinations": [] } ]
+            }
+            """);
+
+        var settings = new SettingsService(_mockLogger).GetSettings();
+
+        settings.FileTransferSettings.AllFileTypesInFolders.Should().BeFalse();
+        settings.FileTransferSettings.AllFileTypesInArchives.Should().BeFalse();
+        var folder = settings.WatchFolders.Single();
+        folder.AllFileTypes.Should().BeFalse();
+        folder.AllFileTypesInArchives.Should().BeFalse();
+    }
+
+    [Fact]
+    public void GetSettings_PreChangeFileWithAutoLaunchOff_TurnsEveryDestinationLaunchOffAndRecordsIt()
+    {
+        GivenSettingsFile(FileWithWatchFolder(autoLaunch: false, version: null));
+
+        var settings = new SettingsService(_mockLogger).GetSettings();
+
+        settings.SettingsVersion.Should().Be(SettingsUpgrades.CurrentVersion);
+        settings.WatchFolders.Single().Destinations.Should().OnlyContain(d => !d.Launch);
+        var onDisk = LaunchableItemSerializer.Deserialize<TeensySettings>(File.ReadAllText(_settingsFilePath))!;
+        onDisk.SettingsVersion.Should().Be(SettingsUpgrades.CurrentVersion);
+        onDisk.WatchFolders.Single().Destinations.Should().OnlyContain(d => !d.Launch);
+    }
+
+    [Fact]
+    public void GetSettings_PreChangeFileWithAutoLaunchOn_KeepsEveryLaunchAndStampsTheVersion()
+    {
+        GivenSettingsFile(FileWithWatchFolder(autoLaunch: true, version: null, destinationLaunch: false));
+
+        var settings = new SettingsService(_mockLogger).GetSettings();
+
+        settings.SettingsVersion.Should().Be(SettingsUpgrades.CurrentVersion);
+        settings.WatchFolders.Single().Destinations.Select(d => d.Launch).Should().Equal(false, true);
+        LaunchableItemSerializer.Deserialize<TeensySettings>(File.ReadAllText(_settingsFilePath))!
+            .SettingsVersion.Should().Be(SettingsUpgrades.CurrentVersion);
+    }
+
+    [Fact]
+    public void GetSettings_FileAlreadyAtTheCurrentVersion_LeavesLaunchesAndTheFileAlone()
+    {
+        var json = FileWithWatchFolder(autoLaunch: false, version: SettingsUpgrades.CurrentVersion);
+        GivenSettingsFile(json);
+
+        var settings = new SettingsService(_mockLogger).GetSettings();
+
+        settings.WatchFolders.Single().Destinations.Should().OnlyContain(d => d.Launch);
+        File.ReadAllText(_settingsFilePath).Should().Be(json);
+    }
+
+    [Fact]
+    public void GetSettings_UpgradeRunsOnce_SoALaunchSwitchedBackOnSurvivesTheNextStart()
+    {
+        GivenSettingsFile(FileWithWatchFolder(autoLaunch: false, version: null));
+        var first = new SettingsService(_mockLogger);
+        first.GetSettings().WatchFolders.Single().Destinations.Should().OnlyContain(d => !d.Launch);
+
+        first.UpdateSettings(s => s with
+        {
+            WatchFolders = [.. s.WatchFolders.Select(f => f with
+            {
+                Destinations = [.. f.Destinations.Select(d => d with { Launch = true })]
+            })]
+        });
+
+        var second = new SettingsService(_mockLogger).GetSettings();
+        second.WatchFolders.Single().Destinations.Should().OnlyContain(d => d.Launch);
+        second.SettingsVersion.Should().Be(SettingsUpgrades.CurrentVersion);
+    }
+
+    [Fact]
+    public void GetSettings_ReadOnlyPreChangeFile_UpgradesInMemoryWarnsAndWritesAtTheNextSave()
+    {
+        GivenSettingsFile(FileWithWatchFolder(autoLaunch: false, version: null));
+        File.SetAttributes(_settingsFilePath, FileAttributes.ReadOnly);
+        try
+        {
+            var service = new SettingsService(_mockLogger);
+
+            var settings = service.GetSettings();
+            settings.SettingsVersion.Should().Be(SettingsUpgrades.CurrentVersion);
+            settings.WatchFolders.Single().Destinations.Should().OnlyContain(d => !d.Launch);
+            _mockLogger.ReceivedWithAnyArgs().InternalWarning(default!, default);
+            LaunchableItemSerializer.Deserialize<TeensySettings>(File.ReadAllText(_settingsFilePath))!
+                .SettingsVersion.Should().NotBe(SettingsUpgrades.CurrentVersion);
+
+            File.SetAttributes(_settingsFilePath, FileAttributes.Normal);
+            service.UpdateSettings(s => s with { AppSettings = s.AppSettings with { FirstTimeSetup = !s.AppSettings.FirstTimeSetup } });
+
+            LaunchableItemSerializer.Deserialize<TeensySettings>(File.ReadAllText(_settingsFilePath))!
+                .SettingsVersion.Should().Be(SettingsUpgrades.CurrentVersion);
+        }
+        finally
+        {
+            File.SetAttributes(_settingsFilePath, FileAttributes.Normal);
+        }
+    }
+
+    [Fact]
+    public void FileTypeSwitches_ShouldSurviveSaveAndReload()
+    {
+        var service = new SettingsService(_mockLogger);
+
+        service.UpdateSettings(s => s with
+        {
+            FileTransferSettings = s.FileTransferSettings with { AllFileTypesInFolders = true, AllFileTypesInArchives = true },
+            WatchFolders = [new WatchFolder { Id = "f1", Path = Path.GetTempPath(), AllFileTypes = true, AllFileTypesInArchives = true }]
+        });
+        var reloaded = new SettingsService(_mockLogger).GetSettings();
+
+        reloaded.FileTransferSettings.AllFileTypesInFolders.Should().BeTrue();
+        reloaded.FileTransferSettings.AllFileTypesInArchives.Should().BeTrue();
+        var folder = reloaded.WatchFolders.Should().ContainSingle().Subject;
+        folder.AllFileTypes.Should().BeTrue();
+        folder.AllFileTypesInArchives.Should().BeTrue();
+    }
+
+    [Fact]
+    public void Constructor_WithNoFile_WritesDefaultsAtTheCurrentVersion()
+    {
+        var settings = new SettingsService(_mockLogger).GetSettings();
+
+        settings.SettingsVersion.Should().Be(SettingsUpgrades.CurrentVersion);
+        LaunchableItemSerializer.Deserialize<TeensySettings>(File.ReadAllText(_settingsFilePath))!
+            .SettingsVersion.Should().Be(SettingsUpgrades.CurrentVersion);
+    }
+
+    [Fact]
+    public void Apply_VersionZeroWithAutoLaunchOff_ReturnsNewInstancesAndLeavesTheInputUntouched()
+    {
+        var input = new TeensySettings
+        {
+            FileTransferSettings = new FileTransferSettings { AutoLaunchOnCopyEnabled = false },
+            WatchFolders = [new WatchFolder { Id = "f1", Destinations = [new WatchFolderDestination { Id = "d1", Launch = true }] }]
+        };
+
+        var result = SettingsUpgrades.Apply(input, out var changed);
+
+        changed.Should().BeTrue();
+        result.WatchFolders.Single().Destinations.Single().Launch.Should().BeFalse();
+        input.WatchFolders.Single().Destinations.Single().Launch.Should().BeTrue();
+        input.SettingsVersion.Should().Be(0);
+    }
+
+    [Fact]
+    public void Apply_CurrentVersion_ReportsNoChange()
+    {
+        var input = new TeensySettings { SettingsVersion = SettingsUpgrades.CurrentVersion };
+
+        var result = SettingsUpgrades.Apply(input, out var changed);
+
+        changed.Should().BeFalse();
+        result.Should().BeSameAs(input);
     }
 
     #endregion

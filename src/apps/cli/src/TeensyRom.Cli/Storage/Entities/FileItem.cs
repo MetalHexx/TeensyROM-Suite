@@ -55,7 +55,7 @@ namespace TeensyRom.Cli.Storage.Entities
                     Path = remotePath,
                     Name = remotePath.GetFileNameFromPath()
                 },
-                TeensyFileType.Prg or TeensyFileType.Crt or TeensyFileType.P00 or TeensyFileType.D64 => new GameItem
+                TeensyFileType.Prg or TeensyFileType.Crt or TeensyFileType.P00 => new GameItem
                 {
                     Path = remotePath,
                     Name = remotePath.GetFileNameFromPath()
@@ -65,7 +65,7 @@ namespace TeensyRom.Cli.Storage.Entities
                     Path = remotePath,
                     Name = remotePath.GetFileNameFromPath()
                 },
-                TeensyFileType.Kla or TeensyFileType.Koa or TeensyFileType.Art or TeensyFileType.Aas or TeensyFileType.Hpi => new ImageItem
+                TeensyFileType.Kla or TeensyFileType.Koa or TeensyFileType.Art or TeensyFileType.Aas or TeensyFileType.Hpi or TeensyFileType.Seq or TeensyFileType.Txt => new ImageItem
                 {
                     Path = remotePath,
                     Name = remotePath.GetFileNameFromPath()

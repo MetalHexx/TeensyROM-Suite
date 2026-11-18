@@ -22,6 +22,12 @@ internal interface IStorageService
     Task<DirectoryListing> GetDirectory(string path);
 
     /// <summary>
+    /// The file of any type at exactly <paramref name="path"/> in the current storage, or null when its directory holds
+    /// none by that path. Case is ignored, as FAT storage does.
+    /// </summary>
+    Task<IFileItem?> FindFile(string path);
+
+    /// <summary>
     /// The launchable file at exactly <paramref name="path"/> in the current storage, or null when its directory holds
     /// none by that path. Case is ignored, as FAT storage does.
     /// </summary>
@@ -42,6 +48,12 @@ internal interface IStorageService
 
     /// <summary>Untags the favorite and clears <see cref="IStorageItem.IsFavorite"/> on success.</summary>
     Task RemoveFavorite(ILaunchableItem item);
+
+    /// <summary>
+    /// Deletes the file at <paramref name="path"/> on the current storage through tr-web. Publishes no alert; the caller reports.
+    /// </summary>
+    /// <exception cref="TeensyApiException">tr-web answered 400 for a folder, 404 for no such file, or 409 when the device was busy.</exception>
+    Task DeleteFile(string path);
 
     /// <summary>
     /// Bans the file at <paramref name="path"/> through tr-web, which adds its name to the banned files. The file is

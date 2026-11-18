@@ -40,7 +40,13 @@ internal abstract class EngineCommand<T>(ICliOutput output, IEngineControl engin
     protected override async Task PrepareAsync(T settings, CancellationToken ct)
     {
         await base.PrepareAsync(settings, ct);
+        await EnsureEngineReadyAsync(ct);
+    }
 
+    /// <summary>Starts or replaces the engine when necessary; harmless to call again once it is running.</summary>
+    /// <exception cref="CliException"><see cref="CliExitCode.EngineUnavailable"/> when no engine could be made ready.</exception>
+    protected async Task EnsureEngineReadyAsync(CancellationToken ct)
+    {
         var ready = await engine.EnsureRunningAsync(ct);
 
         if (!ready.Ok)

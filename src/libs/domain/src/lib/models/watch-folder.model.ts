@@ -26,6 +26,10 @@ export interface WatchFolder {
   path: string;
   enabled: boolean;
   state: WatchFolderState;
+  /** Whether every file landing in the folder is sent, not only the types the TeensyROM recognizes. */
+  allFileTypes: boolean;
+  /** Whether everything inside archives landing in the folder is sent, not only recognized types. */
+  allFileTypesInArchives: boolean;
   destinations: WatchFolderDestination[];
 }
 
@@ -36,6 +40,21 @@ export interface AddWatchFolderInput {
   storageType: StorageType;
   devicePath: string | null;
   launch: boolean;
+  allFileTypes: boolean;
+  allFileTypesInArchives: boolean;
+}
+
+/** What an add did: the folder as it now stands, and whether this add created it.
+ *  `created` is false when a destination joined a folder that was already watched. */
+export interface WatchFolderAddResult {
+  watchFolder: WatchFolder;
+  created: boolean;
+}
+
+/** The file-type switches of a folder that can change; an omitted field stays as it is. */
+export interface WatchFolderFileTypesChange {
+  allFileTypes?: boolean;
+  allFileTypesInArchives?: boolean;
 }
 
 /** The fields of a destination that can change; an omitted or null field stays as it is. */

@@ -264,6 +264,45 @@ describe('ConfirmationDialogComponent', () => {
     });
   });
 
+  describe('Remember toggle', () => {
+    it('renders no toggle when rememberLabel is not set', () => {
+      expect(fixture.nativeElement.querySelector('mat-slide-toggle')).toBeNull();
+      expect(component.remember()).toBe(false);
+    });
+
+    it('renders a labelled toggle when rememberLabel is set', () => {
+      fixture.componentRef.setInput('rememberLabel', "Don't ask again");
+      fixture.detectChanges();
+
+      const toggle = fixture.nativeElement.querySelector('mat-slide-toggle');
+      expect(toggle).toBeTruthy();
+      expect(toggle.textContent).toContain("Don't ask again");
+    });
+
+    it('does not confirm when Enter is pressed on the toggle', () => {
+      fixture.componentRef.setInput('rememberLabel', "Don't ask again");
+      fixture.detectChanges();
+      let confirmed = false;
+      component.confirmed.subscribe(() => (confirmed = true));
+
+      fixture.nativeElement
+        .querySelector('mat-slide-toggle button')
+        .dispatchEvent(new KeyboardEvent('keydown', { key: 'Enter', bubbles: true }));
+
+      expect(confirmed).toBe(false);
+    });
+
+    it('exposes the switched-on value through remember', () => {
+      fixture.componentRef.setInput('rememberLabel', "Don't ask again");
+      fixture.detectChanges();
+
+      (fixture.nativeElement.querySelector('mat-slide-toggle button') as HTMLButtonElement).click();
+      fixture.detectChanges();
+
+      expect(component.remember()).toBe(true);
+    });
+  });
+
   describe('Message Text Wrapping', () => {
     it('should support multi-line messages', () => {
       const multiLineMessage = 'Line 1\nLine 2\nLine 3';

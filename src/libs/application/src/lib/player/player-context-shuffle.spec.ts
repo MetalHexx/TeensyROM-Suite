@@ -1,6 +1,6 @@
 import { describe, it, expect, beforeEach, vi } from 'vitest';
 import { of } from 'rxjs';
-import { LaunchMode, PlayerFilterType, PlayerScope } from '@teensyrom-nx/domain';
+import { FileItemType, LaunchMode, PlayerFilterType, PlayerScope } from '@teensyrom-nx/domain';
 import { createPlayerHarness, type PlayerHarness } from './testing/player-context-harness';
 import { createTestFileItem } from '@teensyrom-nx/testing/fixtures';
 
@@ -140,6 +140,24 @@ describe('PlayerContextService - shuffle', () => {
       expect(fileContext?.files.map((file) => file.path)).toEqual(
         directoryFiles.map((file) => file.path)
       );
+      expect(fileContext?.currentIndex).toBe(1);
+    });
+
+    it('leaves unknown files out of the shuffle directory context and indexes the rest', async () => {
+      const randomDirectory = '/mixed';
+      const directoryFiles = [
+        createTestFileItem({ name: 'b.bin', path: '/mixed/b.bin', parentPath: randomDirectory, type: FileItemType.Unknown }),
+        createTestFileItem({ name: 'a.prg', path: '/mixed/a.prg', parentPath: randomDirectory, type: FileItemType.Game }),
+        createTestFileItem({ name: 'c.sid', path: '/mixed/c.sid', parentPath: randomDirectory }),
+      ];
+      const randomFile = directoryFiles[2];
+      await harness.arrangeDirectory({ deviceId, path: randomDirectory, files: directoryFiles });
+      harness.playerService.launchRandom = vi.fn(() => of(randomFile));
+
+      await harness.service.next(deviceId);
+
+      const fileContext = harness.service.getFileContext(deviceId)();
+      expect(fileContext?.files.map((file) => file.path)).toEqual(['/mixed/a.prg', '/mixed/c.sid']);
       expect(fileContext?.currentIndex).toBe(1);
     });
 

@@ -228,9 +228,10 @@ Endpoints/
 | `POST /api/devices/{deviceId}/reconnect` | 200 — reconnected, or already available (no contact) | 404 unknown device; 502 the saved addresses and the search for missing units both missed |
 | `PUT /api/devices/{deviceId}/name` | 200 — the renamed unit's updated `CartDto`; works offline, no device contact | 400 invalid name (trimmed, 1–24 chars, no control characters); 404 unknown device or a per-run `Unknown` stand-in |
 | `DELETE /api/devices/{deviceId}` | 200 — forgotten, from memory, the saved file and `settings.json` | 404 unknown device; 409 still available (an available device is left untouched; only an offline unit can be forgotten) |
-| Any endpoint that talks to a device (toggle music, reset, ping, launch, random launch, directory, file content, favorite, remove favorite, ban, index, index all) | — | 409 busy with a transfer — one shared `ProblemDetails`, see *Busy with a transfer* below |
+| `DELETE /api/devices/{deviceId}/storage/{storageType}/files?filePath=` | 200 — one file deleted from the cart and dropped from the storage cache; favorite copies, playlists and bans that name it are left alone | 400 a folder (the parent's cached listing, banned subfolders included, knows it), `/`, a path ending in `/`, or a path under `/favorites/`; 404 unknown device, no such storage, missing or banned parent folder, or the device reports `File not found` (the path is also dropped from the cache); 502 any other device failure. A folder made on the cart outside the engine since its parent was cached is not known, so the firmware refuses it and this answers 502 |
+| Any endpoint that talks to a device (toggle music, reset, ping, launch, random launch, directory, file content, favorite, remove favorite, delete file, ban, index, index all) | — | 409 busy with a transfer — one shared `ProblemDetails`, see *Busy with a transfer* below |
 
-**Busy with a transfer.** While a transfer job holds a device's lease, every endpoint that would talk to that device answers the same `409` (`DeviceBusyProblem` in `Endpoints/Common`): `type` `urn:teensyrom:problem:device-busy-with-transfer`, a title naming the device, and the extensions `code` (`deviceBusyWithTransfer`), `deviceId` and `activeJobId`. Command endpoints read it from the failed result's `ActiveTransferJobId`; storage-backed endpoints (directory, file content, favorite, remove favorite, ban, index) check the lease after a refusal, and `FileLaunchService` reports it as `FileLaunchStatus.DeviceBusy`. The check always runs before the generic failure and before any "incompatible" reading of a launch result, so a refused launch is never a `200`. Create-job answers the same body with the lease conflict's message as `detail`. Index refuses up front, because indexing clears the cache before it reads; index all skips a held device, indexes the rest, and answers the `409` with `busyDeviceIds` (or its usual `500` with `busyDeviceIds` added when other storage failed too). The device listing marks a transferring device with `activeTransferJobId`.
+**Busy with a transfer.** While a transfer job holds a device's lease, every endpoint that would talk to that device answers the same `409` (`DeviceBusyProblem` in `Endpoints/Common`): `type` `urn:teensyrom:problem:device-busy-with-transfer`, a title naming the device, and the extensions `code` (`deviceBusyWithTransfer`), `deviceId` and `activeJobId`. Command endpoints read it from the failed result's `ActiveTransferJobId`; storage-backed endpoints (directory, file content, favorite, remove favorite, delete file, ban, index) check the lease after a refusal, and `FileLaunchService` reports it as `FileLaunchStatus.DeviceBusy`. The check always runs before the generic failure and before any "incompatible" reading of a launch result, so a refused launch is never a `200`. Create-job answers the same body with the lease conflict's message as `detail`. Index refuses up front, because indexing clears the cache before it reads; index all skips a held device, indexes the rest, and answers the `409` with `busyDeviceIds` (or its usual `500` with `busyDeviceIds` added when other storage failed too). The device listing marks a transferring device with `activeTransferJobId`.
 
 The API owns device names. `DeviceConnectionManager` keeps each name on the unit's connection record (`ConnectionRecords.json`, never `settings.json`) and stamps it onto `Cart.Name` whenever a device is rebuilt. A unit with no name gets the lowest free `TR-n`; this is backfilled in chip-id order at start and assigned on first sight, and Forget drops the name. Rename is the one device operation outside the occasion queue (see *The Five Discovery Occasions*): it contacts no device and serialises on the manager's names lock and its single whole-file save lock.
 
@@ -275,6 +276,8 @@ public class GetDirectoryEndpoint(IDeviceConnectionManager deviceManager)
     }
 }
 ```
+
+The folder listing (`GetDirectory`) returns every file; one the API can't classify as launchable is typed `Unknown`. Search and launch handle only launchable files, and launching an `Unknown` file is a 400.
 
 **Key Pattern**: Endpoints are **thin adapters** that:
 1. Extract/validate request data
@@ -714,6 +717,18 @@ sequenceDiagram
 2. Update cache: mark original file `IsFavorite = true`, add favorite copy to cache
 3. Update siblings (multi-file games) with same favorite status
 4. Persist cache to disk
+
+### Keeping the Index True to the Cart
+
+The index is a copy of what is on the cart, and three paths change it without a full re-index. Each leaves it matching the cart for the folders it touches:
+
+- **An upload** (`StorageService.UpsertTransferredFile`, called by the transfer pump per saved file) upserts the file and creates any folder entries the index did not hold, linking each into its parent's subfolder list. A folder entry that already exists but is missing from its parent's list (an index written before folder reads were linked) is linked by the same call. A created folder holds only the files sent into it so far, so the pump reads each one back from the cart (`RereadFolders`, one non-recursive `GetDirectoryRecursiveCommand` per folder, stamped with the job id so the transfer lockout lets it through) once the batch's files are written and before the job completes. The read replaces the partial entry with the cart's listing. A folder the index already held costs no read. A failed read keeps the partial entry, logs a warning, and never fails the upload. The job cannot complete while a read is outstanding (`TransferJob` holds completion from the moment the file is counted), so the lease is still held and the launch has not started when the read runs.
+- **A cache-miss read** (`ReadDirectory`) stores the folder it fetched and lists it among its parent's subfolders when the parent is held. It never creates the parent's entry.
+- **A partial index** (`Cache(path)` below the root) stores each folder it reads the same way, so the top folder shows up in its parent's listing.
+
+Both read paths go through `SaveDirectoryToCache`, which calls `IStorageCache.LinkToParent` after the folder is stored. `EnsureParents` reports the entries it created (outermost first, empty when the folder was already held), and `UpsertFile` at the root creates the root entry when the index has none.
+
+A folder changed on the cart outside the API (a card swap, files copied on a PC, another tool) is not noticed; a re-index (`Cache` / `IndexEndpoint`) picks it up.
 
 ### Metadata Enrichment
 

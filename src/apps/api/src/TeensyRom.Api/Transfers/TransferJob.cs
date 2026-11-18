@@ -36,6 +36,7 @@ namespace TeensyRom.Api.Transfers
         private long _expansionBytesWritten; // for that archive only — resets when the next one starts
         private long _expansionBytesDeclared; // for that archive only
         private int _expandedFileCount;      // job-wide running total
+        private readonly TransferSkipTally _skips = new(); // archive entries expansion skipped, by reason
         private int _archivesAccepted;       // archives uploaded and handed to expansion
         private int _archivesOutstanding;    // accepted but not yet finished expanding
         private int _archiveSlotsPendingRelease; // finished archives whose own PendingCount slot is still held
@@ -43,6 +44,8 @@ namespace TeensyRom.Api.Transfers
         private TransferLaunchState _launchState;
         private string? _launchedPath;       // the path pending or launched
         private string? _launchError;
+        private readonly Dictionary<string, DirectoryPath> _foldersAwaitingReread = []; // keyed like the index: case-sensitive
+        private int _folderReadHolds;        // folders taken for a re-read and not yet released
 
         public string JobId { get; }
         public string DeviceId { get; }
@@ -54,6 +57,9 @@ namespace TeensyRom.Api.Transfers
 
         /// <summary>True when the creator asked for a launch on completion regardless of the auto-launch setting.</summary>
         public bool LaunchRequested { get; }
+
+        /// <summary>True when everything inside this job's archives is sent, not only known types.</summary>
+        public bool AllFileTypesInArchives { get; }
 
         /// <summary>The best launchable file this job has sent so far, or null when none qualifies.</summary>
         public string? LaunchCandidate
@@ -89,7 +95,8 @@ namespace TeensyRom.Api.Transfers
             Func<DateTime>? clock = null,
             int expectedArchiveCount = 0,
             TransferOrigin? origin = null,
-            bool launchRequested = false)
+            bool launchRequested = false,
+            bool allFileTypesInArchives = false)
         {
             JobId = Guid.NewGuid().ToString("N");
             DeviceId = deviceId;
@@ -97,6 +104,7 @@ namespace TeensyRom.Api.Transfers
             Destination = destination;
             Origin = origin ?? TransferOrigin.Upload;
             LaunchRequested = launchRequested;
+            AllFileTypesInArchives = allFileTypesInArchives;
             _options = options;
             _clock = clock ?? (() => DateTime.UtcNow);
             _expectedArchiveCount = expectedArchiveCount;
@@ -142,12 +150,16 @@ namespace TeensyRom.Api.Transfers
         /// <summary>
         /// Sealed to Completed. When <paramref name="launchDue"/> and a candidate exists, the launch becomes
         /// Pending and its path is recorded in the same locked step, so no reader can see Completed with a
-        /// launch still undecided. Returns false, changing nothing, when the transition is illegal.
+        /// launch still undecided. Returns false, changing nothing, when the transition is illegal or a folder
+        /// read is still outstanding (see <see cref="OnFileSent"/>): completing would release the lease and start
+        /// the launch ahead of a read that needs the device as it is.
         /// </summary>
         public bool TryComplete(bool launchDue)
         {
             lock (_lock)
             {
+                if (_folderReadHolds > 0) return false;
+
                 if (!IsLegalTransition(State, TransferJobState.Completed)) return false;
 
                 State = TransferJobState.Completed;
@@ -207,11 +219,25 @@ namespace TeensyRom.Api.Transfers
             }
         }
 
-        public void OnFileSent(TransferFileCompleted completed)
+        /// <summary>
+        /// Counts one file as sent. <paramref name="foldersToReread"/> are the folder entries the file's upload
+        /// created in the index; they are queued for a re-read from the device and hold completion until
+        /// <see cref="ReleaseFolderReadHolds"/>. The hold is taken in the same locked step that lowers
+        /// <see cref="PendingCount"/>, so no caller can see the count at zero with the hold still to come.
+        /// </summary>
+        public void OnFileSent(TransferFileCompleted completed, IReadOnlyList<DirectoryPath>? foldersToReread = null)
         {
             lock (_lock)
             {
                 var now = _clock();
+
+                foreach (var folder in foldersToReread ?? [])
+                {
+                    if (_foldersAwaitingReread.TryAdd(folder.Value, folder))
+                    {
+                        _folderReadHolds++;
+                    }
+                }
 
                 _filesSent++;
                 _bytesSent += completed.SizeBytes;
@@ -225,6 +251,41 @@ namespace TeensyRom.Api.Transfers
                     _launchCandidate = completed.TargetPath;
                 }
             }
+        }
+
+        /// <summary>
+        /// The folders awaiting a re-read, handed over once. Their holds stay until
+        /// <see cref="ReleaseFolderReadHolds"/>, so the job cannot complete while the read is under way.
+        /// </summary>
+        public IReadOnlyList<DirectoryPath> TakeFoldersToReread()
+        {
+            lock (_lock)
+            {
+                var folders = _foldersAwaitingReread.Values.ToArray();
+
+                _foldersAwaitingReread.Clear();
+                return folders;
+            }
+        }
+
+        /// <summary>
+        /// Releases every folder-read hold and forgets any folder not yet read. The pump runs one batch of a job
+        /// at a time and calls this when the batch ends, whether its reads ran, failed, were skipped or were
+        /// cancelled, so a hold never outlives its batch.
+        /// </summary>
+        public void ReleaseFolderReadHolds()
+        {
+            lock (_lock)
+            {
+                _foldersAwaitingReread.Clear();
+                _folderReadHolds = 0;
+            }
+        }
+
+        /// <summary>True while a folder read this job queued has not been released, so <see cref="TryComplete"/> refuses.</summary>
+        public bool HasFolderReadsOutstanding
+        {
+            get { lock (_lock) return _folderReadHolds > 0; }
         }
 
         public void OnFileFailed(TransferFileCompleted f)
@@ -318,6 +379,19 @@ namespace TeensyRom.Api.Transfers
             lock (_lock)
             {
                 _expandedFileCount++;
+                LastActivityUtc = _clock();
+            }
+        }
+
+        /// <summary>
+        /// Expansion left an archive entry out on purpose (hidden or system, or a type the job does not send).
+        /// Tallied per reason for <see cref="ToSnapshot"/>; not a failure and not a file of the job.
+        /// </summary>
+        public void OnEntrySkipped(TransferSkipReason reason, string relativePath)
+        {
+            lock (_lock)
+            {
+                _skips.Add(reason, relativePath);
                 LastActivityUtc = _clock();
             }
         }
@@ -541,6 +615,7 @@ namespace TeensyRom.Api.Transfers
                     LaunchState = _launchState,
                     LaunchedPath = _launchedPath,
                     LaunchError = _launchError,
+                    Skipped = _skips.ToSkips(),
                     // Null until no further archives can arrive AND none is still expanding. The browser
                     // composes the job's expected total from this; a count published while an archive is
                     // still inbound gives it a total that grows, which is the exact backwards movement the

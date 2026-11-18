@@ -1,5 +1,5 @@
 import { describe, it, expect, beforeEach, vi, type MockedFunction } from 'vitest';
-import { of, throwError, type Observable } from 'rxjs';
+import { of, Subject, throwError, type Observable } from 'rxjs';
 import '@analogjs/vitest-angular/setup-zone';
 import { TestBed, getTestBed } from '@angular/core/testing';
 import {
@@ -45,6 +45,17 @@ type StorageStoreInstance = {
   navigateDirectoryBackward: (args: { deviceId: string }) => Promise<void>;
   navigateDirectoryForward: (args: { deviceId: string }) => Promise<void>;
   refreshDirectory: (args: { deviceId: string; storageType: StorageType }) => Promise<void>;
+  refreshAfterIndex: (args: {
+    deviceId: string;
+    storageType: StorageType;
+    path: string;
+  }) => Promise<void>;
+  refetchAfterTransfer: (args: {
+    deviceId: string;
+    storageType: StorageType;
+    destinationDirectory: string;
+  }) => Promise<void>;
+  refetchShownFolders: () => Promise<void>;
   navigateUpOneDirectory: (args: { deviceId: string; storageType: StorageType }) => Promise<void>;
   removeAllStorage: (args: { deviceId: string }) => void;
   removeStorage: (args: { deviceId: string; storageType: StorageType }) => void;
@@ -817,6 +828,305 @@ describe('StorageStore (NgRx Signal Store)', () => {
     it('is a no-op when storage entry does not exist', async () => {
       await store.refreshDirectory({ deviceId: 'missing', storageType });
       expect(getDirectoryMock).not.toHaveBeenCalled();
+    });
+  });
+
+  // -----------------------------------------
+  // refreshAfterIndex() - refetch the shown folder, drop the listings below the re-indexed path
+  // -----------------------------------------
+  describe('refreshAfterIndex()', () => {
+    const deviceId = 'device-1';
+    const storageType = StorageType.Sd;
+    const key = StorageKeyUtil.create(deviceId, storageType);
+
+    const directoryWith = (path: string, names: string[]): StorageDirectory => ({
+      path,
+      directories: names.map((name) => ({ name, path: `${path === '/' ? '' : path}/${name}` })),
+      files: [],
+    });
+
+    beforeEach(async () => {
+      getDirectoryMock.mockReturnValue(of(directoryWith('/', ['games', 'music'])));
+      await store.initializeStorage({ deviceId, storageType });
+      getDirectoryMock.mockReturnValue(of(directoryWith('/games', ['demos'])));
+      await store.navigateToDirectory({ deviceId, storageType, path: '/games' });
+      getDirectoryMock.mockReturnValue(of(directoryWith('/games/demos', ['old'])));
+      await store.navigateToDirectory({ deviceId, storageType, path: '/games/demos' });
+      getDirectoryMock.mockClear();
+    });
+
+    it('refetches the shown folder once and keeps the listings at and above it', async () => {
+      getDirectoryMock.mockReturnValue(of(directoryWith('/games/demos', ['new'])));
+
+      await store.refreshAfterIndex({ deviceId, storageType, path: '/games/demos' });
+
+      expect(getDirectoryMock).toHaveBeenCalledTimes(1);
+      expect(getDirectoryMock).toHaveBeenCalledWith(deviceId, storageType, '/games/demos');
+      const listings = store.storageEntries()[key].directoryListings;
+      expect(listings?.['/games/demos']).toEqual([{ name: 'new', path: '/games/demos/new' }]);
+      expect(listings?.['/games']).toHaveLength(1);
+      expect(listings?.['/']).toHaveLength(2);
+    });
+
+    it('drops the listings below the re-indexed path so they reload when opened', async () => {
+      getDirectoryMock.mockReturnValue(of(directoryWith('/', ['games', 'music'])));
+      await store.navigateToDirectory({ deviceId, storageType, path: '/' });
+      getDirectoryMock.mockReturnValue(of(directoryWith('/', ['games', 'music', 'tools'])));
+
+      await store.refreshAfterIndex({ deviceId, storageType, path: '/' });
+
+      const listings = store.storageEntries()[key].directoryListings;
+      expect(Object.keys(listings ?? {})).toEqual(['/']);
+      expect(listings?.['/']).toHaveLength(3);
+    });
+
+    it('refetches the re-indexed path when it is not the shown folder', async () => {
+      getDirectoryMock.mockImplementation((_d: string, _s: StorageType, path?: string) =>
+        of(directoryWith(path ?? '/', path === '/games' ? ['fresh'] : ['same']))
+      );
+
+      await store.refreshAfterIndex({ deviceId, storageType, path: '/games' });
+
+      expect(getDirectoryMock).toHaveBeenCalledWith(deviceId, storageType, '/games');
+      const listings = store.storageEntries()[key].directoryListings;
+      expect(listings?.['/games']).toEqual([{ name: 'fresh', path: '/games/fresh' }]);
+      expect(listings?.['/games/demos']).toBeUndefined();
+    });
+
+    it('is a no-op when the storage entry does not exist', async () => {
+      await store.refreshAfterIndex({ deviceId: 'missing', storageType, path: '/' });
+      expect(getDirectoryMock).not.toHaveBeenCalled();
+    });
+  });
+
+  describe('refreshAfterIndex() path matching', () => {
+    const deviceId = 'device-1';
+    const storageType = StorageType.Sd;
+    const key = StorageKeyUtil.create(deviceId, storageType);
+
+    const visit = async (path: string) => {
+      getDirectoryMock.mockReturnValue(
+        of({ path, directories: [], files: [] } as StorageDirectory)
+      );
+      await store.navigateToDirectory({ deviceId, storageType, path });
+    };
+
+    it.each(['/games', '/games/', '/GAMES/', '/Games//'])(
+      'drops what is below %s whatever its slash and case, and keeps siblings and ancestors',
+      async (reindexed) => {
+        getDirectoryMock.mockReturnValue(of({ path: '/', directories: [], files: [] }));
+        await store.initializeStorage({ deviceId, storageType });
+        await visit('/Games/Demos/');
+        await visit('/games/tools');
+        await visit('/gamesx');
+        await visit('/music');
+        await visit('/games/');
+
+        await store.refreshAfterIndex({ deviceId, storageType, path: reindexed });
+
+        expect(Object.keys(store.storageEntries()[key].directoryListings ?? {}).sort()).toEqual(
+          ['/', '/games/', '/gamesx', '/music'].sort()
+        );
+      }
+    );
+  });
+
+  // -----------------------------------------
+  // refetchAfterTransfer() / refetchShownFolders() - quiet refetch of listings after a transfer
+  // -----------------------------------------
+  describe('refetching after a transfer', () => {
+    const deviceId = 'device-1';
+    const storageType = StorageType.Sd;
+    const key = StorageKeyUtil.create(deviceId, storageType);
+
+    const directoryWith = (path: string, names: string[]): StorageDirectory => ({
+      path,
+      directories: names.map((name) => ({ name, path: `${path}${name}/` })),
+      files: [],
+    });
+
+    /** Answers every read with `names` under the requested path. */
+    const answerWith = (names: string[]) =>
+      getDirectoryMock.mockImplementation((_d: string, _s: StorageType, path?: string) =>
+        of(directoryWith(path ?? '/', names))
+      );
+
+    const visit = async (path: string) => {
+      answerWith(['old']);
+      await store.navigateToDirectory({ deviceId, storageType, path });
+    };
+
+    const refetchedPaths = () => getDirectoryMock.mock.calls.map((call) => call[2]);
+
+    const transfer = (destinationDirectory: string) =>
+      store.refetchAfterTransfer({ deviceId, storageType, destinationDirectory });
+
+    beforeEach(async () => {
+      answerWith(['games', 'music']);
+      await store.initializeStorage({ deviceId, storageType });
+    });
+
+    it('refetches the shown folder and the loaded ancestor when the destination is below it', async () => {
+      await visit('/games/');
+      getDirectoryMock.mockClear();
+      answerWith(['old', 'new']);
+
+      await transfer('/games/new/');
+
+      expect(refetchedPaths().sort()).toEqual(['/', '/games/']);
+      const entry = store.storageEntries()[key];
+      expect(entry.directory?.directories.map((d) => d.name)).toEqual(['old', 'new']);
+      expect(entry.directoryListings?.['/']).toHaveLength(2);
+    });
+
+    it('never sets isLoading while it refetches', async () => {
+      await visit('/games/');
+      const seenLoading: boolean[] = [];
+      getDirectoryMock.mockImplementation((_d: string, _s: StorageType, path?: string) => {
+        seenLoading.push(store.storageEntries()[key].isLoading);
+        return of(directoryWith(path ?? '/', ['x']));
+      });
+
+      await transfer('/games/new/');
+
+      expect(seenLoading.length).toBeGreaterThan(0);
+      expect(seenLoading.every((loading) => !loading)).toBe(true);
+      expect(store.storageEntries()[key].isLoading).toBe(false);
+    });
+
+    it('refetches the shown folder when it is inside the destination', async () => {
+      await visit('/games/new/sub/');
+      getDirectoryMock.mockClear();
+
+      await transfer('/games/new/');
+
+      expect(refetchedPaths()).toContain('/games/new/sub/');
+    });
+
+    it('refetches the shown folder when it is the destination', async () => {
+      await visit('/games/new/');
+      getDirectoryMock.mockClear();
+
+      await transfer('/games/new/');
+
+      expect(refetchedPaths()).toContain('/games/new/');
+    });
+
+    it('leaves an unrelated shown folder alone but still refetches the loaded ancestor', async () => {
+      await visit('/music/');
+      getDirectoryMock.mockClear();
+
+      await transfer('/games/new/');
+
+      expect(refetchedPaths()).toEqual(['/']);
+      expect(store.storageEntries()[key].currentPath).toBe('/music/');
+    });
+
+    it.each(['/games', '/games/', '/GAMES/'])(
+      'matches the destination %s against the stored paths and drops the listings below it',
+      async (destination) => {
+        await visit('/games/');
+        await visit('/Games/Demos/');
+        await visit('/gamesx/');
+        await visit('/games/');
+        getDirectoryMock.mockClear();
+
+        await transfer(destination);
+
+        const listings = Object.keys(store.storageEntries()[key].directoryListings ?? {});
+        expect(listings.sort()).toEqual(['/', '/games/', '/gamesx/']);
+        expect(refetchedPaths().sort()).toEqual(['/', '/games/']);
+      }
+    );
+
+    it('does not move the view when the user navigated while the refetch was in flight', async () => {
+      await visit('/games/');
+      const pending = new Subject<StorageDirectory>();
+      getDirectoryMock.mockImplementation((_d: string, _s: StorageType, path?: string) =>
+        path === '/games/' ? pending : of(directoryWith(path ?? '/', ['x']))
+      );
+
+      const refetch = transfer('/games/new/');
+      await visit('/music/');
+      pending.next(directoryWith('/games/', ['old', 'new']));
+      pending.complete();
+      await refetch;
+
+      const entry = store.storageEntries()[key];
+      expect(entry.currentPath).toBe('/music/');
+      expect(entry.directory?.path).toBe('/music/');
+      expect(entry.directoryListings?.['/games/']?.map((d) => d.name)).toEqual(['old', 'new']);
+    });
+
+    it('keeps the old listing and the loaded state when the refetch fails', async () => {
+      await visit('/games/');
+      const before = store.storageEntries()[key];
+      getDirectoryMock.mockReturnValue(throwError(() => new Error('API down')));
+
+      await transfer('/games/new/');
+
+      const entry = store.storageEntries()[key];
+      expect(entry.directory).toEqual(before.directory);
+      expect(entry.directoryListings).toEqual(before.directoryListings);
+      expect(entry.isLoaded).toBe(true);
+      expect(entry.error).toBeNull();
+    });
+
+    it('re-runs the active search with the same query', async () => {
+      const searchMock = vi.fn();
+      mockStorageService.search = searchMock;
+      searchMock.mockReturnValue(of([createMockFileItem({ name: 'a.prg' })]));
+      await store.searchFiles({ deviceId, searchText: 'demo', filterType: PlayerFilterType.Games });
+      const fresh = [createMockFileItem({ name: 'a.prg' }), createMockFileItem({ name: 'b.prg' })];
+      searchMock.mockReturnValue(of(fresh));
+      searchMock.mockClear();
+
+      await transfer('/games/new/');
+
+      expect(searchMock).toHaveBeenCalledWith(deviceId, 'demo', PlayerFilterType.Games);
+      const search = store.searchState()[deviceId];
+      expect(search.results).toEqual(fresh);
+      expect(search.isSearching).toBe(false);
+    });
+
+    it('does not search when there is no active search', async () => {
+      const searchMock = vi.fn();
+      mockStorageService.search = searchMock;
+
+      await transfer('/games/new/');
+
+      expect(searchMock).not.toHaveBeenCalled();
+    });
+
+    it('does nothing for a storage that was never loaded', async () => {
+      getDirectoryMock.mockClear();
+
+      await store.refetchAfterTransfer({
+        deviceId: 'other',
+        storageType,
+        destinationDirectory: '/games/',
+      });
+
+      expect(getDirectoryMock).not.toHaveBeenCalled();
+    });
+
+    it('refetchShownFolders refetches the shown folder of every entry once, quietly', async () => {
+      await visit('/games/');
+      answerWith(['usb']);
+      await store.initializeStorage({ deviceId, storageType: StorageType.Usb });
+      getDirectoryMock.mockClear();
+      const seenLoading: boolean[] = [];
+      getDirectoryMock.mockImplementation((_d: string, _s: StorageType, path?: string) => {
+        seenLoading.push(...Object.values(store.storageEntries()).map((e) => e.isLoading));
+        return of(directoryWith(path ?? '/', ['fresh']));
+      });
+
+      await store.refetchShownFolders();
+
+      expect(getDirectoryMock).toHaveBeenCalledTimes(2);
+      expect(getDirectoryMock).toHaveBeenCalledWith(deviceId, StorageType.Sd, '/games/');
+      expect(getDirectoryMock).toHaveBeenCalledWith(deviceId, StorageType.Usb, '/');
+      expect(seenLoading.every((loading) => !loading)).toBe(true);
     });
   });
 

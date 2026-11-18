@@ -1,7 +1,7 @@
 import { signalStore, withState } from '@ngrx/signals';
 import { withDevtools } from '../with-devtools';
 import { logInfo, LogType } from '@teensyrom-nx/utils';
-import { TransferJobSnapshot, TransferJobState, TransferOrigin } from '@teensyrom-nx/domain';
+import { TransferJobSnapshot, TransferJobState, TransferOrigin, TransferSkip } from '@teensyrom-nx/domain';
 import { withTransferSelectors } from './selectors';
 import { withTransferActions } from './actions';
 
@@ -56,6 +56,7 @@ export interface DeviceTransferState {
   scanTotal: number;
   archivesSent: number; // number of archive entries sent, of scanTotal
   scanTotalBytes: number; // sum of the manifest's sizeBytes — the browser-to-API byte denominator
+  scanSkipped: TransferSkip[]; // what the drop scan skipped in a folder, by reason
   uploadedBytes: number; // bytes the browser has put on the wire
   uploadBytesPerSecond: number; // live while running; the lifetime average once the job is terminal
   uploadFailedCount: number; // files that exhausted their upload attempts locally

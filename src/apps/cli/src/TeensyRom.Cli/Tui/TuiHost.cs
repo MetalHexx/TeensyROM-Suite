@@ -26,7 +26,7 @@ internal sealed class TuiHost(CommandApp flows, StartupGate gate, ICliOutput out
     [
         new("Launch", "launch", NeedsEngine: true),
         new("Open Trom UI", "ui", NeedsEngine: true, NeedsDevice: false),
-        new("Watch Folders", "watch-folders", NeedsEngine: true),
+        new("File Transfer", "file-transfer", NeedsEngine: true),
         new("Index Files", "index", NeedsEngine: true),
         new("Devices", "ports", NeedsEngine: true),
         new("Theme", "theme", NeedsEngine: true, NeedsDevice: false),

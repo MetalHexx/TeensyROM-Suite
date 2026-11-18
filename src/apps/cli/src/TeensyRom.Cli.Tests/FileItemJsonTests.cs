@@ -43,6 +43,36 @@ public sealed class FileItemJsonTests
     private static readonly string[] MappedFields =
         ["description", "playLength", "subtuneLengths", "startSubtuneNum", "links", "tags", "youTubeVideos", "competitions", "ratingCount", "images", "metadataSource", "meta1", "meta2", "parentPath", "type"];
 
+    [Theory]
+    [InlineData("/docs/notes.txt", TeensyFileType.Txt, "Text File")]
+    [InlineData("/docs/data.SEQ", TeensyFileType.Seq, "Sequential Data")]
+    public void TextAndSequentialFiles_AreLaunchable_WithTheEnginesCreatorText(string path, TeensyFileType type, string creator)
+    {
+        var item = FileItem.Create(path);
+
+        item.Should().BeAssignableTo<ILaunchableItem>();
+        item.FileType.Should().Be(type);
+        item.Creator.Should().Be(creator);
+        item.Description.Should().NotBeNullOrEmpty().And.NotBe("Unknown File Type");
+    }
+
+    [Fact]
+    public void ADiskImage_IsAPlainFile_TheEngineNeverLaunches()
+    {
+        var item = FileItem.Create("/games/disk.d64");
+
+        item.Should().NotBeAssignableTo<ILaunchableItem>();
+        item.FileType.Should().Be(TeensyFileType.D64);
+    }
+
+    [Fact]
+    public void AnImageWithoutADot_HasItsNameForATitle()
+    {
+        var item = new ImageItem { Name = "README", Path = "/README" };
+
+        item.Title.Should().Be("README");
+    }
+
     [Fact]
     public void Full_OfAMappedAndClonedSong_KeepsTheEnginesRecord()
     {
@@ -104,8 +134,20 @@ public sealed class FileItemJsonTests
 
         var names = JsonSerializer.SerializeToNode(FileItemJson.From(item, TeensyStorageType.SD), CliJson.Indented)!.AsObject().Select(p => p.Key);
 
-        names.Should().Equal("name", "path", "storage", "fileType", "size", "isFavorite", "isCompatible", "title", "creator", "releaseInfo", "shareUrl", "playLength");
+        names.Should().Equal("name", "path", "storage", "fileType", "size", "isFavorite", "isCompatible", "launchable", "title", "creator", "releaseInfo", "shareUrl", "playLength");
         FileItemJson.From(item, TeensyStorageType.SD).PlayLength.Should().Be("00:03:20");
+    }
+
+    [Fact]
+    public void Launchable_IsTrueForALaunchableFile_AndFalseForAnUnknownOne_InBothForms()
+    {
+        var song = ApiMapper.ToFileItem(SongDto());
+        var unknown = ApiMapper.ToFileItem(new FileItemDto { Name = "x.bin", Path = "/x.bin", Type = FileItemType.Unknown, IsCompatible = true });
+
+        FileItemJson.From(song, TeensyStorageType.SD).Launchable.Should().BeTrue();
+        FileItemJson.From(unknown, TeensyStorageType.SD).Launchable.Should().BeFalse();
+        Full(song)["launchable"]!.GetValue<bool>().Should().BeTrue();
+        Full(unknown)["launchable"]!.GetValue<bool>().Should().BeFalse();
     }
 
     [Fact]

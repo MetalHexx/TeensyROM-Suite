@@ -13,8 +13,14 @@ internal enum CliExitCode
     EngineUnavailable = 3,
     NoDevice = 4,
     NotFound = 5,
-    DeviceBusy = 6
+    DeviceBusy = 6,
+    NotLaunchable = 7
 }
+
+/// <summary>
+/// A confirmation the user declined. Not a failure: <c>CliSession</c> reports the message as a notice and exits 0.
+/// </summary>
+internal sealed class CliCancelledException(string message) : Exception(message);
 
 /// <summary>
 /// A failure whose message is already the one sentence to show the user, and whose code is the exit code to end with.

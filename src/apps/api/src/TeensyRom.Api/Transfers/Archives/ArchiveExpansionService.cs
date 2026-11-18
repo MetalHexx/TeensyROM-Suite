@@ -212,7 +212,7 @@ namespace TeensyRom.Api.Transfers.Archives
             var lastReportedPercent = -1;
 
             // Set for every entry that left a trace - produced, pushed as nested, or individually
-            // refused. NOT set for an entry silently skipped as unsupported/a directory, so a leftover
+            // refused. NOT set for an entry skipped as excluded/unsupported or a directory, so a leftover
             // false here means the whole archive's contents were ignorable, never that every entry failed.
             var anyEntryOutcome = false;
 
@@ -240,13 +240,22 @@ namespace TeensyRom.Api.Transfers.Archives
                         return;
                     }
 
+                    // Hidden files, Mac residue and the like are never sent, whatever the job's switch says.
+                    // Counted as skipped, like a directory: not a failure, and no outcome for the archive.
+                    if (TransferExclusions.IsExcluded(relativePath))
+                    {
+                        job.OnEntrySkipped(TransferSkipReason.HiddenOrSystem, relativePath);
+                        return;
+                    }
+
                     var isNestedArchive = reader.IsArchiveExtension(entry.Path);
                     var isSupported = TransferableFileTypes.IsTransferable(entry.Path);
 
-                    if (!isNestedArchive && !isSupported)
+                    if (!isNestedArchive && !isSupported && !job.AllFileTypesInArchives)
                     {
                         // A `.doc` inside a collection is not an error - never copied, so it costs nothing
                         // and never counts against this archive's declared-byte budget.
+                        job.OnEntrySkipped(TransferSkipReason.UnsupportedType, relativePath);
                         return;
                     }
 

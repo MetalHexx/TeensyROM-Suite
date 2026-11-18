@@ -206,6 +206,28 @@ public class WatchFolderWatcherTests : IAsyncLifetime
     }
 
     [Fact]
+    public async Task FileTypeSwitchFlippedWhileWatching_AppliesToLaterArrivals_WithoutRestartingTheWatch()
+    {
+        _store.Set(AddFolder("a"));
+        await Eventually(() => _factory.IsWatching(FolderPath("a")), "folder a to be watched");
+
+        _store.Set(AddFolder("a") with { AllFileTypes = true });
+
+        var arrivals = 0;
+        await Eventually(
+            () => !_sent.IsEmpty,
+            "a .bin to be sent once the switch took effect",
+            between: () =>
+            {
+                Arrive("a", $"data-{arrivals++}.bin");
+                _time.Advance(_options.PollInterval);
+            });
+
+        _sent.Should().OnlyContain(name => name.EndsWith(".bin"));
+        _factory.Watches.Should().ContainSingle("only the switches changed, so the watch and its tracker are kept");
+    }
+
+    [Fact]
     public async Task DisabledFolder_SendsNothing_AndAFileArrivingWhileOffIsNotSentWhenItIsTurnedBackOn()
     {
         _store.Set(AddFolder("a"));
@@ -386,4 +408,6 @@ internal sealed class FakeWatchFolderStore : IWatchFolderStore
     public WatchFolderSetDestinationResult SetDestination(string watchFolderId, string deviceId, string? devicePath, bool? launch) => throw new NotSupportedException();
 
     public WatchFolder? SetEnabled(string watchFolderId, bool enabled) => throw new NotSupportedException();
+
+    public WatchFolder? SetFileTypes(string watchFolderId, bool? allFileTypes, bool? allFileTypesInArchives) => throw new NotSupportedException();
 }

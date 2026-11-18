@@ -96,7 +96,15 @@ namespace TeensyRom.Api.WatchFolders
                     return latest;
                 }
 
-                var created = new WatchFolder { Id = NewId(), Path = folderPath, Enabled = true, Destinations = [destination] };
+                var created = new WatchFolder
+                {
+                    Id = NewId(),
+                    Path = folderPath,
+                    Enabled = true,
+                    AllFileTypes = request.AllFileTypes,
+                    AllFileTypesInArchives = request.AllFileTypesInArchives,
+                    Destinations = [destination]
+                };
                 outcome = new WatchFolderAddResult(created, Created: true, null, null);
                 return latest with { WatchFolders = [.. latest.WatchFolders, created] };
             });
@@ -201,6 +209,32 @@ namespace TeensyRom.Api.WatchFolders
                 }
 
                 var updated = folder with { Enabled = enabled };
+                result = updated;
+                return latest with { WatchFolders = [.. latest.WatchFolders.Select(f => ReferenceEquals(f, folder) ? updated : f)] };
+            });
+
+            return ConfirmSaved(saved, result);
+        }
+
+        public WatchFolder? SetFileTypes(string watchFolderId, bool? allFileTypes, bool? allFileTypesInArchives)
+        {
+            WatchFolder? result = null;
+            var saved = settings.UpdateSettings(latest =>
+            {
+                var folder = latest.WatchFolders.FirstOrDefault(f => f.Id == watchFolderId);
+                if (folder is null) return latest;
+
+                var updated = folder with
+                {
+                    AllFileTypes = allFileTypes ?? folder.AllFileTypes,
+                    AllFileTypesInArchives = allFileTypesInArchives ?? folder.AllFileTypesInArchives
+                };
+                if (updated == folder)
+                {
+                    result = folder;
+                    return latest;
+                }
+
                 result = updated;
                 return latest with { WatchFolders = [.. latest.WatchFolders.Select(f => ReferenceEquals(f, folder) ? updated : f)] };
             });

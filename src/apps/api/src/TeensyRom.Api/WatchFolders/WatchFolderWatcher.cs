@@ -210,7 +210,10 @@ namespace TeensyRom.Api.WatchFolders
                 return;
             }
 
-            watch.Tracker = new ArrivalTracker(folderId, watch.Folder.Path, options, fileSystem, archives, log);
+            // Reads watch.Folder on every call: reconcile keeps this tracker and swaps the folder when only its switches change.
+            watch.Tracker = new ArrivalTracker(
+                folderId, watch.Folder.Path, options, fileSystem, archives, log,
+                () => new ArrivalRules(watch.Folder.AllFileTypes, watch.Folder.AllFileTypesInArchives));
 
             if (_unavailable.TryRemove(folderId, out _))
             {

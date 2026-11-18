@@ -22,7 +22,7 @@ New here? [Getting started](getting-started.md) covers installing the suite and 
 
 ## The guided menu
 
-Run `trom` on its own and follow the prompts. The menu reaches everything above, and it prints a line whenever a transfer starts or ends, whether a watch folder or another app started it.
+Run `trom` on its own and follow the prompts. The menu reaches everything above, and *File Transfer* holds the running transfers, the upload settings and the watch folders. It prints a line whenever a transfer starts or ends, whether a watch folder or another app started it.
 
 "Open Trom UI" does what [`trom ui`](#trom-ui-trom-api-and-updates) does. When a new release is out, the menu says so under the logo and adds an "Update to" entry for it.
 
@@ -53,14 +53,16 @@ trom file pause
 trom file search commando --filter music --take 10
 trom file favorite /music/Commando.sid /music/Delta.sid
 trom file ban /music/Delta.sid
+trom file delete /games/old.prg
 ```
 
 <img width="1465" height="772" alt="Trom Terminal one-line commands" src="../.github/images/trom-terminal-commands.png" />
 
 - **Launch:** `file launch` starts one file. `file random` launches a random one, and is how you shuffle: narrow it with `--filter` and `--directory`.
 - **Move along:** `file next` and `file previous` step through what you were playing. `file pause` pauses or resumes a song, and `file stop` stops whatever is running.
-- **Find:** `file ls` lists a folder, and `file search` searches the files you have indexed. Run `trom index build` first so search covers everything; [getting started](getting-started.md#index-your-storage) explains why.
+- **Find:** `file ls` lists a folder, and `file search` searches the files you have indexed. `file ls --refresh` re-reads the folder from the cart before it lists. Run `trom index build` first so search covers everything; [getting started](getting-started.md#index-your-storage) explains why.
 - **Curate:** `file favorite` and `file unfavorite` tag files. `file ban`, `file banned` and `file unban` hide files and folders from browsing, search and shuffle. See [bans](getting-started.md#bans).
+- **Delete:** `file delete` removes files from the TeensyROM's storage, and asks before it does.
 
 ## Copy files
 
@@ -72,7 +74,15 @@ trom file upload ./Artillery.sid --to /music --launch
 trom file download /music/Artillery.sid --to ./backup
 ```
 
-Only the file types a TeensyROM takes are sent. A copy can reset the cart, which stops what is running.
+Files you name are always sent, whatever their type. Folders and archives send only the types a TeensyROM recognizes, unless you add `--all-types` or `--all-in-archives`. Hidden and system files and unfinished browser downloads are never sent. Skipped files are reported, with a hint on how to send them. A copy can reset the cart, which stops what is running.
+
+The upload settings are shared with Trom UI. `trom transfer settings` shows them, and `trom transfer set` changes them:
+
+```bash
+trom transfer settings
+trom transfer set all-types true
+trom transfer set auto-launch false
+```
 
 Different carts copy side by side. `trom transfer list` shows every transfer that is running, including ones started from Trom UI or a watch folder, and Trom UI shows the ones you start here.
 
@@ -88,7 +98,7 @@ trom watch-folder resume ./roms
 trom watch-folder remove ./roms
 ```
 
-Add `--launch` to start each file as it lands, and use `trom watch-folder set` to change a destination. The rules are the same as in [Trom UI](trom-ui.md#watch-folders). You can also manage watch folders from the guided menu.
+Add `--launch` to start each file as it lands, and use `trom watch-folder set` to change a destination. A watch folder has its own file-type switches, `--all-types` and `--all-in-archives`. The rules are the same as in [Trom UI](trom-ui.md#watch-folders). You can also manage watch folders from the guided menu.
 
 ## Themes
 

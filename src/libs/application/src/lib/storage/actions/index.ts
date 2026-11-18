@@ -14,6 +14,9 @@ import { navigateDirectoryBackward } from './navigate-directory-backward';
 import { navigateDirectoryForward } from './navigate-directory-forward';
 import { navigateUpOneDirectory } from './navigate-up-one-directory';
 import { refreshDirectory } from './refresh-directory';
+import { refreshAfterIndex } from './refresh-after-index';
+import { refetchAfterTransfer } from './refetch-after-transfer';
+import { refetchShownFolders } from './refetch-shown-folders';
 import { removeStorage } from './remove-storage';
 import { removeAllStorage } from './remove-all-storage';
 import { searchFiles } from './search-files';
@@ -37,6 +40,9 @@ export function withStorageActions() {
       ...navigateDirectoryForward(writableStore, storageService),
       ...navigateUpOneDirectory(writableStore, storageService),
       ...refreshDirectory(writableStore, storageService),
+      ...refreshAfterIndex(writableStore, storageService),
+      ...refetchAfterTransfer(writableStore, storageService),
+      ...refetchShownFolders(writableStore, storageService),
       ...removeStorage(writableStore),
       ...removeAllStorage(writableStore),
       ...searchFiles(writableStore, storageService),

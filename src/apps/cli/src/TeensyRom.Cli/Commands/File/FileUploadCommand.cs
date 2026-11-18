@@ -16,7 +16,7 @@ namespace TeensyRom.Cli.Commands.File;
 internal sealed class FileUploadSettings : StorageSettings
 {
     [CommandArgument(0, "[LOCAL_PATHS]")]
-    [Description("Files or folders on this computer; none sends the current folder's contents. Use - to read them from stdin.")]
+    [Description("Files or folders on this computer; a file you name is always sent, whatever its type; none sends the current folder's contents. Use - to read them from stdin.")]
     public string[] LocalPaths { get; set; } = [];
 
     [CommandOption("--to <DEVICE_FOLDER>")]
@@ -26,6 +26,14 @@ internal sealed class FileUploadSettings : StorageSettings
     [CommandOption("--launch")]
     [Description("Have the TeensyROM launch the file once it lands. Takes exactly one launchable file, not a folder or an archive.")]
     public bool Launch { get; set; }
+
+    [CommandOption("--all-types")]
+    [Description("Send every file in the named folders, not only the types the TeensyROM recognizes. Files you name are always sent.")]
+    public bool AllTypes { get; set; }
+
+    [CommandOption("--all-in-archives")]
+    [Description("Send everything inside the named archives, not only the types the TeensyROM recognizes.")]
+    public bool AllInArchives { get; set; }
 
     [CommandOption("-y|--yes")]
     [Description("Send the current folder without asking, when no paths are given.")]
@@ -59,8 +67,10 @@ internal sealed class FileUploadSettings : StorageSettings
 /// what it launched; no launch is made from here.
 /// </summary>
 /// <remarks>
-/// Everything local (stdin, walking the sources, the <c>--launch</c> checks, the confirmation) happens before the engine
-/// starts, so a usage error or a "no" never launches it. The exit code follows <see cref="BatchOutcome"/>. Ctrl+C cancels
+/// Every usage error (stdin, the <c>--launch</c> checks, missing names) comes before the engine starts. Walking the
+/// sources and the confirmation also happen first, unless a walked folder holds files of types the TeensyROM doesn't
+/// recognize and <c>--all-types</c> isn't given: then the engine starts to read the upload settings' all-types switch,
+/// so a "no" at the confirmation, or nothing to send, may follow an engine start. The exit code follows <see cref="BatchOutcome"/>. Ctrl+C cancels
 /// the job, which releases the device, and ends with exit code 1.
 /// </remarks>
 internal sealed class FileUploadCommand(
@@ -72,16 +82,16 @@ internal sealed class FileUploadCommand(
     ISettingsService settingsService,
     IPlayerService player,
     IStdinPaths stdin,
+    ITransferSettingsService transferSettings,
     UploadRunner runner) : DeviceCommand<FileUploadSettings>(output, engine, chooser, devices, storage, settingsService)
 {
-    private const string UnsupportedMessage = "not a file type the TeensyROM takes";
-
-    private UploadPlan _plan = new([], [], [], []);
+    private UploadPlan _plan = new([], [], []);
 
     /// <exception cref="CliException">
     /// <see cref="CliExitCode.Usage"/> for a refused <c>--launch</c> or no names where nothing can be asked;
-    /// <see cref="CliExitCode.Failed"/> when the confirmation is declined.
+    /// <see cref="CliExitCode.EngineUnavailable"/> when the all-types switch had to be read and no engine could be made ready.
     /// </exception>
+    /// <exception cref="CliCancelledException">The user declined the confirmation.</exception>
     protected override async Task PrepareAsync(FileUploadSettings settings, CancellationToken ct)
     {
         var named = stdin.Expand(settings.LocalPaths);
@@ -97,10 +107,14 @@ internal sealed class FileUploadCommand(
         }
         _plan = UploadSources.Resolve(named, current);
 
-        if (_plan.SkippedByType > 0)
+        var allTypes = settings.AllTypes;
+
+        if (!allTypes && _plan.FoundUnknownTypesInFolders)
         {
-            Output.Notice($"{_plan.SkippedByType} {(_plan.SkippedByType == 1 ? "file was" : "files were")} left out: not a file type the TeensyROM takes.");
+            await EnsureEngineReadyAsync(ct);
+            allTypes = (await transferSettings.GetAsync(ct)).AllTypes;
         }
+        _plan = _plan.WithFolderTypes(allTypes);
 
         if (ask && _plan.Files.Count > 0) ConfirmCurrentFolder(current, settings.To!);
 
@@ -114,9 +128,12 @@ internal sealed class FileUploadCommand(
 
         var to = settings.To!;
 
-        var run = await CommandRun.CancellableAsync(token => TransferAsync(to, settings.Launch, token));
+        var run = await CommandRun.CancellableAsync(token => TransferAsync(to, settings.Launch, settings.AllInArchives, token));
         var job = run.Job;
         var report = BuildReport(to, run);
+
+        NoticeSkips(report.Skipped!, job.Skipped);
+
         var succeeded = report.Totals.Failed == 0 && job.State == TransferJobState.Completed;
 
         var launched = await RecordLaunchAsync(job);
@@ -125,7 +142,7 @@ internal sealed class FileUploadCommand(
 
         CopyResults.Show(Output, report);
 
-        if (!settings.Launch && job.LaunchState == TransferLaunchState.Launched) Output.Notice($"Launched {job.LaunchedPath}.");
+        NoticeLaunch(job);
 
         if (job.State is TransferJobState.Aborted or TransferJobState.Abandoned && !string.IsNullOrWhiteSpace(job.Error)) Output.Notice(job.Error);
 
@@ -133,7 +150,7 @@ internal sealed class FileUploadCommand(
             Output,
             report.Totals.Copied + report.Totals.Failed,
             report.Totals.Failed,
-            job.FilesFailed + run.Rejected.Count + _plan.Unsupported.Count > 0,
+            job.FilesFailed + run.Rejected.Count > 0,
             "files");
 
         if (exitCode != 0 || job.State == TransferJobState.Completed) return exitCode;
@@ -175,44 +192,81 @@ internal sealed class FileUploadCommand(
 
         if (!Output.Err.Confirm(Markup.Escape(question), defaultValue: false))
         {
-            throw new CliException(CliExitCode.Failed, "Cancelled; nothing was sent.");
+            throw new CliCancelledException("Cancelled. Nothing was sent.");
         }
     }
 
     /// <summary>
-    /// Nothing is left to send: the named paths that don't exist and the named files of a type the TeensyROM doesn't take
-    /// are the results, or the folders held nothing it takes.
+    /// Nothing is left to send. Named paths that don't exist are the results (exit 5); a walked folder that was empty or
+    /// had every file skipped is not an error: the report has no files, and a notice says why.
     /// </summary>
     private int NothingToSend()
     {
-        if (_plan.NotFound.Count == 0 && _plan.Unsupported.Count == 0)
+        var skipped = SkipTally.Of(_plan.SkippedFiles, []).ToSkips();
+
+        if (_plan.NotFound.Count == 0)
         {
             var where = string.Join(", ", _plan.Folders);
+            var why = SkipTally.Describe(skipped);
 
-            throw new CliException(
-                CliExitCode.NotFound,
-                _plan.SkippedByType > 0 ? $"There's nothing to upload in {where}: none of its files are a file type the TeensyROM takes." : $"There's nothing to upload in {where}.");
+            Output.Notice(why.Length > 0 ? $"There's nothing to upload in {where}: {why}" : $"There's nothing to upload in {where}.");
+            NoticeHint(SkipTally.Hint(_plan.SkippedFiles, []));
+            CopyResults.Show(Output, new CopyReportJson([], new CopyTotalsJson(0, 0), skipped));
+
+            return 0;
         }
-        var results = _plan.NotFound.Select(path => CopyResults.Failed(path, string.Empty, CopyResults.NotFoundMessage))
-            .Concat(_plan.Unsupported.Select(path => CopyResults.Failed(path, string.Empty, UnsupportedMessage)))
-            .ToList();
+        NoticeSkips(skipped, []);
 
-        CopyResults.Show(Output, new CopyReportJson(results, new CopyTotalsJson(0, results.Count)));
+        var results = _plan.NotFound.Select(path => CopyResults.Failed(path, string.Empty, CopyResults.NotFoundMessage)).ToList();
 
-        return BatchOutcome.Finish(Output, results.Count, results.Count, anyFailedForOtherReasons: _plan.Unsupported.Count > 0, "files");
+        CopyResults.Show(Output, new CopyReportJson(results, new CopyTotalsJson(0, results.Count), skipped));
+
+        return BatchOutcome.Finish(Output, results.Count, results.Count, anyFailedForOtherReasons: false, "files");
+    }
+
+    /// <summary>Says on stderr what was skipped, then how to send the skipped types when some were skipped for their type.</summary>
+    private void NoticeSkips(IReadOnlyList<CopySkipJson> skipped, IEnumerable<TransferSkipDto> jobSkipped)
+    {
+        if (skipped.Count > 0) Output.Notice(SkipTally.Describe(skipped));
+
+        NoticeHint(SkipTally.Hint(_plan.SkippedFiles, jobSkipped));
+    }
+
+    private void NoticeHint(string hint)
+    {
+        if (hint.Length > 0) Output.Notice(hint);
+    }
+
+    /// <summary>Says on stderr how a launch tr-web made came out; a launch that wasn't tried says nothing.</summary>
+    private void NoticeLaunch(TransferJobDto job)
+    {
+        var path = job.LaunchedPath ?? "the file";
+
+        switch (job.LaunchState)
+        {
+            case TransferLaunchState.Launched:
+                Output.Notice($"Launched {path}.");
+                break;
+            case TransferLaunchState.Incompatible:
+                Output.Notice(string.IsNullOrWhiteSpace(job.LaunchError) ? $"{path} can't run on the TeensyROM." : job.LaunchError);
+                break;
+            case TransferLaunchState.Failed:
+                Output.Notice(string.IsNullOrWhiteSpace(job.LaunchError) ? $"The TeensyROM didn't launch {path}." : job.LaunchError);
+                break;
+        }
     }
 
     /// <summary>Runs the job, with a live progress line on stderr when a person is watching one.</summary>
-    private Task<UploadRunResult> TransferAsync(string to, bool launch, CancellationToken ct) =>
+    private Task<UploadRunResult> TransferAsync(string to, bool launch, bool allInArchives, CancellationToken ct) =>
         CommandRun.WithStatusAsync<UploadProgress, UploadRunResult>(
-            Output, "Starting the transfer...", Describe, progress => runner.RunAsync(storage.StorageType, to, _plan.Files, launch, progress, ct));
+            Output, "Starting the transfer...", Describe, progress => runner.RunAsync(storage.StorageType, to, _plan.Files, launch, allInArchives, progress, ct));
 
     private static string Describe(UploadProgress progress) =>
         $"Sending {progress.Sent}/{progress.Total}, {progress.Failed} failed" + (string.IsNullOrEmpty(progress.CurrentFile) ? string.Empty : $" — {progress.CurrentFile}");
 
     /// <summary>
     /// One result per local file, then one per failure the job recorded that matches none (a file inside an archive),
-    /// then one per named path that doesn't exist, then one per named file of an unsupported type. A job failure is matched to a file by its path under the destination.
+    /// then one per named path that doesn't exist. The skipped files are the walk's and the job's merged by reason. A job failure is matched to a file by its path under the destination.
     /// </summary>
     private CopyReportJson BuildReport(string to, UploadRunResult run)
     {
@@ -236,10 +290,22 @@ internal sealed class FileUploadCommand(
             results.Add(CopyResults.Failed(ArchiveOf(failure), failure.TargetPath, FailureMessage(failure)));
         }
         results.AddRange(_plan.NotFound.Select(path => CopyResults.Failed(path, string.Empty, CopyResults.NotFoundMessage)));
-        results.AddRange(_plan.Unsupported.Select(path => CopyResults.Failed(path, string.Empty, UnsupportedMessage)));
 
-        return new CopyReportJson(results, new CopyTotalsJson(job.FilesSent, job.FilesFailed + run.Rejected.Count + _plan.NotFound.Count + _plan.Unsupported.Count));
+        return new CopyReportJson(
+            results,
+            new CopyTotalsJson(job.FilesSent, job.FilesFailed + run.Rejected.Count + _plan.NotFound.Count),
+            SkipTally.Of(_plan.SkippedFiles, job.Skipped).ToSkips(),
+            LaunchResult(job));
     }
+
+    /// <summary>The launch tr-web attempted for the job; null when it made none.</summary>
+    private static CopyLaunchJson? LaunchResult(TransferJobDto job) => job.LaunchState switch
+    {
+        TransferLaunchState.Launched => new CopyLaunchJson(LaunchStatus.Launched, job.LaunchedPath),
+        TransferLaunchState.Incompatible => new CopyLaunchJson(LaunchStatus.Incompatible, job.LaunchedPath, job.LaunchError),
+        TransferLaunchState.Failed => new CopyLaunchJson(LaunchStatus.Failed, job.LaunchedPath, job.LaunchError),
+        _ => null
+    };
 
     private static string FailureMessage(TransferFileCompleted failure) =>
         string.IsNullOrWhiteSpace(failure.Error) ? "The TeensyROM couldn't take the file." : failure.Error;

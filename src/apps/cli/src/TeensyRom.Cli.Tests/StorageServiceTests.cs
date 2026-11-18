@@ -209,6 +209,26 @@ public class StorageServiceTests
     }
 
     [Fact]
+    public async Task FindFile_FindsAFileOfAnyType_ThatIsNotLaunchable()
+    {
+        ListDirectory("/docs/", File("/docs/x.bin", FileItemType.Unknown));
+
+        var file = await _sut.FindFile("/docs/X.BIN");
+
+        file.Should().NotBeNull();
+        file.Should().NotBeAssignableTo<ILaunchableItem>();
+        file!.Path.Should().Be("/docs/x.bin");
+    }
+
+    [Fact]
+    public async Task FindFile_WhenNothingIsAtThePath_FindsNothing()
+    {
+        ListDirectory("/docs/", File("/docs/x.bin.bak", FileItemType.Unknown));
+
+        (await _sut.FindFile("/docs/x.bin")).Should().BeNull();
+    }
+
+    [Fact]
     public async Task GetFile_ListsTheFilesParentDirectory()
     {
         ListDirectory("/");
@@ -316,6 +336,35 @@ public class StorageServiceTests
 
         song.IsFavorite.Should().BeFalse();
         await _api.Received(1).RemoveFavoriteAsync(DeviceId, ApiStorageType.SD, "/favorites/music/Commando.sid", Arg.Any<CancellationToken>());
+    }
+
+    [Fact]
+    public async Task DeleteFile_AsksTrWebToDeleteThePathOnTheCurrentStorage()
+    {
+        await _sut.DeleteFile("/a.prg");
+
+        await _api.Received(1).DeleteFileAsync(DeviceId, ApiStorageType.SD, "/a.prg", Arg.Any<CancellationToken>());
+    }
+
+    [Fact]
+    public async Task DeleteFile_AfterSwitchingToUsb_DeletesOnUsb()
+    {
+        _sut.SwitchStorage(TeensyStorageType.USB);
+
+        await _sut.DeleteFile("/a.prg");
+
+        await _api.Received(1).DeleteFileAsync(DeviceId, ApiStorageType.USB, "/a.prg", Arg.Any<CancellationToken>());
+    }
+
+    [Fact]
+    public async Task DeleteFile_WhenTheEngineRefuses_ThrowsItsMessage()
+    {
+        _api.DeleteFileAsync(DeviceId, Arg.Any<ApiStorageType>(), Arg.Any<string>(), Arg.Any<CancellationToken>())
+            .Returns(Task.FromException<DeleteFileResponse>(ApiFailure(400, """{"title":"/music is a folder. Only files can be deleted."}""")));
+
+        var act = () => _sut.DeleteFile("/music");
+
+        await act.Should().ThrowAsync<TeensyApiException>().WithMessage("/music is a folder. Only files can be deleted.");
     }
 
     [Fact]

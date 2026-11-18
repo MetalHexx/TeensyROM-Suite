@@ -60,6 +60,18 @@ public class StorageServiceUpsertTransferredFileTests
     }
 
     [Fact]
+    public void UpsertTransferredFile_ReturnsTheFoldersTheCacheCreated_AndSendsNothingToTheCart()
+    {
+        var created = new[] { new DirectoryPath("/music/"), new DirectoryPath("/music/new/") };
+        _cache.EnsureParents(Arg.Any<DirectoryPath>()).Returns(created);
+
+        var result = NewService().UpsertTransferredFile(new FilePath("/music/new/tune.xyz"), 10);
+
+        result.Should().Equal(created);
+        _mediator.ReceivedCalls().Should().BeEmpty();
+    }
+
+    [Fact]
     public void PersistCache_WritesCacheToDisk()
     {
         var service = NewService();

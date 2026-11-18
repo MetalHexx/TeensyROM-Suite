@@ -447,8 +447,8 @@ public sealed class ThemeCommandTests : IDisposable
 
         var exitCode = await host.RunAsync("theme", "delete", "Late night");
 
-        exitCode.Should().Be((int)CliExitCode.Failed);
-        host.Consoles.StdErr.Should().Contain("Delete the theme Late night?").And.Contain("Cancelled; nothing was deleted.");
+        exitCode.Should().Be(0);
+        host.Consoles.StdErr.Should().Contain("Delete the theme Late night?").And.Contain("Cancelled. Nothing was deleted.");
         await _themes.DidNotReceiveWithAnyArgs().DeleteAsync(default!, default);
     }
 

@@ -30,6 +30,8 @@ describe('SettingsFormService', () => {
     },
     fileTransferSettings: {
       autoLaunchOnCopyEnabled: false,
+      allFileTypesInFolders: false,
+      allFileTypesInArchives: false,
     },
     searchSettings: {
       weights: {
@@ -71,6 +73,8 @@ describe('SettingsFormService', () => {
     mockSettingsService = {
       getSettings: vi.fn().mockResolvedValue(mockSettings),
       saveSettings: vi.fn().mockResolvedValue(undefined),
+      getFileTransferSettings: vi.fn(),
+      saveFileTransferSettings: vi.fn(),
     } as ISettingsService;
 
     // Initialize mock signals
@@ -91,6 +95,8 @@ describe('SettingsFormService', () => {
       historyPosition: historyPositionSignal.asReadonly(),
       getSettings: () => settingsSignal.asReadonly(),
       saveSettings: vi.fn(),
+      getFileTransferSettings: vi.fn(),
+      saveFileTransferSettings: vi.fn(),
       updateSettings: vi.fn(),
       undo: vi.fn(),
       redo: vi.fn(),
@@ -281,15 +287,22 @@ describe('SettingsFormService', () => {
       expect(mockSettingsStore['saveSettings']).toHaveBeenCalled();
     });
 
-    it('keeps the stored auto-launch setting, which this screen does not edit', async () => {
-      const stored = { ...mockSettings, fileTransferSettings: { autoLaunchOnCopyEnabled: true } };
+    it('keeps the stored upload settings, which this screen does not edit', async () => {
+      const stored = {
+        ...mockSettings,
+        fileTransferSettings: {
+          autoLaunchOnCopyEnabled: true,
+          allFileTypesInFolders: true,
+          allFileTypesInArchives: true,
+        },
+      };
       settingsSignal.set(stored);
       (service.settingsForm()?.get('playerSettings.playTimerEnabled'))?.setValue(true);
 
       await service.saveSettings();
 
       const saved = mockSettingsStore['updateSettings'].mock.calls.at(-1)?.[0].settings;
-      expect(saved.fileTransferSettings).toEqual({ autoLaunchOnCopyEnabled: true });
+      expect(saved.fileTransferSettings).toEqual(stored.fileTransferSettings);
     });
 
     it('should convert form values to Settings model', async () => {

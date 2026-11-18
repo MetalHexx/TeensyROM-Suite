@@ -52,6 +52,11 @@ namespace TeensyRom.Api.Endpoints.Transfers.CreateJob
         /// Launch one file when this transfer completes even when the auto-launch setting is off.
         /// </summary>
         public bool Launch { get; set; }
+
+        /// <summary>
+        /// Send everything inside this job's archives, not only known types. When absent, the engine uses the Uploads switch.
+        /// </summary>
+        public bool? AllFileTypesInArchives { get; set; }
     }
 
     public class CreateJobRequestValidator : AbstractValidator<CreateJobRequest>

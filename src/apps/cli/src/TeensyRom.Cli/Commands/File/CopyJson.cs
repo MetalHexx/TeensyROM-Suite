@@ -1,6 +1,7 @@
 using Spectre.Console;
 using TeensyRom.Cli.Helpers;
 using TeensyRom.Cli.Output;
+using TeensyRom.Cli.Services;
 
 namespace TeensyRom.Cli.Commands.File;
 
@@ -18,8 +19,22 @@ internal sealed record CopyResultJson(string LocalPath, string DevicePath, bool 
 /// <summary>How many files a copy run moved and how many failed.</summary>
 internal sealed record CopyTotalsJson(int Copied, int Failed);
 
-/// <summary>A copy run's JSON document: <c>{ "files": [ { "localPath", "devicePath", "ok", "message" } ], "totals": { "copied", "failed" } }</c>.</summary>
-internal sealed record CopyReportJson(IReadOnlyList<CopyResultJson> Files, CopyTotalsJson Totals);
+/// <summary>
+/// What tr-web did about launching the uploaded file, for a job that made a launch attempt. <paramref name="Message"/> is
+/// tr-web's reason when it didn't launch.
+/// </summary>
+internal sealed record CopyLaunchJson(LaunchStatus Status, string? Path, string? Message = null);
+
+/// <summary>
+/// A copy run's JSON document: <c>{ "files": [ { "localPath", "devicePath", "ok", "message" } ], "totals": { "copied", "failed" } }</c>.
+/// An upload also carries <c>skipped</c>, always, listing the files it skipped by reason (empty when none), and
+/// <c>launched</c> when tr-web tried to launch a file. A download has neither.
+/// </summary>
+internal sealed record CopyReportJson(
+    IReadOnlyList<CopyResultJson> Files,
+    CopyTotalsJson Totals,
+    IReadOnlyList<CopySkipJson>? Skipped = null,
+    CopyLaunchJson? Launched = null);
 
 /// <summary>Builds and writes the results of the copy commands.</summary>
 internal static class CopyResults
@@ -33,7 +48,7 @@ internal static class CopyResults
 
     /// <summary>
     /// Writes the report as the output mode asks: JSON as the document; piped, the device paths that succeeded, one per line,
-    /// then each failure as a notice; in a terminal a table. A run with files copied and none failed then ends with a
+    /// then each failure as a notice; in a terminal a table, left out when there are no files. A run with files copied and none failed then ends with a
     /// "Copied N files." notice on stderr, outside JSON mode.
     /// </summary>
     public static void Show(ICliOutput output, CopyReportJson report)
@@ -48,6 +63,8 @@ internal static class CopyResults
                 foreach (var file in report.Files.Where(file => !file.Ok)) output.Notice($"{file.LocalPath}: {file.Message}");
                 break;
             default:
+                if (report.Files.Count == 0) break;
+
                 var table = new Table().BorderColor(RadHelper.Theme.Secondary.Color).Border(TableBorder.Rounded);
 
                 table.AddColumn("Local path");

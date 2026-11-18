@@ -4,7 +4,9 @@ import { signal } from '@angular/core';
 import { Subject } from 'rxjs';
 import {
   ALERT_SERVICE,
+  ISettingsService,
   ITransferHubService,
+  SETTINGS_SERVICE,
   StorageType,
   TRANSFER_HUB_SERVICE,
   TRANSFER_SERVICE,
@@ -47,6 +49,7 @@ const createSnapshot = (overrides: Partial<TransferJobSnapshot> = {}): TransferJ
   launchState: TransferLaunchState.None,
   launchedPath: null,
   launchError: null,
+  skipped: [],
   ...overrides,
 });
 
@@ -70,6 +73,11 @@ describe('TransferTracker', () => {
     snapshots$: Subject<TransferJobSnapshot>;
     allResynced$: Subject<TransferJobSnapshot[]>;
   };
+  let storageStub: {
+    getSelectedDirectoryForDevice: ReturnType<typeof vi.fn>;
+    refetchAfterTransfer: ReturnType<typeof vi.fn>;
+    refetchShownFolders: ReturnType<typeof vi.fn>;
+  };
   let alerts: {
     info: ReturnType<typeof vi.fn>;
     success: ReturnType<typeof vi.fn>;
@@ -89,20 +97,23 @@ describe('TransferTracker', () => {
       allResynced$,
     };
     alerts = { info: vi.fn(), success: vi.fn(), error: vi.fn() };
+    storageStub = {
+      getSelectedDirectoryForDevice: vi.fn().mockReturnValue(null),
+      refetchAfterTransfer: vi.fn().mockResolvedValue(undefined),
+      refetchShownFolders: vi.fn().mockResolvedValue(undefined),
+    };
 
     TestBed.configureTestingModule({
       providers: [
         { provide: TRANSFER_HUB_SERVICE, useValue: hub as unknown as ITransferHubService },
         { provide: TRANSFER_SERVICE, useValue: { cancelJob: vi.fn() } },
         { provide: ALERT_SERVICE, useValue: alerts },
+        { provide: SETTINGS_SERVICE, useValue: {} as Partial<ISettingsService> },
         {
           provide: DeviceStore,
           useValue: { devices: signal([{ deviceId: 'device-1', name: 'My TeensyROM' }]) },
         },
-        {
-          provide: StorageStore,
-          useValue: { getSelectedDirectoryForDevice: vi.fn().mockReturnValue(null) },
-        },
+        { provide: StorageStore, useValue: storageStub },
       ],
     });
 
@@ -538,6 +549,100 @@ describe('TransferTracker', () => {
 
       expect(hub.unsubscribe).toHaveBeenCalledWith('mine');
       expect(store.transfers()['device-2'].phase).toBe('idle');
+    });
+  });
+
+  describe('refetching listings', () => {
+    const ended = (overrides: Partial<TransferJobSnapshot> = {}) =>
+      createSnapshot({
+        state: TransferJobState.Completed,
+        filesSent: 2,
+        destinationDirectory: '/games/new/',
+        ...overrides,
+      });
+
+    beforeEach(async () => {
+      await tracker.start();
+    });
+
+    it('refetches the destination when a job that sent files ends', async () => {
+      await push(ended());
+
+      expect(storageStub.refetchAfterTransfer).toHaveBeenCalledTimes(1);
+      expect(storageStub.refetchAfterTransfer).toHaveBeenCalledWith({
+        deviceId: 'device-1',
+        storageType: StorageType.Sd,
+        destinationDirectory: '/games/new/',
+      });
+    });
+
+    it('refetches for a watch-folder job and for a job from another origin alike', async () => {
+      await push(
+        ended({
+          jobId: 'watch',
+          origin: {
+            kind: TransferOriginKind.WatchFolder,
+            watchFolderId: 'w1',
+            watchFolderPath: '/watch',
+          },
+        })
+      );
+      await push(ended({ jobId: 'upload' }));
+
+      expect(storageStub.refetchAfterTransfer).toHaveBeenCalledTimes(2);
+    });
+
+    it('refetches for a job this tab started', async () => {
+      startOwnJob(createSnapshot({ jobId: 'mine' }));
+
+      await push(ended({ jobId: 'mine' }));
+
+      expect(storageStub.refetchAfterTransfer).toHaveBeenCalledTimes(1);
+    });
+
+    it('refetches nothing for a job that sent nothing', async () => {
+      await push(ended({ filesSent: 0, state: TransferJobState.Aborted }));
+
+      expect(storageStub.refetchAfterTransfer).not.toHaveBeenCalled();
+    });
+
+    it('waits for the launch to settle, then refetches once', async () => {
+      const pending = ended({
+        launchState: TransferLaunchState.Pending,
+        launchedPath: '/games/new/a.prg',
+      });
+
+      await push(pending);
+      expect(storageStub.refetchAfterTransfer).not.toHaveBeenCalled();
+
+      await push({ ...pending, launchState: TransferLaunchState.Launched });
+      await push({ ...pending, launchState: TransferLaunchState.Launched });
+      expect(storageStub.refetchAfterTransfer).toHaveBeenCalledTimes(1);
+    });
+
+    it('does not refetch while a job is still running', async () => {
+      await push(createSnapshot({ filesSent: 1 }));
+
+      expect(storageStub.refetchAfterTransfer).not.toHaveBeenCalled();
+    });
+
+    it('does not delay the end alert when the refetch is slow', async () => {
+      storageStub.refetchAfterTransfer.mockReturnValue(new Promise<void>(() => undefined));
+
+      await push(ended());
+
+      expect(alerts.success).toHaveBeenCalledTimes(1);
+      expect(store.transfers()['device-1'].phase).toBe('idle');
+    });
+
+    it('refetches every shown folder once after a resync', async () => {
+      await resync([createSnapshot({ jobId: 'other', deviceId: 'device-2' })]);
+
+      expect(storageStub.refetchShownFolders).toHaveBeenCalledTimes(1);
+    });
+
+    it('does not refetch shown folders for the first list', async () => {
+      expect(storageStub.refetchShownFolders).not.toHaveBeenCalled();
     });
   });
 });

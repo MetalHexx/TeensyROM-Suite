@@ -73,6 +73,7 @@ const createSnapshot = (overrides: Partial<TransferJobSnapshot> = {}): TransferJ
   launchState: TransferLaunchState.None,
   launchedPath: null,
   launchError: null,
+  skipped: [],
   ...overrides,
 });
 
@@ -307,6 +308,53 @@ describe('TransferModalComponent', () => {
       const vm = component.vm();
       const metrics = transferStore.getTransferMetrics(deviceId)();
       expect(vm.uploadBytesPerSecond).toBe(metrics.uploadBytesPerSecond);
+    });
+
+    it('tells a drop that skipped folder types where the Uploads switch is', async () => {
+      await setup();
+      transferStore.setTargetDevice({ deviceId });
+      transferStore.beginScan({ deviceId, droppedRootName: 'HVSC', destinationLabel: '/games' });
+      transferStore.completeScan({
+        deviceId,
+        scanTotal: 5,
+        scanSkipped: [{ reason: 'unsupportedType', count: 2, types: ['.nfo', '.xyz'] }],
+      });
+      transferStore.beginJob({ deviceId });
+      transferStore.applyJobSnapshot({ deviceId, snapshot: createSnapshot({ deviceId }) });
+
+      createFixture();
+
+      const vm = component.vm();
+      expect(vm.skippedLines).toEqual(['2 files not a file type the TeensyROM takes (.nfo, .xyz)']);
+      expect(vm.skippedHint).toBe(
+        'To send other file types, turn on "All file types in folders" under Uploads in Transfer Settings.'
+      );
+    });
+
+    it('tells a watch-folder job that skipped archive types where the folder switch is', async () => {
+      await setup();
+      transferStore.setTargetDevice({ deviceId });
+      driveToState(transferStore, deviceId, 'starting');
+      transferStore.applyJobSnapshot({
+        deviceId,
+        snapshot: createSnapshot({
+          deviceId,
+          origin: {
+            kind: TransferOriginKind.WatchFolder,
+            watchFolderId: 'folder-1',
+            watchFolderPath: 'C:/watched',
+          },
+          skipped: [{ reason: 'unsupportedType', count: 1, types: ['.xyz'] }],
+        }),
+      });
+
+      createFixture();
+
+      const vm = component.vm();
+      expect(vm.skippedLines).toEqual(['1 file not a file type the TeensyROM takes (.xyz)']);
+      expect(vm.skippedHint).toBe(
+        'To send other file types, turn on "All file types in archives" for this watch folder in Transfer Settings.'
+      );
     });
   });
 

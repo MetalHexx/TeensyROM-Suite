@@ -152,6 +152,18 @@ public sealed class FileDownloadCommandTests : IDisposable
     }
 
     [Fact]
+    public async Task AnUnknownTypeFile_IsDownloadedLikeAnyOther()
+    {
+        Folder("/stuff", files: ["blob.bin"]);
+        var host = NewHost();
+
+        var exitCode = await host.RunAsync("file", "download", "/stuff/blob.bin");
+
+        exitCode.Should().Be(0, host.Consoles.StdErr);
+        File.ReadAllText(Path.Combine(_root, "blob.bin")).Should().Be("content of /stuff/blob.bin");
+    }
+
+    [Fact]
     public async Task ANamedFolder_ArrivesAsAFolderOfItsOwnName_WithItsLayoutRecreated_AndTheTargetCreated()
     {
         var host = NewHost();

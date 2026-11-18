@@ -3,7 +3,7 @@ import { firstValueFrom } from 'rxjs';
 import { StorageState, StorageDirectoryState, NavigationHistory } from './storage-store';
 import { StorageKey, StorageKeyUtil } from './storage-key.util';
 import { StorageType, IStorageService } from '@teensyrom-nx/domain';
-import { LogType, logInfo, logError } from '@teensyrom-nx/utils';
+import { LogType, logInfo, logError, logWarn } from '@teensyrom-nx/utils';
 import { updateState } from '../with-devtools';
 
 export type WritableStore<T extends object> = StateSignals<T> & WritableStateSource<T>;
@@ -209,6 +209,83 @@ export function removeStorage(
     delete updatedEntries[key];
     return { storageEntries: updatedEntries };
   });
+}
+
+/** Lowercases a path and drops trailing slashes, so `/Games/` and `/games` compare equal. */
+export function normalizePathForCompare(path: string): string {
+  return path.replace(/\/+$/, '').toLowerCase();
+}
+
+/**
+ * Helper to drop the `directoryListings` of every folder strictly below `path` (the listing at
+ * `path` itself is kept), so those folders are loaded again the next time they are opened.
+ * Paths compare ignoring case and a trailing `/`, because the API returns paths with a trailing
+ * `/` and the store may hold them without. A no-op when the entry has no listings below `path`.
+ */
+export function dropListingsBelowPath(
+  store: WritableStore<StorageState>,
+  key: StorageKey,
+  path: string,
+  actionMessage: string
+): void {
+  const listings = getStorage(store, key)?.directoryListings;
+  if (!listings) return;
+
+  const base = normalizePathForCompare(path);
+  const kept = Object.fromEntries(
+    Object.entries(listings).filter(([listingPath]) => {
+      const normalized = normalizePathForCompare(listingPath);
+      return normalized === base || !normalized.startsWith(`${base}/`);
+    })
+  );
+  if (Object.keys(kept).length === Object.keys(listings).length) return;
+
+  updateStorage(store, key, { directoryListings: kept }, actionMessage);
+}
+
+/**
+ * Refetches the folder at `path` for one storage entry without touching `isLoading`, so views keep
+ * showing the list they have. The result always refreshes that path's tree listing; it replaces the
+ * entry's current directory only when the entry still shows `path` once the result arrives, so a
+ * refetch never pulls the view back after the user moved on. A failure keeps what is shown.
+ */
+export async function refetchDirectoryQuietly(
+  store: WritableStore<StorageState>,
+  storageService: IStorageService,
+  key: StorageKey,
+  path: string,
+  actionMessage: string
+): Promise<void> {
+  const requested = getStorage(store, key);
+  if (!requested) return;
+
+  let directory;
+  try {
+    directory = await firstValueFrom(
+      storageService.getDirectory(requested.deviceId, requested.storageType, path)
+    );
+  } catch (error) {
+    logWarn(
+      `Quiet refetch of ${path} failed for ${key}; keeping the listing - ${error instanceof Error ? error.message : String(error)}`
+    );
+    return;
+  }
+
+  const entry = getStorage(store, key);
+  if (!entry) return;
+
+  const directoryListings = { ...entry.directoryListings, [path]: directory.directories };
+  const stillShown =
+    entry.isLoaded && normalizePathForCompare(entry.currentPath) === normalizePathForCompare(path);
+
+  updateStorage(
+    store,
+    key,
+    stillShown
+      ? { directory, directoryListings, lastLoadTime: Date.now() }
+      : { directoryListings },
+    actionMessage
+  );
 }
 
 /**

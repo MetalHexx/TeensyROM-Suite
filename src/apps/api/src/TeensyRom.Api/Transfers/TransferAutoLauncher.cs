@@ -7,8 +7,9 @@ using TeensyRom.Core.ValueObjects;
 namespace TeensyRom.Api.Transfers
 {
     /// <summary>
-    /// Launch-after-transfer policy and execution. A watch-folder job launches only when the global
-    /// auto-launch setting and its own request both say so; any other job when either does.
+    /// Launch-after-transfer policy and execution. A watch-folder job launches exactly when its destination's own
+    /// launch switch asked for it, whatever the auto-launch setting; any other job when the auto-launch setting
+    /// or its own request says so.
     /// </summary>
     public sealed class TransferAutoLauncher(
         ISettingsService settings,
@@ -18,11 +19,9 @@ namespace TeensyRom.Api.Transfers
     {
         public bool ShouldLaunch(TransferJob job)
         {
-            var setting = settings.GetSettings().FileTransferSettings.AutoLaunchOnCopyEnabled;
-
             return job.Origin.Kind is TransferOriginKind.WatchFolder
-                ? setting && job.LaunchRequested
-                : setting || job.LaunchRequested;
+                ? job.LaunchRequested
+                : settings.GetSettings().FileTransferSettings.AutoLaunchOnCopyEnabled || job.LaunchRequested;
         }
 
         public void StartLaunch(TransferJob job)

@@ -92,7 +92,7 @@ describe('PreferencesService', () => {
       expect(service.tooltipsEnabled()).toBe(false);
       expect(localStorageSpy.setItem).toHaveBeenCalledWith(
         'user-preferences',
-        JSON.stringify({ tooltipsEnabled: false })
+        JSON.stringify({ tooltipsEnabled: false, confirmReindex: true })
       );
     });
 
@@ -105,7 +105,7 @@ describe('PreferencesService', () => {
       expect(service.tooltipsEnabled()).toBe(true);
       expect(localStorageSpy.setItem).toHaveBeenCalledWith(
         'user-preferences',
-        JSON.stringify({ tooltipsEnabled: true })
+        JSON.stringify({ tooltipsEnabled: true, confirmReindex: true })
       );
     });
 
@@ -115,7 +115,7 @@ describe('PreferencesService', () => {
       expect(service.tooltipsEnabled()).toBe(false);
       expect(localStorageSpy.setItem).toHaveBeenCalledWith(
         'user-preferences',
-        JSON.stringify({ tooltipsEnabled: false })
+        JSON.stringify({ tooltipsEnabled: false, confirmReindex: true })
       );
     });
 
@@ -134,6 +134,46 @@ describe('PreferencesService', () => {
       );
 
       consoleErrorSpy.mockRestore();
+    });
+  });
+
+  describe('confirmReindex preference', () => {
+    it('defaults to true when localStorage is empty', () => {
+      localStorageSpy.getItem.mockReturnValue(null);
+
+      service = TestBed.inject(PreferencesService);
+
+      expect(service.confirmReindex()).toBe(true);
+    });
+
+    it('merges the default into stored preferences that predate it', () => {
+      localStorageSpy.getItem.mockReturnValue(JSON.stringify({ tooltipsEnabled: false }));
+
+      service = TestBed.inject(PreferencesService);
+
+      expect(service.confirmReindex()).toBe(true);
+      expect(service.tooltipsEnabled()).toBe(false);
+    });
+
+    it('loads a stored false value', () => {
+      localStorageSpy.getItem.mockReturnValue(JSON.stringify({ confirmReindex: false }));
+
+      service = TestBed.inject(PreferencesService);
+
+      expect(service.confirmReindex()).toBe(false);
+    });
+
+    it('persists the value set through setConfirmReindex', () => {
+      localStorageSpy.getItem.mockReturnValue(null);
+      service = TestBed.inject(PreferencesService);
+
+      service.setConfirmReindex(false);
+
+      expect(service.confirmReindex()).toBe(false);
+      expect(localStorageSpy.setItem).toHaveBeenCalledWith(
+        'user-preferences',
+        JSON.stringify({ tooltipsEnabled: true, confirmReindex: false })
+      );
     });
   });
 

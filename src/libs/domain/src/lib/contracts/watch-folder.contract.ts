@@ -2,21 +2,24 @@ import { InjectionToken } from '@angular/core';
 import {
   AddWatchFolderInput,
   WatchFolder,
+  WatchFolderAddResult,
   WatchFolderDestinationChange,
   WatchFolderField,
+  WatchFolderFileTypesChange,
 } from '../models/watch-folder.model';
 
 /** Manages the folders the engine watches and the devices each one delivers to. */
 export interface IWatchFolderService {
   list(): Promise<WatchFolder[]>;
   /** Adds a folder, or a destination for another device to a folder already watched. */
-  add(input: AddWatchFolderInput): Promise<WatchFolder>;
+  add(input: AddWatchFolderInput): Promise<WatchFolderAddResult>;
   setDestination(
     watchFolderId: string,
     deviceId: string,
     change: WatchFolderDestinationChange
   ): Promise<WatchFolder>;
   setEnabled(watchFolderId: string, enabled: boolean): Promise<WatchFolder>;
+  setFileTypes(watchFolderId: string, change: WatchFolderFileTypesChange): Promise<WatchFolder>;
   remove(watchFolderId: string): Promise<void>;
   /** Removing a folder's last device removes the folder too. */
   removeDestination(

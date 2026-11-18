@@ -8,6 +8,7 @@ using TeensyRom.Core.Entities.Device;
 using TeensyRom.Core.Entities.Storage;
 using TeensyRom.Core.Entities.Transfers;
 using TeensyRom.Core.Logging;
+using TeensyRom.Core.ValueObjects;
 
 namespace TeensyRom.Api.Transfers
 {
@@ -196,14 +197,18 @@ namespace TeensyRom.Api.Transfers
                 {
                     await SendBatchAsync(admitted, ct);
                 }
+
+                await RereadFoldersAsync(touchedJobs, ct);
             }
             finally
             {
                 // Runs even if SendBatchAsync let a composition exception propagate for the caller's
                 // log-only catch - a job must still reach its terminal state once every one of its
-                // files in this batch has been accounted for, exception or not.
+                // files in this batch has been accounted for, exception or not. The holds go first, for
+                // the same reason: whatever happened to the reads, the job must be free to complete.
                 foreach (var job in touchedJobs)
                 {
+                    job.ReleaseFolderReadHolds();
                     TryFinalize(job);
 
                     if (TransferJob.IsTerminal(job.State))
@@ -214,6 +219,38 @@ namespace TeensyRom.Api.Transfers
                         // point the tree is reliably gone.
                         staging.PurgeJob(job.JobId);
                     }
+                }
+            }
+        }
+
+        /// <summary>
+        /// Reads from the device the folders this batch's uploads created in the index, so each lists what is on
+        /// the device and not only what the job sent. It runs once the transfer command has returned and the port
+        /// is free, and while the job still holds the lease - which is why the job cannot complete until
+        /// <see cref="TransferJob.ReleaseFolderReadHolds"/>: a launch ahead of the read would leave the C64 busy and
+        /// the next command would reset it. A job that went terminal has lost its lease and is skipped; a failed
+        /// read leaves the partial entry and never fails the job.
+        /// </summary>
+        private async Task RereadFoldersAsync(IEnumerable<TransferJob> jobs, CancellationToken ct)
+        {
+            foreach (var job in jobs)
+            {
+                var folders = job.TakeFoldersToReread();
+
+                if (folders.Count == 0 || TransferJob.IsTerminal(job.State)) continue;
+
+                try
+                {
+                    var storage = deviceManager.GetAvailableDevice(job.DeviceId)?.GetStorage(job.StorageType);
+
+                    if (storage is not null)
+                    {
+                        await storage.RereadFolders(folders, job.JobId, ct);
+                    }
+                }
+                catch (Exception ex) when (ex is not OperationCanceledException)
+                {
+                    log.InternalWarning($"TransferPump: re-reading the folders job '{job.JobId}' created failed: {ex.Message}", job.DeviceId);
                 }
             }
         }
@@ -355,8 +392,18 @@ namespace TeensyRom.Api.Transfers
             if (outcome.Saved)
             {
                 var completed = new TransferFileCompleted(job.JobId, staged.RelativePath, staged.TargetPath.Value, true, null, staged.SizeBytes);
-                job.OnFileSent(completed);
-                device.GetStorage(job.StorageType)?.UpsertTransferredFile(staged.TargetPath, staged.SizeBytes);
+                IReadOnlyList<DirectoryPath> createdFolders = [];
+
+                try
+                {
+                    createdFolders = device.GetStorage(job.StorageType)?.UpsertTransferredFile(staged.TargetPath, staged.SizeBytes) ?? [];
+                }
+                finally
+                {
+                    // The file is counted even if the upsert throws. The folders it created are held in the same
+                    // step that lowers PendingCount, so a Seal or sweep that sees the count at zero sees the hold.
+                    job.OnFileSent(completed, createdFolders);
+                }
             }
             else
             {
@@ -464,14 +511,16 @@ namespace TeensyRom.Api.Transfers
         /// <summary>
         /// Completion's single seam, shared by the pump and the sweeper: a Sealed job whose
         /// <see cref="TransferJob.PendingCount"/> has reached zero has delivered everything it took in,
-        /// so it becomes Completed, and launches one file when a launch is due. Idempotent and safe to call concurrently -
+        /// so it becomes Completed, and launches one file when a launch is due. A job with a folder read
+        /// outstanding is not complete yet; the pump finalizes it again once the read is done. Idempotent and safe
+        /// to call concurrently -
         /// <see cref="TransferJob.TryComplete"/> guards the actual transition, and the
         /// release/purge/persist/notify side effects only run for the caller that wins it. Cancellation
         /// does not come through here at all; see <see cref="Cancel"/>.
         /// </summary>
         public void TryFinalize(TransferJob job)
         {
-            if (job.State is not TransferJobState.Sealed || job.PendingCount != 0)
+            if (job.State is not TransferJobState.Sealed || job.PendingCount != 0 || job.HasFolderReadsOutstanding)
             {
                 return;
             }

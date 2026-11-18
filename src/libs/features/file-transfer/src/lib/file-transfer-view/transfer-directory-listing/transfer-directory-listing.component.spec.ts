@@ -4,7 +4,7 @@ import { Component, input, signal } from '@angular/core';
 import { By } from '@angular/platform-browser';
 import { vi } from 'vitest';
 import { StorageStore, StorageDirectoryState, SearchState } from '@teensyrom-nx/application';
-import { DirectoryItem, FileItem, StorageType } from '@teensyrom-nx/domain';
+import { DirectoryItem, FileItem, FileItemType, StorageType } from '@teensyrom-nx/domain';
 import { DirectoryItemComponent, StorageItemComponent, IconButtonComponent } from '@teensyrom-nx/ui/components';
 import { TransferDirectoryListingComponent } from './transfer-directory-listing.component';
 import { DirectoryTrailContainerComponent } from '../directory-trail-container/directory-trail-container.component';
@@ -169,6 +169,20 @@ describe('TransferDirectoryListingComponent', () => {
       storageItem.componentInstance.activated.emit();
       storageItem.componentInstance.selectedChange.emit();
       expect(mockStorageStore.navigateToDirectory).not.toHaveBeenCalled();
+    });
+
+    it('lists an unknown file with the generic icon', async () => {
+      const unknownFile = {
+        name: 'b.bin',
+        path: '/b.bin',
+        type: FileItemType.Unknown,
+      } as FileItem;
+      await setup(stateWith({ directory: { directories: [], files: [unknownFile], path: '/' } }));
+      fixture.detectChanges();
+
+      const storageItem = fixture.debugElement.query(By.directive(StorageItemComponent));
+      expect(storageItem.componentInstance.label()).toBe('b.bin');
+      expect(storageItem.componentInstance.icon()).toBe('insert_drive_file');
     });
 
     it('applies the disabled-row class to existing file rows for dimmed visual treatment', async () => {

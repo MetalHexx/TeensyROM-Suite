@@ -1,4 +1,5 @@
 import { StorageType } from './storage-type.enum';
+import { TransferSkip } from './transfer-skip.model';
 
 /**
  * Lifecycle states of a transfer job, mirroring the API's TransferJobState.
@@ -82,4 +83,6 @@ export interface TransferJobSnapshot {
   /** Path of the file the engine launched (or tried to); null when no launch applies. */
   launchedPath: string | null;
   launchError: string | null;
+  /** Files the job skipped, by reason. Empty when nothing was skipped. */
+  skipped: TransferSkip[];
 }

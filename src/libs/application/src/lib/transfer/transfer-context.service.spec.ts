@@ -1,8 +1,13 @@
 import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest';
 import { TestBed } from '@angular/core/testing';
+import { of, throwError } from 'rxjs';
 import {
   TRANSFER_SERVICE,
   ITransferService,
+  ISettingsService,
+  SETTINGS_SERVICE,
+  FileTransferSettings,
+  Settings,
   TransferDeviceBusyError,
   TransferCreateRejectedError,
   TransferJobSnapshot,
@@ -15,6 +20,7 @@ import {
 import { TransferContextService } from './transfer-context.service';
 import { TransferStore } from './transfer-store';
 import { StorageStore, SelectedDirectory } from '../storage/storage-store';
+import { SettingsStore } from '../settings/settings-store';
 import { DropScanner, DropScanResult } from './drop-scanner';
 import { UploadPool, UploadPoolCallbacks } from './upload-pool';
 import { TransferHubListener } from './transfer-hub-listener';
@@ -65,6 +71,7 @@ function createSnapshot(overrides: Partial<TransferJobSnapshot> = {}): TransferJ
     launchState: TransferLaunchState.None,
     launchedPath: null,
     launchError: null,
+    skipped: [],
     ...overrides,
   };
 }
@@ -95,6 +102,12 @@ describe('TransferContextService', () => {
   let store: InstanceType<typeof TransferStore>;
   let mockStorageStore: { getSelectedDirectoryForDevice: ReturnType<typeof vi.fn> };
   let mockDropScanner: { scan: ReturnType<typeof vi.fn> };
+  let mockSettingsService: Partial<ISettingsService>;
+  const cachedUploadSettings: FileTransferSettings = {
+    autoLaunchOnCopyEnabled: false,
+    allFileTypesInFolders: false,
+    allFileTypesInArchives: false,
+  };
   let mockUploadPool: { run: ReturnType<typeof vi.fn> };
   let mockHubListener: { start: ReturnType<typeof vi.fn>; stop: ReturnType<typeof vi.fn> };
   let mockTransferService: {
@@ -110,8 +123,9 @@ describe('TransferContextService', () => {
     entries: [createEntry('games/a.prg')],
     rootName: 'games',
     archiveCount: 0,
+    skipped: [],
   };
-  const emptyScan: DropScanResult = { entries: [], rootName: null, archiveCount: 0 };
+  const emptyScan: DropScanResult = { entries: [], rootName: null, archiveCount: 0, skipped: [] };
 
   beforeEach(() => {
     vi.useFakeTimers();
@@ -136,6 +150,13 @@ describe('TransferContextService', () => {
         record('scan');
         return oneFileScan;
       }),
+    };
+
+    mockSettingsService = {
+      getSettings: vi.fn(() =>
+        of({ fileTransferSettings: cachedUploadSettings } as unknown as Settings)
+      ),
+      getFileTransferSettings: vi.fn(() => of(cachedUploadSettings)),
     };
 
     mockUploadPool = {
@@ -168,6 +189,7 @@ describe('TransferContextService', () => {
         TransferContextService,
         TransferStore,
         { provide: StorageStore, useValue: mockStorageStore },
+        { provide: SETTINGS_SERVICE, useValue: mockSettingsService },
         { provide: DropScanner, useValue: mockDropScanner },
         { provide: UploadPool, useValue: mockUploadPool },
         { provide: TransferHubListener, useValue: mockHubListener },
@@ -278,6 +300,48 @@ describe('TransferContextService', () => {
     });
   });
 
+  describe('scan options', () => {
+    /** The scan options the service handed to the scanner, which may arrive as a promise. */
+    const scanOptions = async () => await mockDropScanner.scan.mock.calls[0][3];
+
+    const loadCachedSettings = async () => {
+      TestBed.inject(SettingsStore).loadSettings();
+      await flushMicrotasks();
+    };
+
+    it('applies an all-types change the engine reports while the cached value is off', async () => {
+      await loadCachedSettings();
+      mockSettingsService.getFileTransferSettings = vi.fn(() =>
+        of({ ...cachedUploadSettings, allFileTypesInFolders: true })
+      );
+
+      await runStartTransfer('device-1', asFileList([new File(['x'], 'a.prg')]));
+
+      expect(await scanOptions()).toEqual({ allFileTypesInFolders: true });
+    });
+
+    it('applies the engine value even when the settings document was never loaded', async () => {
+      mockSettingsService.getFileTransferSettings = vi.fn(() =>
+        of({ ...cachedUploadSettings, allFileTypesInFolders: true })
+      );
+
+      await runStartTransfer('device-1', asFileList([new File(['x'], 'a.prg')]));
+
+      expect(await scanOptions()).toEqual({ allFileTypesInFolders: true });
+    });
+
+    it('scans with the cached value when the refresh fails', async () => {
+      await loadCachedSettings();
+      mockSettingsService.getFileTransferSettings = vi.fn(() =>
+        throwError(() => new Error('offline'))
+      );
+
+      await runStartTransfer('device-1', asFileList([new File(['x'], 'a.prg')]));
+
+      expect(await scanOptions()).toEqual({ allFileTypesInFolders: false });
+    });
+  });
+
   describe('byte progress wiring', () => {
     it('captures the manifest total bytes at scan completion', async () => {
       mockDropScanner.scan.mockResolvedValue({
@@ -314,6 +378,15 @@ describe('TransferContextService', () => {
 
       expect(mockTransferService.createJob).not.toHaveBeenCalled();
       expect(store.transfers()['device-1'].phase).toBe('nothing-to-transfer');
+    });
+
+    it('keeps what the scan skipped so the modal can say why nothing was sent', async () => {
+      const scanSkipped = [{ reason: 'unsupportedType' as const, count: 3, types: ['.xyz'] }];
+      mockDropScanner.scan.mockResolvedValue({ ...emptyScan, skipped: scanSkipped });
+
+      await runStartTransfer('device-1', asFileList([]));
+
+      expect(store.transfers()['device-1'].scanSkipped).toEqual(scanSkipped);
     });
   });
 

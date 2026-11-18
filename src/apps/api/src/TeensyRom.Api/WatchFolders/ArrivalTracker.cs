@@ -1,5 +1,6 @@
 using TeensyRom.Api.Transfers;
 using TeensyRom.Api.Transfers.Archives;
+using TeensyRom.Core.Entities.Transfers;
 using TeensyRom.Core.Logging;
 
 namespace TeensyRom.Api.WatchFolders
@@ -10,10 +11,16 @@ namespace TeensyRom.Api.WatchFolders
     /// <summary>The files that arrived in one watch folder close together, to go out as one transfer job.</summary>
     public sealed record ArrivalSet(string WatchFolderId, IReadOnlyList<ArrivedFile> Files);
 
+    /// <summary>The folder's file-type switches: send every file type, and send everything inside arriving archives.</summary>
+    public sealed record ArrivalRules(bool AllFileTypes, bool AllFileTypesInArchives);
+
     /// <summary>
     /// Turns the file-system events of one watch folder into sets of settled, transferable arrivals. Only what is new
-    /// in the folder counts. It owns no timers and no threads: the caller passes the time in, so a single loop drives
-    /// it and tests drive it with explicit times. Not thread-safe.
+    /// in the folder counts. <c>rules</c> is read each time a switch matters, so a switch flipped while the folder is
+    /// watched applies to the next arrival. It owns no timers and no threads: the caller passes the time in, so a
+    /// single loop drives it and tests drive it with explicit times. Not thread-safe. What it drops for being unsupported,
+    /// hidden or system, or an unfinished download is counted and written to the log as one line when the folder's next
+    /// set goes out (or, if none follows, when the grouping window has passed).
     /// </summary>
     public sealed class ArrivalTracker(
         string watchFolderId,
@@ -21,7 +28,8 @@ namespace TeensyRom.Api.WatchFolders
         WatchFolderOptions options,
         IWatchedFileSystem fileSystem,
         IArchiveReader archives,
-        ILoggingService log)
+        ILoggingService log,
+        Func<ArrivalRules> rules)
     {
         private const string SafariPackageSuffix = ".download";
 
@@ -30,6 +38,10 @@ namespace TeensyRom.Api.WatchFolders
         private readonly Dictionary<string, Pending> _pending = new(PathComparer);
         private readonly Dictionary<string, DateTimeOffset> _dispatched = new(PathComparer);
         private OpenSet? _open;
+
+        // What this folder skipped since it last said so; written out when its next set goes, or when none follows.
+        private readonly TransferSkipTally _skips = new();
+        private DateTimeOffset _lastSkipAt;
 
         private TimeSpan RecentDispatchWindow => options.SettleTime + options.GroupingWindow;
 
@@ -85,8 +97,16 @@ namespace TeensyRom.Api.WatchFolders
             var probe = fileSystem.Probe(e.FullPath);
             if (probe.Exists && probe.IsDirectory) return;
 
-            var leftSafariPackage = TryGetRelative(e.OldFullPath, out var oldRelative) && IsInsideDownloadPackage(oldRelative, includeLeaf: false);
-            var wasPartialName = !TransferableFileTypes.IsTransferable(e.OldFullPath) && !archives.IsArchiveExtension(e.OldFullPath);
+            var hasOldRelative = TryGetRelative(e.OldFullPath, out var oldRelative);
+            var leftSafariPackage = hasOldRelative && IsInsideDownloadPackage(oldRelative, includeLeaf: false);
+
+            // Judged by the old name. With every type allowed a file's old name says little (a.doc to b.doc is a rename of
+            // a file sent long ago), so only a partial or excluded name, or one still settling under a temp name, counts.
+            var wasPartialName = rules().AllFileTypes
+                ? TransferExclusions.IsPartialDownload(e.OldFullPath)
+                    || (hasOldRelative && TransferExclusions.IsExcluded(oldRelative))
+                    || _pending.ContainsKey(e.OldFullPath)
+                : !TransferableFileTypes.IsTransferable(e.OldFullPath) && !archives.IsArchiveExtension(e.OldFullPath);
 
             if (leftSafariPackage || wasPartialName) Start(e.FullPath, fromCreated: false);
         }
@@ -138,7 +158,7 @@ namespace TeensyRom.Api.WatchFolders
                 if (probe.Size == 0 || now - pending.SizeSince < options.SettleTime || !probe.Readable) continue;
 
                 _pending.Remove(pending.FullPath);
-                Admit(pending.FullPath, probe.Size, now);
+                Admit(pending.FullPath, probe, now);
             }
         }
 
@@ -167,23 +187,83 @@ namespace TeensyRom.Api.WatchFolders
             }
         }
 
-        private void Admit(string path, long size, DateTimeOffset now)
+        private void Admit(string path, FileProbe probe, DateTimeOffset now)
         {
-            var isArchive = archives.IsArchiveExtension(path);
-            if (!isArchive && !TransferableFileTypes.IsTransferable(path)) return;
             if (!TryGetRelative(path, out var relative)) return;
-            if (isArchive && !HasUsefulEntries(path, relative)) return;
+
+            // Also covers a file created directly inside a copied folder, which never went through the walk's attribute skip.
+            if (TransferExclusions.IsExcluded(relative) || probe.IsHidden)
+            {
+                CountSkip(TransferSkipReason.HiddenOrSystem, relative, now);
+                return;
+            }
+
+            if (TransferExclusions.IsPartialDownload(path))
+            {
+                CountSkip(TransferSkipReason.PartialDownload, relative, now);
+                return;
+            }
+
+            var r = rules();
+            var isArchive = archives.IsArchiveExtension(path);
+
+            if (!isArchive && !r.AllFileTypes && !TransferableFileTypes.IsTransferable(path))
+            {
+                CountSkip(TransferSkipReason.UnsupportedType, relative, now);
+                return;
+            }
+
+            if (isArchive && !HasUsefulEntries(path, relative, r.AllFileTypesInArchives, now)) return;
 
             _open ??= new OpenSet(now);
-            _open.Add(new ArrivedFile(path, relative, size, isArchive), now);
+            _open.Add(new ArrivedFile(path, relative, probe.Size, isArchive), now);
         }
 
-        private bool HasUsefulEntries(string archivePath, string relative)
+        private void CountSkip(TransferSkipReason reason, string relativePath, DateTimeOffset now)
+        {
+            _skips.Add(reason, relativePath);
+            _lastSkipAt = now;
+        }
+
+        /// <summary>
+        /// Whether the archive holds anything to send. When it holds nothing, its entries are counted as skipped by
+        /// reason; an archive that cannot be read is warned about and counted as nothing.
+        /// </summary>
+        private bool HasUsefulEntries(string archivePath, string relative, bool allFileTypesInArchives, DateTimeOffset now)
         {
             try
             {
-                return archives.ReadIndex(archivePath).Entries.Any(entry =>
-                    !entry.IsDirectory && (TransferableFileTypes.IsTransferable(entry.Path) || archives.IsArchiveExtension(entry.Path)));
+                var skipped = new TransferSkipTally();
+
+                foreach (var entry in archives.ReadIndex(archivePath).Entries)
+                {
+                    if (entry.IsDirectory) continue;
+
+                    // An entry the resolver refuses is not judged for exclusion: the archive is admitted as before and expansion fails that entry visibly.
+                    var path = entry.Path;
+                    if (ArchiveEntryPathResolver.TryResolve(entry.Path, out var resolved, out _))
+                    {
+                        if (TransferExclusions.IsExcluded(resolved))
+                        {
+                            skipped.Add(TransferSkipReason.HiddenOrSystem, resolved);
+                            continue;
+                        }
+
+                        path = resolved;
+                    }
+
+                    if (allFileTypesInArchives || TransferableFileTypes.IsTransferable(path) || archives.IsArchiveExtension(path)) return true;
+
+                    skipped.Add(TransferSkipReason.UnsupportedType, path);
+                }
+
+                if (!skipped.IsEmpty)
+                {
+                    _skips.Add(skipped);
+                    _lastSkipAt = now;
+                }
+
+                return false;
             }
             catch (Exception ex) when (ex is ArchiveReadException or IOException or UnauthorizedAccessException)
             {
@@ -194,7 +274,12 @@ namespace TeensyRom.Api.WatchFolders
 
         private IReadOnlyList<ArrivalSet> CloseSetIfDue(DateTimeOffset now)
         {
-            if (_open is null) return [];
+            if (_open is null)
+            {
+                // Drops with no set following: say so once the grouping window has passed without one.
+                if (now - _lastSkipAt >= options.GroupingWindow) LogSkips();
+                return [];
+            }
 
             var held = now - _open.OpenedAt >= options.MaxSetHold;
             var quiet = now - _open.LastJoinedAt >= options.GroupingWindow && !_pending.Values.Any(p => p.Size > 0);
@@ -204,7 +289,16 @@ namespace TeensyRom.Api.WatchFolders
 
             var set = new ArrivalSet(watchFolderId, _open.Files.ToList());
             _open = null;
+            LogSkips();
             return [set];
+        }
+
+        private void LogSkips()
+        {
+            if (_skips.IsEmpty) return;
+
+            log.Internal($"Watch folder {folderPath}: {TransferSkipWording.Describe(_skips.ToSkips())}");
+            _skips.Clear();
         }
 
         private void ForgetOldDispatches(DateTimeOffset now)

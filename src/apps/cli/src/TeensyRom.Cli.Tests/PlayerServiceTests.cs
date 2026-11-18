@@ -1424,6 +1424,48 @@ namespace TeensyRom.Cli.Tests
         }
 
         [Fact]
+        public async Task Given_DirectoryOfOnlyUnknownFiles_AndOneIncompatibleGame_When_Next_Then_NoCompatibleFileIsFound()
+        {
+            //Arrange
+            var game = CreateFile<GameItem>("/games/bad.crt");
+            _storageService.GetDirectory(Any<string>()).Returns(new DirectoryListing
+            {
+                Files = [new FileItem { Name = "a.bin", Path = "/games/a.bin", IsCompatible = true }, game, new FileItem { Name = "b.bin", Path = "/games/b.bin", IsCompatible = true }]
+            });
+            SetupLaunch(game);
+
+            var playerService = _fixture.Create<PlayerService>();
+            playerService.SetDirectoryMode("/games/");
+            SetupSettingsWithFilter(TeensyFilterType.Music);
+
+            //Act
+            await playerService.LaunchFromDirectory(game.Path);
+
+            //Assert
+            game.IsCompatible.Should().BeFalse();
+            await _launchService.Received(1).LaunchFile(Any<TeensyStorageType>(), Any<ILaunchableItem>());
+            _alert.DidNotReceive().PublishError(Arg.Is<string>(m => m.Contains("filter")));
+        }
+
+        [Fact]
+        public async Task When_LaunchFromDirectory_Then_ANeighbourWhosePathContainsTheTargetIsNotPicked()
+        {
+            //Arrange
+            var neighbour = CreateFile<SongItem>("/music/x/music/1.sid");
+            var target = CreateFile<SongItem>("/music/1.sid");
+            SetupStorageService(neighbour, target);
+
+            var playerService = _fixture.Create<PlayerService>();
+
+            //Act
+            await playerService.LaunchFromDirectory("/music/1.sid");
+
+            //Assert
+            await _launchService.Received(1).LaunchFile(Any<TeensyStorageType>(), target);
+            await _launchService.DidNotReceive().LaunchFile(Any<TeensyStorageType>(), neighbour);
+        }
+
+        [Fact]
         public async Task When_Launched_And_ModeDirectory_And_FileBad_Then_FileMarkedIncompatible()
         {
             //Arrange

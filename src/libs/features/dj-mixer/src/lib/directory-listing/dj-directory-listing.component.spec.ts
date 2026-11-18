@@ -240,6 +240,25 @@ describe('DjDirectoryListingComponent', () => {
     expect(fixture.nativeElement.querySelector('.actions-label').textContent.trim()).toBe('4.0 KB');
   });
 
+  it('lists an unknown file with the generic icon and does not make it draggable', async () => {
+    const unknownFile = createTestFileItem({
+      name: 'b.bin',
+      path: '/b.bin',
+      type: FileItemType.Unknown,
+    });
+    await setup(active, {
+      'device-1-SD': stateWith({
+        directory: { directories: [], files: [unknownFile], path: '/' },
+      }),
+    });
+
+    const storageItem = fixture.debugElement.query(By.directive(StorageItemComponent))
+      .componentInstance as StorageItemComponent;
+    expect(storageItem.label()).toBe('b.bin');
+    expect(storageItem.icon()).toBe('insert_drive_file');
+    expect(fixture.nativeElement.querySelector('.listing-row').getAttribute('draggable')).toBeNull();
+  });
+
   describe('dragging a song row', () => {
     it('marks only the Song row draggable, leaving directories and other file types alone', async () => {
       await setup(active, {

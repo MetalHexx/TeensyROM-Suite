@@ -45,7 +45,8 @@ namespace TeensyRom.Api.WatchFolders
                     destination.Path,
                     archiveCount,
                     TransferOrigin.FromWatchFolder(folder.Id, folder.Path),
-                    destination.Launch));
+                    destination.Launch,
+                    folder.AllFileTypesInArchives));
 
                 if (!started.Started)
                 {

@@ -1,4 +1,7 @@
-import { Component, input, output, computed } from '@angular/core';
+import { Component, input, output, inject } from '@angular/core';
+import { MatDialog } from '@angular/material/dialog';
+import { PreferencesService } from '@teensyrom-nx/ui/styles';
+import { ConfirmationDialogComponent } from '../../confirmation-dialog/confirmation-dialog.component';
 import { IconButtonComponent } from '../../icon-button/icon-button.component';
 import { TooltipConfig, TooltipPosition } from '../../tooltip/tooltip.directive';
 
@@ -6,7 +9,9 @@ import { TooltipConfig, TooltipPosition } from '../../tooltip/tooltip.directive'
  * A cluster of four tooltipped icon buttons — back, forward, up, and refresh — for
  * directory history navigation. Each button is independently enabled/disabled by its
  * matching `canNavigate*`/`isLoading` input and emits its own output on activation; this
- * component holds no navigation state itself.
+ * component holds no navigation state itself. The refresh button means "re-index this
+ * folder": it asks for confirmation first (unless the user opted out) and emits
+ * `refreshClicked` only once confirmed.
  *
  * `lib-directory-navigate` is normally rendered by `DirectoryTrailComponent` as the
  * left-hand half of the directory toolbar; render it directly only where a surface needs
@@ -19,6 +24,7 @@ import { TooltipConfig, TooltipPosition } from '../../tooltip/tooltip.directive'
  *   [canNavigateBack]="canNavigateBack()"
  *   [canNavigateForward]="canNavigateForward()"
  *   [isLoading]="isLoading()"
+ *   [path]="currentPath()"
  *   (backClicked)="onBack()"
  *   (forwardClicked)="onForward()"
  *   (upClicked)="onUp()"
@@ -43,6 +49,11 @@ export class DirectoryNavigateComponent {
   canNavigateForward = input<boolean>(false);
   /** Disables the refresh button while a directory listing is loading. Defaults to `false`. */
   isLoading = input<boolean>(false);
+  /** Path of the shown folder; named in the re-index warning. Defaults to `'/'`. */
+  path = input<string>('/');
+
+  private readonly dialog = inject(MatDialog);
+  private readonly preferences = inject(PreferencesService);
 
   // Outputs
   /** Emitted when the back button is activated. */
@@ -76,10 +87,10 @@ export class DirectoryNavigateComponent {
     position: TooltipPosition.Top,
   };
 
-  /** Tooltip config for the refresh button. */
+  /** Tooltip config for the refresh (re-index) button. */
   readonly refreshTooltip: TooltipConfig = {
-    title: 'Refresh Directory',
-    body: 'Synchronizes the current directory with the latest files and subdirectories on your TeensyROM storage.',
+    title: 'Re-index folder',
+    body: 'Re-reads this folder and every folder below it from your TeensyROM storage.',
     position: TooltipPosition.Top,
   };
 
@@ -99,8 +110,44 @@ export class DirectoryNavigateComponent {
     this.upClicked.emit();
   }
 
-  /** Emits `refreshClicked` when the refresh button is activated. */
+  /**
+   * Handles the refresh (re-index) button. Emits `refreshClicked` at once when the user has
+   * turned the warning off; otherwise asks first, and emits only if the user confirms. A
+   * "Don't ask again" confirmation is saved as the `confirmReindex` preference.
+   */
   onRefreshClick(): void {
-    this.refreshClicked.emit();
+    if (!this.preferences.confirmReindex()) {
+      this.refreshClicked.emit();
+      return;
+    }
+
+    const dialogRef = this.dialog.open(ConfirmationDialogComponent, {
+      disableClose: true,
+      panelClass: 'glassy-dialog',
+      backdropClass: 'busy-dialog-backdrop',
+    });
+
+    const dialog = dialogRef.componentRef;
+    dialog?.setInput('title', 'Re-index this folder?');
+    dialog?.setInput(
+      'message',
+      `This re-reads ${this.path()} and every folder below it from the TeensyROM, so the list matches what's on the card. A large folder can take a few minutes. On the top folder, it re-reads the whole storage.`
+    );
+    dialog?.setInput('confirmLabel', 'Re-index');
+    dialog?.setInput('confirmIcon', 'refresh');
+    dialog?.setInput('confirmColor', 'primary');
+    dialog?.setInput('showLabels', true);
+    dialog?.setInput('rememberLabel', "Don't ask again");
+
+    dialogRef.componentInstance.confirmed.subscribe(() => {
+      if (dialogRef.componentInstance.remember()) {
+        this.preferences.setConfirmReindex(false);
+      }
+      dialogRef.close();
+      this.refreshClicked.emit();
+    });
+    dialogRef.componentInstance.cancelled.subscribe(() => {
+      dialogRef.close();
+    });
   }
 }

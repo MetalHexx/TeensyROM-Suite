@@ -6,6 +6,8 @@ import {
   TransferOriginDto,
   TransferOriginKind as ApiTransferOriginKind,
   TransferLaunchState as ApiTransferLaunchState,
+  TransferSkipDto,
+  TransferSkipReason as ApiTransferSkipReason,
   TeensyStorageType,
 } from '@teensyrom-nx/data-access/api-client';
 import {
@@ -16,6 +18,7 @@ import {
   TransferOrigin,
   TransferOriginKind,
   TransferLaunchState,
+  TransferSkip,
 } from '@teensyrom-nx/domain';
 
 /**
@@ -57,6 +60,8 @@ export class TransferDtoMapper {
       launchState: this.toLaunchState(dto.launchState),
       launchedPath: dto.launchedPath ?? null,
       launchError: dto.launchError ?? null,
+      // Absent from an older API, so treated as nothing skipped.
+      skipped: this.toSkips(dto.skipped ?? []),
     };
   }
 
@@ -70,6 +75,27 @@ export class TransferDtoMapper {
       error: dto.error,
       sizeBytes: dto.sizeBytes,
     };
+  }
+
+  /** Drops a skip whose reason this client does not know, rather than failing the whole job. */
+  private static toSkips(dtos: TransferSkipDto[]): TransferSkip[] {
+    return dtos.flatMap((dto) => {
+      const reason = this.toSkipReason(dto.reason);
+      return reason === null ? [] : [{ reason, count: dto.count, types: [...dto.types] }];
+    });
+  }
+
+  private static toSkipReason(apiReason: ApiTransferSkipReason): TransferSkip['reason'] | null {
+    switch (apiReason) {
+      case ApiTransferSkipReason.UnsupportedType:
+        return 'unsupportedType';
+      case ApiTransferSkipReason.HiddenOrSystem:
+        return 'hiddenOrSystem';
+      case ApiTransferSkipReason.PartialDownload:
+        return 'partialDownload';
+      default:
+        return null;
+    }
   }
 
   private static toStorageType(apiType: TeensyStorageType): StorageType {

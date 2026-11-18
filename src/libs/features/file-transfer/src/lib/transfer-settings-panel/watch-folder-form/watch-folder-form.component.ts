@@ -30,7 +30,7 @@ import {
 } from '../watch-folder-form.util';
 
 /**
- * The add-folder form: the folder to watch and its first device with storage, device folder and
+ * The add-folder form: the folder to watch with its file-type switches, and its first device with storage, device folder and
  * launch. Presentational; the panel owns the form group, saves it and supplies the engine's
  * refusals through `errors`.
  */
@@ -51,7 +51,7 @@ import {
   changeDetection: ChangeDetectionStrategy.OnPush,
 })
 export class WatchFolderFormComponent {
-  /** Controls `folder`, `device`, `storage`, `devicePath` and `launch`. */
+  /** Controls `folder`, `allFileTypes`, `allFileTypesInArchives`, `device`, `storage`, `devicePath` and `launch`. */
   readonly formGroup = input.required<FormGroup>();
   /** The engine's refusal per field, or under `form` for one that concerns no field. */
   readonly errors = input<WatchFolderFormErrors>({});
@@ -72,6 +72,14 @@ export class WatchFolderFormComponent {
 
   protected readonly folderTooltip: TooltipConfig = {
     body: 'A folder on the computer running Trom API; new files in it are copied.',
+    position: TooltipPosition.Top,
+  };
+  protected readonly allTypesTooltip: TooltipConfig = {
+    body: 'Send every file that lands in this folder, not only the types the TeensyROM recognizes.',
+    position: TooltipPosition.Top,
+  };
+  protected readonly allTypesInArchivesTooltip: TooltipConfig = {
+    body: 'Send everything inside archives that land in this folder, not only the types the TeensyROM recognizes.',
     position: TooltipPosition.Top,
   };
   protected readonly deviceTooltip: TooltipConfig = {

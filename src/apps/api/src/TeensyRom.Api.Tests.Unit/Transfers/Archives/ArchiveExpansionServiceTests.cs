@@ -49,9 +49,11 @@ public sealed class ArchiveExpansionServiceTests : IDisposable
 
     private ArchiveExpansionService NewService() => new(_reader, _scratch, _admission, _registry, _options, _log);
 
-    private TransferJob NewJob(int expectedArchiveCount = 1)
+    private TransferJob NewJob(int expectedArchiveCount = 1, bool allFileTypesInArchives = false)
     {
-        var job = new TransferJob("device-1", TeensyStorageType.SD, new DirectoryPath("/music"), _options, expectedArchiveCount: expectedArchiveCount);
+        var job = new TransferJob(
+            "device-1", TeensyStorageType.SD, new DirectoryPath("/music"), _options,
+            expectedArchiveCount: expectedArchiveCount, allFileTypesInArchives: allFileTypesInArchives);
         _registry.Get(job.JobId).Returns(job);
         return job;
     }
@@ -152,6 +154,257 @@ public sealed class ArchiveExpansionServiceTests : IDisposable
         job.ToSnapshot().Failures.Should().BeEmpty();
         job.PendingCount.Should().Be(0);
     }
+
+    [Theory]
+    [InlineData(false)]
+    [InlineData(true)]
+    public async Task ExpandAsync_HiddenAndMacResidueEntries_AreSkippedSilently_WhateverTheJobsSwitchSays(bool allFileTypesInArchives)
+    {
+        var job = NewJob(allFileTypesInArchives: allFileTypesInArchives);
+        AcceptArchive(job);
+
+        var topPath = WriteTopLevelArchive(job.JobId, "TOP");
+        var bytes = new byte[] { 1, 2 };
+
+        _reader.Define("TOP", new FakeArchive
+        {
+            Entries =
+            [
+                new FakeEntry("game.prg", bytes.Length, bytes),
+                new FakeEntry("._game.prg", bytes.Length, bytes),
+                new FakeEntry("__MACOSX/._game.prg", bytes.Length, bytes),
+                new FakeEntry("__MACOSX/tune.sid", bytes.Length, bytes),
+                new FakeEntry("sub/.hidden/x.prg", bytes.Length, bytes),
+                new FakeEntry(".DS_Store", bytes.Length, bytes),
+                new FakeEntry("sub/Thumbs.db", bytes.Length, bytes)
+            ],
+            DeclaredUncompressedBytes = bytes.Length * 7
+        });
+
+        await NewService().ExpandAsync(new ArchiveExpansionRequest(job.JobId, topPath, "pack.zip"), CancellationToken.None);
+
+        _admission.ReceivedCalls()
+            .Where(c => c.GetMethodInfo().Name == nameof(ITransferAdmission.AdmitAsync))
+            .Select(c => (string)c.GetArguments()[2]!)
+            .Should().Equal("pack/game.prg");
+        job.ToSnapshot().Failures.Should().BeEmpty();
+        job.PendingCount.Should().Be(0);
+    }
+
+    [Theory]
+    [InlineData(false)]
+    [InlineData(true)]
+    public async Task ExpandAsync_ArchiveOfOnlyExcludedEntries_StillFailsAsHavingNoExtractableEntries(bool allFileTypesInArchives)
+    {
+        var job = NewJob(allFileTypesInArchives: allFileTypesInArchives);
+        AcceptArchive(job);
+
+        var topPath = WriteTopLevelArchive(job.JobId, "TOP");
+        var bytes = new byte[] { 1 };
+
+        _reader.Define("TOP", new FakeArchive
+        {
+            Entries = [new FakeEntry("__MACOSX/._game.prg", 1, bytes), new FakeEntry("._game.prg", 1, bytes)],
+            DeclaredUncompressedBytes = 2
+        });
+
+        await NewService().ExpandAsync(new ArchiveExpansionRequest(job.JobId, topPath, "pack.zip"), CancellationToken.None);
+
+        var snapshot = job.ToSnapshot();
+        snapshot.Failures.Should().ContainSingle().Which.Error.Should().Contain("no extractable entries");
+        snapshot.Skipped.Should().ContainSingle().Which.Should().BeEquivalentTo(
+            new TransferSkip(TransferSkipReason.HiddenOrSystem, 2, []));
+        await _admission.DidNotReceiveWithAnyArgs().AdmitAsync(default!, default!, default!, default, default, default);
+    }
+
+    [Theory]
+    [InlineData(false)]
+    [InlineData(true)]
+    public async Task ExpandAsync_MixedArchive_ReportsSkipsPerReason_AndAcceptsDotSlashEntries(bool allFileTypesInArchives)
+    {
+        var job = NewJob(allFileTypesInArchives: allFileTypesInArchives);
+        AcceptArchive(job);
+
+        var topPath = WriteTopLevelArchive(job.JobId, "TOP");
+        var bytes = new byte[] { 1, 2 };
+
+        _reader.Define("TOP", new FakeArchive
+        {
+            Entries =
+            [
+                new FakeEntry("x.prg", bytes.Length, bytes),
+                new FakeEntry("notes.doc", bytes.Length, bytes),
+                new FakeEntry("__MACOSX/a", bytes.Length, bytes),
+                new FakeEntry("._x", bytes.Length, bytes),
+                new FakeEntry("./y.prg", bytes.Length, bytes)
+            ],
+            DeclaredUncompressedBytes = bytes.Length * 5
+        });
+
+        await NewService().ExpandAsync(new ArchiveExpansionRequest(job.JobId, topPath, "pack.zip"), CancellationToken.None);
+
+        var sent = _admission.ReceivedCalls()
+            .Where(c => c.GetMethodInfo().Name == nameof(ITransferAdmission.AdmitAsync))
+            .Select(c => (string)c.GetArguments()[2]!)
+            .ToList();
+        var snapshot = job.ToSnapshot();
+
+        snapshot.Failures.Should().BeEmpty();
+        if (allFileTypesInArchives)
+        {
+            sent.Should().BeEquivalentTo(["pack/x.prg", "pack/y.prg", "pack/notes.doc"]);
+            snapshot.Skipped.ShouldEqualSkips(new TransferSkip(TransferSkipReason.HiddenOrSystem, 2, []));
+        }
+        else
+        {
+            sent.Should().BeEquivalentTo(["pack/x.prg", "pack/y.prg"]);
+            snapshot.Skipped.ShouldEqualSkips(
+                new TransferSkip(TransferSkipReason.UnsupportedType, 1, [".doc"]),
+                new TransferSkip(TransferSkipReason.HiddenOrSystem, 2, []));
+        }
+    }
+
+    [Fact]
+    public async Task ExpandAsync_DotSlashExcludedEntries_AreSkippedNotFailed()
+    {
+        var job = NewJob();
+        AcceptArchive(job);
+
+        var topPath = WriteTopLevelArchive(job.JobId, "TOP");
+        var bytes = new byte[] { 1 };
+
+        _reader.Define("TOP", new FakeArchive
+        {
+            Entries =
+            [
+                new FakeEntry("./game.prg", 1, bytes),
+                new FakeEntry("./.DS_Store", 1, bytes),
+                new FakeEntry("./__MACOSX/._x", 1, bytes),
+                new FakeEntry("./._x", 1, bytes)
+            ],
+            DeclaredUncompressedBytes = 4
+        });
+
+        await NewService().ExpandAsync(new ArchiveExpansionRequest(job.JobId, topPath, "pack.zip"), CancellationToken.None);
+
+        var snapshot = job.ToSnapshot();
+        snapshot.Failures.Should().BeEmpty();
+        snapshot.Skipped.ShouldEqualSkips(new TransferSkip(TransferSkipReason.HiddenOrSystem, 3, []));
+    }
+
+    [Fact]
+    public async Task ExpandAsync_ArchiveOfOnlyUnsupportedEntries_FailsAndStillCountsThem()
+    {
+        var job = NewJob();
+        AcceptArchive(job);
+
+        var topPath = WriteTopLevelArchive(job.JobId, "TOP");
+        var bytes = new byte[] { 1 };
+
+        _reader.Define("TOP", new FakeArchive
+        {
+            Entries = [new FakeEntry("a.DOC", 1, bytes), new FakeEntry("b.doc", 1, bytes), new FakeEntry("README", 1, bytes)],
+            DeclaredUncompressedBytes = 3
+        });
+
+        await NewService().ExpandAsync(new ArchiveExpansionRequest(job.JobId, topPath, "pack.zip"), CancellationToken.None);
+
+        var snapshot = job.ToSnapshot();
+        snapshot.Failures.Should().ContainSingle().Which.Error.Should().Contain("no extractable entries");
+        snapshot.Skipped.ShouldEqualSkips(new TransferSkip(TransferSkipReason.UnsupportedType, 3, ["(no extension)", ".doc"]));
+    }
+
+    [Fact]
+    public async Task ExpandAsync_PathRefusalsAndSymlinks_StayFailuresAndAreNotSkips()
+    {
+        var job = NewJob();
+        AcceptArchive(job);
+
+        var topPath = WriteTopLevelArchive(job.JobId, "TOP");
+        var bytes = new byte[] { 1 };
+
+        _reader.Define("TOP", new FakeArchive
+        {
+            Entries =
+            [
+                new FakeEntry("game.prg", 1, bytes),
+                new FakeEntry("a/./b.prg", 1, bytes),
+                new FakeEntry("link.prg", 1, bytes, IsSymlink: true)
+            ],
+            DeclaredUncompressedBytes = 3
+        });
+
+        await NewService().ExpandAsync(new ArchiveExpansionRequest(job.JobId, topPath, "pack.zip"), CancellationToken.None);
+
+        var snapshot = job.ToSnapshot();
+        snapshot.Failures.Should().HaveCount(2);
+        snapshot.Skipped.Should().BeEmpty();
+    }
+
+    [Fact]
+    public async Task ExpandAsync_SwitchOff_StillSkipsUnsupportedTypesAtEveryDepth()
+    {
+        var job = NewJob();
+        AcceptArchive(job);
+
+        DefineNestedZipWithUnknownTypes(out var topPath, job);
+
+        await NewService().ExpandAsync(new ArchiveExpansionRequest(job.JobId, topPath, "pack.zip"), CancellationToken.None);
+
+        AdmittedPaths().Should().Equal("pack/inner/game.prg", "pack/top.prg");
+        job.ToSnapshot().Failures.Should().BeEmpty();
+    }
+
+    [Fact]
+    public async Task ExpandAsync_SwitchOn_AdmitsEveryTypeAtEveryDepth_AndNestedArchivesAreStillExpanded()
+    {
+        var job = NewJob(allFileTypesInArchives: true);
+        AcceptArchive(job);
+
+        DefineNestedZipWithUnknownTypes(out var topPath, job);
+
+        await NewService().ExpandAsync(new ArchiveExpansionRequest(job.JobId, topPath, "pack.zip"), CancellationToken.None);
+
+        AdmittedPaths().Should().Equal(
+            "pack/inner/data.bin", "pack/inner/game.prg", "pack/inner/notes.doc", "pack/top.bin", "pack/top.prg");
+        job.ToSnapshot().Failures.Should().BeEmpty();
+        job.PendingCount.Should().Be(0);
+    }
+
+    private void DefineNestedZipWithUnknownTypes(out string topPath, TransferJob job)
+    {
+        topPath = WriteTopLevelArchive(job.JobId, "TOP");
+        var bytes = new byte[] { 7, 7 };
+        var nestedMarker = Encoding.UTF8.GetBytes("NESTED");
+
+        _reader.Define("TOP", new FakeArchive
+        {
+            Entries =
+            [
+                new FakeEntry("top.prg", bytes.Length, bytes),
+                new FakeEntry("top.bin", bytes.Length, bytes),
+                new FakeEntry("inner.zip", nestedMarker.Length, nestedMarker)
+            ],
+            DeclaredUncompressedBytes = bytes.Length * 2 + nestedMarker.Length
+        });
+        _reader.Define("NESTED", new FakeArchive
+        {
+            Entries =
+            [
+                new FakeEntry("game.prg", bytes.Length, bytes),
+                new FakeEntry("data.bin", bytes.Length, bytes),
+                new FakeEntry("notes.doc", bytes.Length, bytes),
+                new FakeEntry("__MACOSX/._data.bin", bytes.Length, bytes)
+            ],
+            DeclaredUncompressedBytes = bytes.Length * 4
+        });
+    }
+
+    private List<string> AdmittedPaths() =>
+        [.. _admission.ReceivedCalls()
+            .Where(c => c.GetMethodInfo().Name == nameof(ITransferAdmission.AdmitAsync))
+            .Select(c => (string)c.GetArguments()[2]!)
+            .Order(StringComparer.Ordinal)];
 
     [Fact]
     public async Task ExpandAsync_MultipleArchivesForSameJob_DefersEverythingUntilTheLastOneFinishes()

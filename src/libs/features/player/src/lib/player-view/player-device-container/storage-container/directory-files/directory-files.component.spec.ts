@@ -3,7 +3,7 @@ import { of } from 'rxjs';
 import { signal, type Type } from '@angular/core';
 import { TestBed } from '@angular/core/testing';
 import { ScrollingModule } from '@angular/cdk/scrolling';
-import { StorageStore } from '@teensyrom-nx/application';
+import { DeviceStore, StorageStore } from '@teensyrom-nx/application';
 import type { IPlayerContext, LaunchedFile, PlayerFileContext } from '@teensyrom-nx/application';
 import {
   STORAGE_SERVICE,
@@ -11,6 +11,7 @@ import {
   LaunchMode,
   type DirectoryItem,
   type FileItem,
+  FileItemType,
 } from '@teensyrom-nx/domain';
 import { StorageItemComponent } from '@teensyrom-nx/ui/components';
 import { renderPlayerComponent } from '../../../../../testing/render-player-component';
@@ -50,6 +51,7 @@ describe('DirectoryFilesComponent', () => {
       realChildren: overrides.realChildren,
       stubChildren: overrides.stubChildren,
       providers: [
+        { provide: DeviceStore, useValue: { indexStorage: vi.fn() } },
         {
           provide: STORAGE_SERVICE,
           useValue: createMockStorageService({
@@ -159,6 +161,22 @@ describe('DirectoryFilesComponent', () => {
       files: expect.arrayContaining([fileItem]),
       launchMode: LaunchMode.Directory,
     });
+  });
+
+  it('does not launch or select an unknown file on double-click', async () => {
+    const launchFileWithContext = vi.fn().mockResolvedValue(undefined);
+    const { component } = await renderWithStorageLevelContent({ launchFileWithContext });
+    const unknownFile = createTestFileItem({
+      name: 'b.bin',
+      path: '/b.bin',
+      type: FileItemType.Unknown,
+      storageType: StorageType.Sd,
+    });
+
+    component.onFileDoubleClick(unknownFile);
+
+    expect(launchFileWithContext).not.toHaveBeenCalled();
+    expect(component.selectedItem()).toBeNull();
   });
 
   it('launches a file when a real dblclick DOM event fires on the rendered file item', async () => {

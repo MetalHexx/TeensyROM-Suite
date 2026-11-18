@@ -61,10 +61,12 @@ internal sealed class FileLaunchOneShotCommand(
         var playerCommand = settings.Player ? OpenPlayer() : null;
 
         var path = FileCommandOptions.ReadPath(stdin, settings.Path);
-        var item = await FindAsync(path)
+        var found = await FindAsync(path)
             ?? throw new CliException(CliExitCode.NotFound, FileLaunchOneShotSettings.IsLocalFile(path)
                 ? FileLaunchOneShotSettings.LocalFileHint(path)
-                : $"There is no launchable file at {path}.");
+                : $"There is no file at {path}.");
+        var item = found as ILaunchableItem
+            ?? throw new CliException(CliExitCode.NotLaunchable, $"{path} isn't a file the TeensyROM can launch.");
 
         Player.UseStorage(storage.StorageType);
 
@@ -85,14 +87,14 @@ internal sealed class FileLaunchOneShotCommand(
     }
 
     /// <summary>
-    /// The file at <paramref name="path"/>, or null when there is none. A missing parent folder on the device answers 404
+    /// The file of any type at <paramref name="path"/>, or null when there is none. A missing parent folder on the device answers 404
     /// rather than null; that too means a local file was named, and not a device one, when such a file exists here.
     /// </summary>
-    private async Task<ILaunchableItem?> FindAsync(string path)
+    private async Task<IFileItem?> FindAsync(string path)
     {
         try
         {
-            return await storage.GetFile(path);
+            return await storage.FindFile(path);
         }
         catch (TeensyApiException ex) when (ex.StatusCode == 404 && FileLaunchOneShotSettings.IsLocalFile(path))
         {

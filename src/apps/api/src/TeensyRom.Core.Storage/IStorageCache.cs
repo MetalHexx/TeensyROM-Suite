@@ -12,7 +12,20 @@ namespace TeensyRom.Core.Storage
         void DeleteDirectory(DirectoryPath path);
         void DeleteDirectoryWithChildren(DirectoryPath path);
         void DeleteFile(FilePath path);
-        void EnsureParents(DirectoryPath path);
+
+        /// <summary>
+        /// Creates the entry for <paramref name="path"/> and for every ancestor the index does not hold, linking
+        /// each new one into its parent's subfolder list. Returns the entries it created, outermost first; an
+        /// empty list means the folder was already held.
+        /// </summary>
+        IReadOnlyList<DirectoryPath> EnsureParents(DirectoryPath path);
+
+        /// <summary>
+        /// Lists <paramref name="path"/> among its parent's subfolders when the parent entry exists. Never
+        /// creates an entry, and does nothing for the root or a folder already listed.
+        /// </summary>
+        void LinkToParent(DirectoryPath path);
+
         IStorageCacheItem? GetByDirPath(DirectoryPath path);
         List<FileItem> GetFileByName(string name);
         FileItem? GetFileByPath(FilePath filePath);

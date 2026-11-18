@@ -94,8 +94,11 @@ internal sealed class WaitSettings : TromSettings
             : ValidationResult.Error($"'{Duration}' isn't a duration trom wait accepts — use {WaitDuration.AcceptedForms}.");
 }
 
-/// <summary>The JSON result of <c>trom wait</c>: <c>{ "waited": "00:03:20" }</c>.</summary>
-internal sealed record WaitDocument(string Waited);
+/// <summary>
+/// The JSON result of <c>trom wait</c>: <c>{ "waited": "00:03:20" }</c>. With <c>--device</c>, <c>held</c> says whether the
+/// countdown could hold while that device's song was paused: false when no launch is recorded for it.
+/// </summary>
+internal sealed record WaitDocument(string Waited, bool? Held = null);
 
 /// <summary>
 /// <c>trom wait</c>: a timer that behaves the same on every operating system, for scripts and agents. Needs no
@@ -132,7 +135,7 @@ internal sealed class WaitCommand(ICliOutput output, IEngineClock clock, ILastLa
             throw new CliException(CliExitCode.Failed, "The wait was cancelled.");
         }
 
-        if (Output.Mode == OutputMode.Json) Output.Json(new WaitDocument(duration.ToString("c", CultureInfo.InvariantCulture)));
+        if (Output.Mode == OutputMode.Json) Output.Json(new WaitDocument(duration.ToString("c", CultureInfo.InvariantCulture), settings.Device is null ? null : record is not null));
 
         return 0;
     }

@@ -20,12 +20,16 @@
 .form-box {
   display: flex;
   flex-direction: column;
-  gap: var(--spacing-sm);
+  gap: 10px;
   min-width: 0;
   padding: var(--spacing-sm);
   border: 1px solid var(--color-highlight);
   border-radius: var(--border-radius-sm);
   background: color-mix(in srgb, var(--color-highlight) 8%, transparent);
+
+  mat-slide-toggle {
+    min-height: 40px;
+  }
 }
 
 .field {

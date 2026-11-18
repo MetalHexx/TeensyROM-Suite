@@ -18,6 +18,7 @@ namespace TeensyRom.Api.Endpoints.WatchFolders.AddWatchFolder
                 .WithDescription(
                     "Sends the files of a folder on the engine's machine to a device storage.\n\n" +
                     "- Adding a folder that is already watched adds a destination for another device to it.\n" +
+                    "- The file-type switches apply only when the add creates the folder; a destination joining a watched folder leaves them as they are.\n" +
                     "- A device receives a folder through one destination only; a second one is refused with 409.\n" +
                     "- A folder nested inside a watched folder, or containing one, is refused with 400.\n" +
                     "- The device must be connected and report its chip id, and the storage must be available."
@@ -27,7 +28,8 @@ namespace TeensyRom.Api.Endpoints.WatchFolders.AddWatchFolder
 
         public override Task Handle(AddWatchFolderRequest r, CancellationToken ct)
         {
-            var result = store.Add(new WatchFolderAdd(r.Body.Path, r.Body.DeviceId, r.Body.StorageType, r.Body.DevicePath, r.Body.Launch));
+            var result = store.Add(new WatchFolderAdd(r.Body.Path, r.Body.DeviceId, r.Body.StorageType, r.Body.DevicePath, r.Body.Launch,
+                r.Body.AllFileTypes, r.Body.AllFileTypesInArchives));
 
             switch (result.Error)
             {

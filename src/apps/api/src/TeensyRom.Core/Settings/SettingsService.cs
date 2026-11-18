@@ -50,11 +50,27 @@ namespace TeensyRom.Core.Settings
 
                 if (File.Exists(_settingsFilePath))
                 {
-                    using var stream = File.Open(_settingsFilePath, FileMode.Open, FileAccess.Read);
-                    using var reader = new StreamReader(stream);
-                    var content = reader.ReadToEnd();
+                    // Read fully and close the file before any upgrade rewrite.
+                    var content = File.ReadAllText(_settingsFilePath);
 
-                    _currentSettings = LaunchableItemSerializer.Deserialize<TeensySettings>(content);
+                    var loaded = LaunchableItemSerializer.Deserialize<TeensySettings>(content);
+                    if (loaded is not null)
+                    {
+                        // Writes directly: SaveSettings would publish on _settings, which is still null during the constructor's first load.
+                        _currentSettings = SettingsUpgrades.Apply(loaded, out var upgraded);
+                        if (upgraded)
+                        {
+                            try
+                            {
+                                WriteSettings(_currentSettings);
+                            }
+                            catch (Exception ex) when (ex is IOException or UnauthorizedAccessException)
+                            {
+                                // The upgraded settings stay in memory and are written by the next save.
+                                _log.InternalWarning($"Settings file {_settingsFilePath} could not be rewritten after its upgrade ({ex.Message}); the upgrade is kept in memory and written at the next save.");
+                            }
+                        }
+                    }
                 }
                 if (_currentSettings is null)
                 {
@@ -173,7 +189,7 @@ namespace TeensyRom.Core.Settings
 
         private TeensySettings InitDefaultSettings()
         {
-            return new TeensySettings();
+            return new TeensySettings { SettingsVersion = SettingsUpgrades.CurrentVersion };
         }
 
         private void WriteSettings(TeensySettings settings)

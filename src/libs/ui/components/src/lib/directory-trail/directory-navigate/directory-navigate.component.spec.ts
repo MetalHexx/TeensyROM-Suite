@@ -1,4 +1,8 @@
+import { signal, WritableSignal } from '@angular/core';
 import { ComponentFixture, TestBed } from '@angular/core/testing';
+import { MatDialog } from '@angular/material/dialog';
+import { PreferencesService } from '@teensyrom-nx/ui/styles';
+import { Mock, vi } from 'vitest';
 import { provideNoopAnimations } from '@angular/platform-browser/animations';
 import { DirectoryNavigateComponent } from './directory-navigate.component';
 import { IconButtonComponent } from '../../icon-button/icon-button.component';
@@ -6,10 +10,18 @@ import { IconButtonComponent } from '../../icon-button/icon-button.component';
 describe('DirectoryNavigateComponent', () => {
   let component: DirectoryNavigateComponent;
   let fixture: ComponentFixture<DirectoryNavigateComponent>;
+  let confirmReindex: WritableSignal<boolean>;
+  let preferences: { confirmReindex: WritableSignal<boolean>; setConfirmReindex: Mock };
 
   beforeEach(async () => {
+    confirmReindex = signal(true);
+    preferences = { confirmReindex, setConfirmReindex: vi.fn() };
+
     await TestBed.configureTestingModule({
-      providers: [provideNoopAnimations()],
+      providers: [
+        provideNoopAnimations(),
+        { provide: PreferencesService, useValue: preferences },
+      ],
       imports: [DirectoryNavigateComponent, IconButtonComponent],
     }).compileComponents();
 
@@ -92,13 +104,91 @@ describe('DirectoryNavigateComponent', () => {
       expect(emitted).toBe(true);
     });
 
-    it('should emit refreshClicked when onRefreshClick is called', () => {
-      let emitted = false;
-      component.refreshClicked.subscribe(() => (emitted = true));
+  });
+
+  describe('Re-index button', () => {
+    let emitted: number;
+
+    function dialogButtons(): HTMLButtonElement[] {
+      return Array.from(
+        document.querySelectorAll<HTMLButtonElement>('lib-confirmation-dialog lib-action-button button')
+      );
+    }
+
+    beforeEach(() => {
+      emitted = 0;
+      component.refreshClicked.subscribe(() => emitted++);
+      fixture.componentRef.setInput('path', '/games/');
+      fixture.detectChanges();
+    });
+
+    afterEach(() => {
+      TestBed.inject(MatDialog).closeAll();
+    });
+
+    it('opens the warning and emits nothing until confirmed', () => {
+      component.onRefreshClick();
+      fixture.detectChanges();
+
+      const dialog = document.querySelector('lib-confirmation-dialog');
+      expect(dialog?.textContent).toContain('Re-index this folder?');
+      expect(dialog?.textContent).toContain('/games/');
+      expect(dialog?.textContent).toContain("Don't ask again");
+      expect(emitted).toBe(0);
+    });
+
+    it('emits and closes on confirm, leaving the preference alone without the toggle', () => {
+      component.onRefreshClick();
+      fixture.detectChanges();
+
+      dialogButtons()[1].click();
+
+      expect(emitted).toBe(1);
+      expect(preferences.setConfirmReindex).not.toHaveBeenCalled();
+      expect(TestBed.inject(MatDialog).openDialogs.length).toBe(0);
+    });
+
+    it('emits nothing and closes on cancel', () => {
+      component.onRefreshClick();
+      fixture.detectChanges();
+
+      dialogButtons()[0].click();
+
+      expect(emitted).toBe(0);
+      expect(preferences.setConfirmReindex).not.toHaveBeenCalled();
+      expect(TestBed.inject(MatDialog).openDialogs.length).toBe(0);
+    });
+
+    it('saves "Don\'t ask again" when confirmed with the toggle on', () => {
+      component.onRefreshClick();
+      fixture.detectChanges();
+
+      document.querySelector<HTMLButtonElement>('lib-confirmation-dialog mat-slide-toggle button')?.click();
+      fixture.detectChanges();
+      dialogButtons()[1].click();
+
+      expect(preferences.setConfirmReindex).toHaveBeenCalledWith(false);
+      expect(emitted).toBe(1);
+    });
+
+    it('does not save the preference when the toggle is on but the dialog is cancelled', () => {
+      component.onRefreshClick();
+      fixture.detectChanges();
+
+      document.querySelector<HTMLButtonElement>('lib-confirmation-dialog mat-slide-toggle button')?.click();
+      fixture.detectChanges();
+      dialogButtons()[0].click();
+
+      expect(preferences.setConfirmReindex).not.toHaveBeenCalled();
+    });
+
+    it('emits at once, with no dialog, when the warning is switched off', () => {
+      confirmReindex.set(false);
 
       component.onRefreshClick();
 
-      expect(emitted).toBe(true);
+      expect(emitted).toBe(1);
+      expect(document.querySelector('lib-confirmation-dialog')).toBeNull();
     });
   });
 });

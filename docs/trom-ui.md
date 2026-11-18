@@ -114,7 +114,7 @@ Send files from your computer to your cart's storage.
 - **Drag, or choose:** drop files or whole folders in, or pick them.
 - **Live progress:** each transfer shows how far it has come, the speed, how long it has taken and which files failed. You can cancel a transfer while it runs.
 - **Archives:** `.zip`, `.7z` and `.rar` files are unpacked on the way in.
-- **File types:** only the types a TeensyROM takes are sent, and the rest are left out.
+- **File types:** files you pick or drop on their own are always sent. Folders and archives send recognized types unless you turn on more in Transfer Settings.
 - **Auto launch:** a transferred file can start on the cart as soon as its transfer finishes.
 - **Several carts at once:** each cart takes one transfer at a time, and different carts transfer side by side. If a cart is busy, you can retry once it is free.
 - **Every transfer in one place:** transfers started from [Trom Terminal](trom-terminal.md) or a watch folder show here too. Open one for its details, or hide them without stopping it.

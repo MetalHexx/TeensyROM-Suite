@@ -1,3 +1,4 @@
+import { TransferSkip } from '@teensyrom-nx/domain';
 import { createAction, logInfo, LogType } from '@teensyrom-nx/utils';
 import { TransferState } from '../transfer-store';
 import { WritableStore, updateDeviceTransferState } from '../transfer-helpers';
@@ -7,6 +8,7 @@ export interface CompleteScanParams {
   scanTotal: number;
   archivesSent?: number;
   scanTotalBytes?: number;
+  scanSkipped?: TransferSkip[];
 }
 
 export function completeScan(store: WritableStore<TransferState>) {
@@ -16,6 +18,7 @@ export function completeScan(store: WritableStore<TransferState>) {
       scanTotal,
       archivesSent = 0,
       scanTotalBytes = 0,
+      scanSkipped = [],
     }: CompleteScanParams): void => {
       const actionMessage = createAction('complete-scan');
       logInfo(
@@ -28,6 +31,7 @@ export function completeScan(store: WritableStore<TransferState>) {
         scanTotal,
         archivesSent,
         scanTotalBytes,
+        scanSkipped,
         phase: scanTotal === 0 ? 'nothing-to-transfer' : state.phase,
         isLoading: scanTotal === 0 ? false : state.isLoading,
         lastUpdated: Date.now(),

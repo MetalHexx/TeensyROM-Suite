@@ -99,7 +99,8 @@ internal sealed class UpdateCommand(ICliOutput output, IUpdateRunner updates) : 
         else Output.Notice(sentence);
     }
 
-    /// <exception cref="CliException"><see cref="CliExitCode.Failed"/> when declined; <see cref="CliExitCode.Usage"/> when there is no terminal to ask in.</exception>
+    /// <exception cref="CliCancelledException">The user declined.</exception>
+    /// <exception cref="CliException"><see cref="CliExitCode.Usage"/> when there is no terminal to ask in.</exception>
     private void Confirm(UpdateStatus status)
     {
         if (!Output.CanPrompt) throw new CliException(CliExitCode.Usage, "Pass --yes to update without a terminal to confirm it.");
@@ -108,7 +109,7 @@ internal sealed class UpdateCommand(ICliOutput output, IUpdateRunner updates) : 
 
         if (!Output.Err.Confirm(Markup.Escape(question), defaultValue: true))
         {
-            throw new CliException(CliExitCode.Failed, "Cancelled; nothing was changed.");
+            throw new CliCancelledException("Cancelled. Nothing was changed.");
         }
     }
 }

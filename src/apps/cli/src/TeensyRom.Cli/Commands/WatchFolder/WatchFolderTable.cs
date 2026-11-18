@@ -3,8 +3,8 @@ using TeensyRom.Cli.Helpers;
 
 namespace TeensyRom.Cli.Commands.WatchFolder;
 
-/// <summary>One row of the folders table; <paramref name="Folder"/> and <paramref name="State"/> are empty after a folder's first row.</summary>
-internal sealed record WatchFolderRow(string Folder, string State, string Device, string Storage, string SendTo, string Launch);
+/// <summary>One row of the folders table; <paramref name="Folder"/>, <paramref name="State"/>, <paramref name="AllTypes"/> and <paramref name="InArchives"/> are empty after a folder's first row.</summary>
+internal sealed record WatchFolderRow(string Folder, string State, string AllTypes, string InArchives, string Device, string Storage, string SendTo, string Launch);
 
 /// <summary>The watch folders as one table row per destination, shared by the Watch Folders screen and <c>trom watch-folder list</c>.</summary>
 internal static class WatchFolderTable
@@ -19,7 +19,7 @@ internal static class WatchFolderTable
 
             if (folder.Destinations.Count == 0)
             {
-                rows.Add(new WatchFolderRow(folder.Path, state, string.Empty, string.Empty, string.Empty, string.Empty));
+                rows.Add(new WatchFolderRow(folder.Path, state, YesNo(folder.AllTypes), YesNo(folder.AllInArchives), string.Empty, string.Empty, string.Empty, string.Empty));
                 continue;
             }
             for (var i = 0; i < folder.Destinations.Count; i++)
@@ -29,6 +29,8 @@ internal static class WatchFolderTable
                 rows.Add(new WatchFolderRow(
                     i == 0 ? folder.Path : string.Empty,
                     i == 0 ? state : string.Empty,
+                    i == 0 ? YesNo(folder.AllTypes) : string.Empty,
+                    i == 0 ? YesNo(folder.AllInArchives) : string.Empty,
                     destination.DeviceName ?? destination.DeviceId,
                     destination.Storage.ToUpperInvariant(),
                     destination.Path,
@@ -42,14 +44,16 @@ internal static class WatchFolderTable
     {
         var table = new Table().BorderColor(RadHelper.Theme.Secondary.Color).Border(TableBorder.Rounded);
 
-        foreach (var header in new[] { "Folder", "State", "Device", "Storage", "Send to", "Launch" }) table.AddColumn(header);
+        foreach (var header in new[] { "Folder", "State", "All types", "In archives", "Device", "Storage", "Send to", "Launch" }) table.AddColumn(header);
 
         foreach (var row in Rows(folders))
         {
-            table.AddRow(new Text(row.Folder), new Text(row.State), new Text(row.Device), new Text(row.Storage), new Text(row.SendTo), new Text(row.Launch));
+            table.AddRow(new Text(row.Folder), new Text(row.State), new Text(row.AllTypes), new Text(row.InArchives), new Text(row.Device), new Text(row.Storage), new Text(row.SendTo), new Text(row.Launch));
         }
         return table;
     }
+
+    private static string YesNo(bool value) => value ? "Yes" : "No";
 
     private static string Capitalised(string value) => value.Length == 0 ? value : char.ToUpperInvariant(value[0]) + value[1..];
 }

@@ -18,6 +18,8 @@ export class WatchFolderMapper {
       path: dto.path,
       enabled: dto.enabled,
       state: WatchFolderMapper.toState(dto.state),
+      allFileTypes: dto.allFileTypes,
+      allFileTypesInArchives: dto.allFileTypesInArchives,
       destinations: dto.destinations.map((d) => WatchFolderMapper.toDestination(d)),
     };
   }

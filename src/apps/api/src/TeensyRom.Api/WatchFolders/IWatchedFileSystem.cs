@@ -2,9 +2,10 @@ namespace TeensyRom.Api.WatchFolders
 {
     /// <summary>
     /// What is at a path. <c>Readable</c> means the file opens with <c>FileAccess.Read, FileShare.Read</c>, which denies
-    /// other writers, so a file another process still holds open for writing is not readable.
+    /// other writers, so a file another process still holds open for writing is not readable. <c>IsHidden</c> means
+    /// the hidden or system attribute is set.
     /// </summary>
-    public sealed record FileProbe(bool Exists, bool IsDirectory, long Size, bool Readable, bool IsLink);
+    public sealed record FileProbe(bool Exists, bool IsDirectory, long Size, bool Readable, bool IsLink, bool IsHidden = false);
 
     /// <summary>The read-only view of the file system the watcher needs; the seam that keeps tests off real files.</summary>
     public interface IWatchedFileSystem

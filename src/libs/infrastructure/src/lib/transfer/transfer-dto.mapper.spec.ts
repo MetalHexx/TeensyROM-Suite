@@ -5,6 +5,7 @@ import {
   TransferJobState as ApiTransferJobState,
   TransferLaunchState,
   TransferOriginKind,
+  TransferSkipReason,
   TeensyStorageType,
 } from '@teensyrom-nx/data-access/api-client';
 import {
@@ -59,6 +60,7 @@ describe('TransferDtoMapper', () => {
     expansionBytesDeclared: 1024000,
     expandedFileCount: 42,
     launchState: TransferLaunchState.None,
+    skipped: [],
   };
 
   it('normalizes TransferJobDto (create/seal/cancel envelope) into the domain snapshot', () => {
@@ -111,6 +113,7 @@ describe('TransferDtoMapper', () => {
       launchState: DomainLaunchState.None,
       launchedPath: null,
       launchError: null,
+      skipped: [],
     });
   });
 
@@ -159,6 +162,39 @@ describe('TransferDtoMapper', () => {
     expect(TransferDtoMapper.toSnapshot(dto).lastActivityUtc).toEqual(
       new Date('2026-01-01T00:01:00.000Z')
     );
+  });
+
+  it('maps the skipped list, camelCasing each reason', () => {
+    const dto: TransferJobDto = {
+      ...baseFields,
+      skipped: [
+        { reason: TransferSkipReason.UnsupportedType, count: 2, types: ['.xyz', '.abc'] },
+        { reason: TransferSkipReason.HiddenOrSystem, count: 1, types: [] },
+        { reason: TransferSkipReason.PartialDownload, count: 3, types: ['.part'] },
+      ],
+    };
+
+    expect(TransferDtoMapper.toSnapshot(dto).skipped).toEqual([
+      { reason: 'unsupportedType', count: 2, types: ['.xyz', '.abc'] },
+      { reason: 'hiddenOrSystem', count: 1, types: [] },
+      { reason: 'partialDownload', count: 3, types: ['.part'] },
+    ]);
+  });
+
+  it('maps an absent skipped list to empty and ignores an unknown skip reason', () => {
+    const absent = { ...baseFields, skipped: undefined } as unknown as TransferJobDto;
+    expect(TransferDtoMapper.toSnapshot(absent).skipped).toEqual([]);
+
+    const unknown: TransferJobDto = {
+      ...baseFields,
+      skipped: [
+        { reason: 'Mystery' as TransferSkipReason, count: 4, types: [] },
+        { reason: TransferSkipReason.HiddenOrSystem, count: 1, types: [] },
+      ],
+    };
+    expect(TransferDtoMapper.toSnapshot(unknown).skipped).toEqual([
+      { reason: 'hiddenOrSystem', count: 1, types: [] },
+    ]);
   });
 
   it('maps a watch-folder origin with its folder id and path', () => {

@@ -1,6 +1,17 @@
 import { Injectable } from '@angular/core';
-import { TransferManifestEntry } from '@teensyrom-nx/domain';
-import { TRANSFER_SUPPORTED_EXTENSIONS, TRANSFER_ARCHIVE_EXTENSIONS } from './transfer.constants';
+import {
+  TRANSFER_SKIP_NO_EXTENSION,
+  TransferManifestEntry,
+  TransferSkip,
+  TransferSkipReason,
+} from '@teensyrom-nx/domain';
+import {
+  TRANSFER_SUPPORTED_EXTENSIONS,
+  TRANSFER_ARCHIVE_EXTENSIONS,
+  TRANSFER_EXCLUDED_FILE_NAMES,
+  TRANSFER_PARTIAL_DOWNLOAD_EXTENSIONS,
+} from './transfer.constants';
+import { mergeSkips } from './transfer-skips';
 
 /** How many matches accumulate between `onProgress` ticks, so a large walk stays visibly live. */
 const PROGRESS_BATCH_SIZE = 25;
@@ -10,30 +21,50 @@ export interface DropScanResult {
   rootName: string | null;
   /** Number of entries admitted as archives — one per archive file, regardless of its contents. */
   archiveCount: number;
+  /** What a folder walk skipped, by reason. Loose files are never filtered, so never counted. */
+  skipped: TransferSkip[];
+}
+
+export interface DropScanOptions {
+  /**
+   * Send every non-excluded file found in a folder, not only the supported types. Excluded files
+   * (including partial downloads) are never sent from a folder regardless of this flag.
+   */
+  allFileTypesInFolders: boolean;
 }
 
 /**
  * Walks a drag-and-drop payload or a directory-picker `FileList` into a single flat manifest,
  * without reading a byte beyond what `File` handles already carry.
  *
+ * Loose files are always admitted. Files found in a folder are dropped when their path below the
+ * folder is excluded (hidden, system, or partial-download files), and otherwise admitted when
+ * `allFileTypesInFolders` is on or their extension is supported.
+ *
  * No DI beyond the decorator, no HTTP - trivially constructible against fake entry trees.
  */
 @Injectable({ providedIn: 'root' })
 export class DropScanner {
+  /**
+   * `options` may be a promise: a drop's payload is only readable during the drop event's own
+   * turn, so the walk captures it first and only then waits for the options.
+   */
   scan(
     input: DataTransferItemList | FileList,
     onProgress: (found: number) => void,
-    signal: AbortSignal
+    signal: AbortSignal,
+    options: DropScanOptions | Promise<DropScanOptions> = { allFileTypesInFolders: false }
   ): Promise<DropScanResult> {
     return isDataTransferItemList(input)
-      ? this.scanDrop(input, onProgress, signal)
-      : this.scanFileList(input, onProgress, signal);
+      ? this.scanDrop(input, onProgress, signal, options)
+      : this.scanFileList(input, onProgress, signal, options);
   }
 
   private async scanDrop(
     items: DataTransferItemList,
     onProgress: (found: number) => void,
-    signal: AbortSignal
+    signal: AbortSignal,
+    pendingOptions: DropScanOptions | Promise<DropScanOptions>
   ): Promise<DropScanResult> {
     const acc = createAccumulator();
     const progress = createProgressReporter(onProgress);
@@ -43,6 +74,7 @@ export class DropScanner {
     const entries = Array.from(items)
       .map((item) => item.webkitGetAsEntry())
       .filter((entry): entry is FileSystemEntry => entry !== null);
+    const options = await pendingOptions;
 
     for (const entry of entries) {
       if (signal.aborted) break;
@@ -56,23 +88,31 @@ export class DropScanner {
           `${entry.name}/`,
           acc,
           progress,
-          signal
+          signal,
+          options
         );
       } else if (entry.isFile) {
         const file = await readFile(entry as FileSystemFileEntry);
-        addIfSupported(acc, file, entry.name, progress);
+        addEntry(acc, file, entry.name, progress);
       }
     }
 
     progress.flush(acc.entries.length);
-    return { entries: sortArchivesFirst(acc.entries), rootName, archiveCount: acc.archiveCount };
+    return {
+      entries: sortArchivesFirst(acc.entries),
+      rootName,
+      archiveCount: acc.archiveCount,
+      skipped: mergeSkips(acc.skipped),
+    };
   }
 
   private async scanFileList(
     files: FileList,
     onProgress: (found: number) => void,
-    signal: AbortSignal
+    signal: AbortSignal,
+    pendingOptions: DropScanOptions | Promise<DropScanOptions>
   ): Promise<DropScanResult> {
+    const options = await pendingOptions;
     const acc = createAccumulator();
     const progress = createProgressReporter(onProgress);
     let rootName: string | null = null;
@@ -81,16 +121,24 @@ export class DropScanner {
       if (signal.aborted) break;
 
       // `webkitRelativePath` from a directory picker already carries the root folder name.
-      const relativePath = file.webkitRelativePath || file.name;
-      if (rootName === null && file.webkitRelativePath) {
-        rootName = file.webkitRelativePath.split('/')[0];
+      if (!file.webkitRelativePath) {
+        addEntry(acc, file, file.name, progress);
+        continue;
       }
 
-      addIfSupported(acc, file, relativePath, progress);
+      if (rootName === null) {
+        rootName = file.webkitRelativePath.split('/')[0];
+      }
+      addFolderFile(acc, file, file.webkitRelativePath, options, progress);
     }
 
     progress.flush(acc.entries.length);
-    return { entries: sortArchivesFirst(acc.entries), rootName, archiveCount: acc.archiveCount };
+    return {
+      entries: sortArchivesFirst(acc.entries),
+      rootName,
+      archiveCount: acc.archiveCount,
+      skipped: mergeSkips(acc.skipped),
+    };
   }
 
   private async walkDirectory(
@@ -98,7 +146,8 @@ export class DropScanner {
     pathPrefix: string,
     acc: ScanAccumulator,
     progress: ProgressReporter,
-    signal: AbortSignal
+    signal: AbortSignal,
+    options: DropScanOptions
   ): Promise<void> {
     const reader = directory.createReader();
 
@@ -117,11 +166,12 @@ export class DropScanner {
             `${pathPrefix}${child.name}/`,
             acc,
             progress,
-            signal
+            signal,
+            options
           );
         } else if (child.isFile) {
           const file = await readFile(child as FileSystemFileEntry);
-          addIfSupported(acc, file, `${pathPrefix}${child.name}`, progress);
+          addFolderFile(acc, file, `${pathPrefix}${child.name}`, options, progress);
         }
       }
     }
@@ -143,9 +193,15 @@ function readFile(entry: FileSystemFileEntry): Promise<File> {
   return new Promise((resolve, reject) => entry.file(resolve, reject));
 }
 
+function fileNameOf(relativePath: string): string {
+  return relativePath.slice(relativePath.lastIndexOf('/') + 1);
+}
+
+/** Reads the extension from the file name only, so a folder's dot is never taken for one. */
 function extensionOf(relativePath: string): string | null {
-  const dotIndex = relativePath.lastIndexOf('.');
-  return dotIndex === -1 ? null : relativePath.slice(dotIndex).toLowerCase();
+  const fileName = fileNameOf(relativePath);
+  const dotIndex = fileName.lastIndexOf('.');
+  return dotIndex === -1 ? null : fileName.slice(dotIndex).toLowerCase();
 }
 
 function hasSupportedExtension(relativePath: string): boolean {
@@ -158,23 +214,80 @@ function isArchiveExtension(relativePath: string): boolean {
   return extension !== null && TRANSFER_ARCHIVE_EXTENSIONS.has(extension);
 }
 
+/**
+ * Why a path below a folder is one the engine never sends, or `null` when it is not excluded.
+ * Excluded means: any `/`-separated segment that starts with `.` or is `__MACOSX`, or a file name
+ * in `TRANSFER_EXCLUDED_FILE_NAMES` (`hiddenOrSystem`), or a file whose extension is in
+ * `TRANSFER_PARTIAL_DOWNLOAD_EXTENSIONS` (`partialDownload`). Hidden is judged first, as the API
+ * and `trom` do, so an unfinished download in a hidden folder counts as hidden.
+ */
+function excludedReason(pathBelowRoot: string): TransferSkipReason | null {
+  const segments = pathBelowRoot.split('/');
+  const hiddenOrSystem =
+    segments.some((segment) => segment.startsWith('.') || segment.toLowerCase() === '__macosx') ||
+    TRANSFER_EXCLUDED_FILE_NAMES.has(segments[segments.length - 1].toLowerCase());
+  if (hiddenOrSystem) {
+    return 'hiddenOrSystem';
+  }
+  const extension = extensionOf(pathBelowRoot);
+  return extension !== null && TRANSFER_PARTIAL_DOWNLOAD_EXTENSIONS.has(extension)
+    ? 'partialDownload'
+    : null;
+}
+
 interface ScanAccumulator {
   entries: TransferManifestEntry[];
   archiveCount: number;
+  skipped: TransferSkip[];
 }
 
 function createAccumulator(): ScanAccumulator {
-  return { entries: [], archiveCount: 0 };
+  return { entries: [], archiveCount: 0, skipped: [] };
 }
 
-function addIfSupported(
+function recordSkip(acc: ScanAccumulator, reason: TransferSkipReason, type: string | null): void {
+  let skip = acc.skipped.find((existing) => existing.reason === reason);
+  if (!skip) {
+    skip = { reason, count: 0, types: [] };
+    acc.skipped.push(skip);
+  }
+  skip.count++;
+  if (type !== null && !skip.types.includes(type)) {
+    skip.types.push(type);
+  }
+}
+
+/**
+ * Admits a file found inside a folder. Only the path below the folder is tested for exclusion:
+ * the person named the folder itself, so a dropped `.roms` still sends its contents.
+ */
+function addFolderFile(
+  acc: ScanAccumulator,
+  file: File,
+  relativePath: string,
+  options: DropScanOptions,
+  progress: ProgressReporter
+): void {
+  const pathBelowRoot = relativePath.slice(relativePath.indexOf('/') + 1);
+  const excluded = excludedReason(pathBelowRoot);
+  if (excluded !== null) {
+    recordSkip(acc, excluded, null);
+    return;
+  }
+  if (!options.allFileTypesInFolders && !hasSupportedExtension(relativePath)) {
+    recordSkip(acc, 'unsupportedType', extensionOf(relativePath) ?? TRANSFER_SKIP_NO_EXTENSION);
+    return;
+  }
+
+  addEntry(acc, file, relativePath, progress);
+}
+
+function addEntry(
   acc: ScanAccumulator,
   file: File,
   relativePath: string,
   progress: ProgressReporter
 ): void {
-  if (!hasSupportedExtension(relativePath)) return;
-
   acc.entries.push({ file, relativePath, sizeBytes: file.size });
   if (isArchiveExtension(relativePath)) {
     acc.archiveCount++;

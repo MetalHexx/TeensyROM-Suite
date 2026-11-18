@@ -14,7 +14,10 @@ internal interface IWatchFolderService
     /// <summary>Watches <paramref name="folder"/> for <paramref name="deviceId"/>; <c>Created</c> is false when the folder was already watched and only gained a destination.</summary>
     /// <param name="devicePath">The folder on the TeensyROM the files land in; tr-web's default when null.</param>
     /// <param name="launch">Have the TeensyROM launch what arrives.</param>
-    Task<AddWatchFolderResponse> AddAsync(string folder, string deviceId, TeensyStorageType storage, string? devicePath, bool launch, CancellationToken ct);
+    /// <param name="allTypes">Send every file that lands, not only the types the TeensyROM recognizes.</param>
+    /// <param name="allInArchives">Send everything inside archives that land.</param>
+    /// <remarks>The engine applies <paramref name="allTypes"/> and <paramref name="allInArchives"/> only when it creates the folder.</remarks>
+    Task<AddWatchFolderResponse> AddAsync(string folder, string deviceId, TeensyStorageType storage, string? devicePath, bool launch, bool allTypes, bool allInArchives, CancellationToken ct);
 
     /// <summary>Stops watching the folder altogether.</summary>
     Task RemoveAsync(string watchFolderId, CancellationToken ct);
@@ -24,6 +27,9 @@ internal interface IWatchFolderService
 
     /// <summary>Changes the folder and/or launch flag of the device's destination on the watch folder, in place; null leaves a value as it is.</summary>
     Task<WatchFolderDto> SetDeviceAsync(string watchFolderId, string deviceId, string? devicePath, bool? launch, CancellationToken ct);
+
+    /// <summary>Changes which file types the whole folder sends; null leaves a value as it is.</summary>
+    Task<WatchFolderDto> SetFileTypesAsync(string watchFolderId, bool? allTypes, bool? allInArchives, CancellationToken ct);
 
     Task<WatchFolderDto> SetEnabledAsync(string watchFolderId, bool enabled, CancellationToken ct);
 

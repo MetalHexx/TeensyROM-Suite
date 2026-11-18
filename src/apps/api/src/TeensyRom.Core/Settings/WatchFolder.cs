@@ -14,6 +14,12 @@ namespace TeensyRom.Core.Settings
     /// <summary>Normalized absolute path on the engine's machine.</summary>
     public string Path { get; init; } = string.Empty;
     public bool Enabled { get; init; } = true;
+
+    /// <summary>Send every file that lands in the folder, not only known types.</summary>
+    public bool AllFileTypes { get; init; }
+
+    /// <summary>Send everything inside archives that land in the folder, not only known types.</summary>
+    public bool AllFileTypesInArchives { get; init; }
     public List<WatchFolderDestination> Destinations { get; init; } = [];
   }
 

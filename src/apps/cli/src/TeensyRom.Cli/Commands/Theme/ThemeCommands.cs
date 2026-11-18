@@ -169,14 +169,15 @@ internal sealed class ThemeDeleteCommand(ICliOutput output, IEngineControl engin
         return 0;
     }
 
-    /// <exception cref="CliException"><see cref="CliExitCode.Failed"/> when declined; <see cref="CliExitCode.Usage"/> when there is no terminal to ask in.</exception>
+    /// <exception cref="CliCancelledException">The user declined.</exception>
+    /// <exception cref="CliException"><see cref="CliExitCode.Usage"/> when there is no terminal to ask in.</exception>
     private void Confirm(string name)
     {
         if (!Output.CanPrompt) throw new CliException(CliExitCode.Usage, $"Pass --yes to delete {name} without a terminal to confirm it.");
 
         if (!Output.Err.Confirm(Markup.Escape($"Delete the theme {name}?"), defaultValue: false))
         {
-            throw new CliException(CliExitCode.Failed, "Cancelled; nothing was deleted.");
+            throw new CliCancelledException("Cancelled. Nothing was deleted.");
         }
     }
 }
