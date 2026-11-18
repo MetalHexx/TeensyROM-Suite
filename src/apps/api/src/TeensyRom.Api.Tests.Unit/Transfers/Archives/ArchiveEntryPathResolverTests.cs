@@ -31,6 +31,9 @@ public class ArchiveEntryPathResolverTests
     [InlineData("/rooted")]
     [InlineData("C:\\escape.sid")]
     [InlineData("D:/escape.sid")]
+    [InlineData("./C:/x")]
+    [InlineData(".//C:/x")]
+    [InlineData(".\\C:\\x")]
     public void TryResolve_RootedPath_ReturnsFalseWithReason(string entryPath)
     {
         var resolved = ArchiveEntryPathResolver.TryResolve(entryPath, out _, out var error);

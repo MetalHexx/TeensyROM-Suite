@@ -233,7 +233,7 @@ namespace TeensyRom.Api.WatchFolders
         {
             try
             {
-                var leftOut = new TransferSkipTally();
+                var skipped = new TransferSkipTally();
 
                 foreach (var entry in archives.ReadIndex(archivePath).Entries)
                 {
@@ -245,7 +245,7 @@ namespace TeensyRom.Api.WatchFolders
                     {
                         if (TransferExclusions.IsExcluded(resolved))
                         {
-                            leftOut.Add(TransferSkipReason.HiddenOrSystem, resolved);
+                            skipped.Add(TransferSkipReason.HiddenOrSystem, resolved);
                             continue;
                         }
 
@@ -254,12 +254,12 @@ namespace TeensyRom.Api.WatchFolders
 
                     if (allFileTypesInArchives || TransferableFileTypes.IsTransferable(path) || archives.IsArchiveExtension(path)) return true;
 
-                    leftOut.Add(TransferSkipReason.UnsupportedType, path);
+                    skipped.Add(TransferSkipReason.UnsupportedType, path);
                 }
 
-                if (!leftOut.IsEmpty)
+                if (!skipped.IsEmpty)
                 {
-                    _skips.Add(leftOut);
+                    _skips.Add(skipped);
                     _lastSkipAt = now;
                 }
 

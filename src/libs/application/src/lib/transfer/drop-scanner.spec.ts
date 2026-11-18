@@ -441,7 +441,7 @@ describe('DropScanner', () => {
       expect(paths(await scanTree(tree, true)).sort()).toEqual(['Pack/keep.dat', 'Pack/sub/d.prg']);
     });
 
-    it('counts what a folder leaves out by reason, with the unsupported extensions', async () => {
+    it('counts what a folder skips by reason, with the unsupported extensions', async () => {
       const tree = directoryEntry('Pack', [
         fileEntry('a.prg'),
         fileEntry('b.xyz'),

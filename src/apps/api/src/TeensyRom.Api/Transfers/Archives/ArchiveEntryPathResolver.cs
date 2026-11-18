@@ -44,30 +44,29 @@ namespace TeensyRom.Api.Transfers.Archives
 
             var normalized = entryPath.Replace('\\', '/');
 
+            while (normalized.Contains("//"))
+            {
+                normalized = normalized.Replace("//", "/");
+            }
+
+            // Archivers that pack from the current directory (tar's `.`, some zip tools) prefix every entry with "./".
+            // Only a leading run of '.' segments is dropped, and before the rooted check, so "./C:/x" is judged as "C:/x".
+            // A '.' or '..' anywhere after the first real segment stays refused.
+            while (normalized.StartsWith("./", StringComparison.Ordinal))
+            {
+                normalized = normalized[2..];
+            }
+
             if (normalized.StartsWith('/') || WindowsDriveRoot.IsMatch(normalized))
             {
                 error = "Archive entry path must not be rooted.";
                 return false;
             }
 
-            while (normalized.Contains("//"))
-            {
-                normalized = normalized.Replace("//", "/");
-            }
-
-            normalized = normalized.TrimStart('/');
-
-            if (string.IsNullOrWhiteSpace(normalized))
+            if (normalized.Length > 0 && string.IsNullOrWhiteSpace(normalized))
             {
                 error = "Archive entry path is empty.";
                 return false;
-            }
-
-            // Archivers that pack from the current directory (tar's `.`, some zip tools) prefix every entry with "./".
-            // Only a leading run of '.' segments is dropped; a '.' or '..' anywhere after the first real segment stays refused.
-            while (normalized.StartsWith("./", StringComparison.Ordinal))
-            {
-                normalized = normalized[2..];
             }
 
             var segments = normalized.Split('/', StringSplitOptions.RemoveEmptyEntries);

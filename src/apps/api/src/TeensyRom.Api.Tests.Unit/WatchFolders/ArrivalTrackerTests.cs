@@ -366,7 +366,7 @@ public class ArrivalTrackerTests
     }
 
     [Fact]
-    public void FileOfAnUnsupportedType_IsDropped_AndLeftOutIsLoggedOnce()
+    public void FileOfAnUnsupportedType_IsDropped_AndTheSkipIsLoggedOnce()
     {
         _fs.AddFile(P("report.doc"), 100);
         Created("report.doc");
@@ -426,7 +426,7 @@ public class ArrivalTrackerTests
     }
 
     [Fact]
-    public void FileThatVanishedOrIsALinkOrEmpty_IsNotReportedAsLeftOut()
+    public void FileThatVanishedOrIsALinkOrEmpty_IsNotReportedAsSkipped()
     {
         _fs.AddFile(P("link.sid"), 100, isLink: true);
         _fs.AddFile(P("empty.prg"), 0);

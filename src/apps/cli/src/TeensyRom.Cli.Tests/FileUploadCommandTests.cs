@@ -1112,7 +1112,10 @@ public sealed class FileUploadCommandTests : IDisposable
         var exitCode = await host.RunAsync("file", "upload", "hint", "--to", "/x");
 
         exitCode.Should().Be(0, host.Consoles.StdErr);
-        ErrLines(host).Should().Contain(hint);
+        var errLines = ErrLines(host);
+        var sentence = Array.FindIndex(errLines, line => line.Contains("skipped ("));
+        sentence.Should().BeGreaterThanOrEqualTo(0, host.Consoles.StdErr);
+        errLines[sentence + 1].Should().Be(hint);
     }
 
     [Fact]
@@ -1932,5 +1935,16 @@ public sealed class UploadSourcesTests
     public void FoundUnknownTypesInFolders_IsFalseForANamedUnknownFile()
     {
         PlanOf(new UploadFile("n.bin", "n.bin", 1, false, IsKnownType: false)).FoundUnknownTypesInFolders.Should().BeFalse();
+    }
+}
+
+public sealed class SkipTallyTests
+{
+    [Fact]
+    public void Describe_WithNoKnownTypes_OmitsTheParentheses()
+    {
+        var sentence = SkipTally.Describe([new CopySkipJson(TransferSkipReason.UnsupportedType, 2, Types: [])]);
+
+        sentence.Should().Be("2 files skipped: not a file type the TeensyROM takes.");
     }
 }

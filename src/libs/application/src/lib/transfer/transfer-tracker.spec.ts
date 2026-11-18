@@ -601,7 +601,7 @@ describe('TransferTracker', () => {
     });
 
     it('refetches nothing for a job that sent nothing', async () => {
-      await push(ended({ filesSent: 0, state: TransferJobState.Failed }));
+      await push(ended({ filesSent: 0, state: TransferJobState.Aborted }));
 
       expect(storageStub.refetchAfterTransfer).not.toHaveBeenCalled();
     });

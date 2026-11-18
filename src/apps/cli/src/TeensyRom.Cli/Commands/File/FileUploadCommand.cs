@@ -266,7 +266,7 @@ internal sealed class FileUploadCommand(
 
     /// <summary>
     /// One result per local file, then one per failure the job recorded that matches none (a file inside an archive),
-    /// then one per named path that doesn't exist. The left-out files are the walk's and the job's merged by reason. A job failure is matched to a file by its path under the destination.
+    /// then one per named path that doesn't exist. The skipped files are the walk's and the job's merged by reason. A job failure is matched to a file by its path under the destination.
     /// </summary>
     private CopyReportJson BuildReport(string to, UploadRunResult run)
     {

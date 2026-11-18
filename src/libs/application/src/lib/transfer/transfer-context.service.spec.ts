@@ -123,8 +123,9 @@ describe('TransferContextService', () => {
     entries: [createEntry('games/a.prg')],
     rootName: 'games',
     archiveCount: 0,
+    skipped: [],
   };
-  const emptyScan: DropScanResult = { entries: [], rootName: null, archiveCount: 0 };
+  const emptyScan: DropScanResult = { entries: [], rootName: null, archiveCount: 0, skipped: [] };
 
   beforeEach(() => {
     vi.useFakeTimers();

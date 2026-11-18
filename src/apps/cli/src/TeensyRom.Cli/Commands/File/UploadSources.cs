@@ -63,7 +63,7 @@ internal static class UploadSources
     };
 
     // Links are never followed, so a walk can't leave the named folder or loop. Hidden and system entries are not skipped
-    // here: the walk judges them itself so it can count what it leaves out.
+    // here: the walk judges them itself so it can count what it skips.
     private static readonly EnumerationOptions WalkOptions = new()
     {
         RecurseSubdirectories = true,

@@ -165,7 +165,7 @@ describe('TransferProgressComponent', () => {
       expect(buttonByLabel('Cancel')).toBeFalsy();
     });
 
-    it('keeps the generic wording when nothing was left out', async () => {
+    it('keeps the generic wording when nothing was skipped', async () => {
       await setup(baseVm({ state: 'nothing-to-transfer' }));
 
       expect(q('transfer-progress-banner')?.textContent).toContain(

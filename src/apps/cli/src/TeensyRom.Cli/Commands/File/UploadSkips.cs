@@ -57,7 +57,7 @@ internal sealed class SkipTally
             .Select(skip => skip.Reason switch
             {
                 TransferSkipReason.UnsupportedType =>
-                    $"{skip.Count} {(skip.Count == 1 ? "file" : "files")} skipped ({TypeList(skip.Types ?? [])}): not a file type the TeensyROM takes",
+                    $"{skip.Count} {(skip.Count == 1 ? "file" : "files")} skipped{TypeParenthetical(skip.Types ?? [])}: not a file type the TeensyROM takes",
                 TransferSkipReason.HiddenOrSystem =>
                     $"{skip.Count} hidden or system {(skip.Count == 1 ? "file" : "files")} skipped",
                 _ =>
@@ -84,6 +84,14 @@ internal sealed class SkipTally
             (false, true) => "To send other file types, add --all-in-archives, or turn it on for every upload with 'trom transfer set all-in-archives true'.",
             _ => string.Empty
         };
+    }
+
+    /// <summary>The " (.bin, .xyz)" after "skipped"; nothing when no type is known.</summary>
+    private static string TypeParenthetical(IEnumerable<string> types)
+    {
+        var list = TypeList(types);
+
+        return list.Length == 0 ? string.Empty : $" ({list})";
     }
 
     /// <summary>The extensions as written, with <see cref="NoExtension"/> worded last as "no extension".</summary>
