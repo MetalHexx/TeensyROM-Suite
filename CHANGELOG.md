@@ -4,6 +4,42 @@ Release notes for TeensyROM Suite, newest first. Releases before 1.0.0-beta.1 sh
 
 <!-- release.yml publishes the section under each "## [version]" heading as that release's GitHub notes. Write it before tagging: the release fails without it. -->
 
+## [1.0.0-beta.3](https://github.com/MetalHexx/TeensyROM-Suite/releases/tag/v1.0.0-beta.3) - 2026-11-19
+
+> **Firmware Requirement**: TeensyROM firmware **0.8.0.9** or later is required for this release.
+
+### 📂 File Transfer: Send Any File
+
+Send your cart anything you like, and see it in your library the moment the transfer ends.
+
+- **[Any file type](https://github.com/MetalHexx/TeensyROM-Suite/blob/main/docs/trom-ui.md#copy-files-to-your-cart)**: files you pick or drop go to the cart whatever their type, and Transfer Settings can open up folders and archives too
+- **[Per watch folder](https://github.com/MetalHexx/TeensyROM-Suite/blob/main/docs/trom-ui.md#watch-folders)**: each watch folder gets its own file-type switches
+- **[Every file in view](https://github.com/MetalHexx/TeensyROM-Suite/blob/main/docs/trom-ui.md#file-browser-and-navigation)**: folders list everything on the cart, even files it can't launch, and a refresh button re-reads a folder from the cart
+- **[Delete files](https://github.com/MetalHexx/TeensyROM-Suite/blob/main/docs/trom-terminal.md#one-line-commands)** from a cart in Trom Terminal, or [ask Trom Agent](https://github.com/MetalHexx/TeensyROM-Suite/blob/main/docs/trom-agent.md#library-tours-and-curation). Both ask before anything is deleted
+
+---
+
+### 🔌 Connections
+
+Trom API finds your carts on more networks, and finds them faster.
+
+- **[Slower networks](https://github.com/MetalHexx/TeensyROM-Suite/blob/main/docs/getting-started.md#connect-your-cart)**: the network scan finds carts behind slower routers
+- **[Quicker scans](https://github.com/MetalHexx/TeensyROM-Suite/blob/main/docs/getting-started.md#connect-your-cart)**: a cart on both USB and the network is checked once, so scans finish sooner
+
+### Update
+- Already on a suite release: `trom update` (`trom update --check` only looks).
+- Installed with Homebrew: `brew update && brew upgrade teensyrom-suite`.
+- Fresh install on a Mac: `brew tap MetalHexx/TeensyROM-Suite https://github.com/MetalHexx/TeensyROM-Suite`, then `brew install teensyrom-suite` and `trom ui`.
+- Fresh install on Windows, Linux or a Raspberry Pi: download the package below, unpack it and run `cli/trom ui` (`cli\trom ui` on Windows).
+
+### Downloads
+- Windows x64: `TeensyROM-Suite-1.0.0-beta.3-win-x64.zip`
+- Linux x64: `TeensyROM-Suite-1.0.0-beta.3-linux-x64.tar.gz`
+- Linux ARM64 (Raspberry Pi with a 64-bit OS): `TeensyROM-Suite-1.0.0-beta.3-linux-arm64.tar.gz`
+- macOS: install with Homebrew, above. The `osx-arm64` and `osx-x64` packages are the ones Homebrew installs.
+
+Docs: https://github.com/MetalHexx/TeensyROM-Suite/blob/main/docs/getting-started.md
+
 ## [1.0.0-beta.2](https://github.com/MetalHexx/TeensyROM-Suite/releases/tag/v1.0.0-beta.2) - 2026-11-11
 
 > **Firmware Requirement**: TeensyROM firmware **0.8.0.9** or later is required for this release.
