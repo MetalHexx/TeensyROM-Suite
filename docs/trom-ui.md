@@ -82,6 +82,7 @@ Video is optional but recommended.
 - **Large folders:** browsing stays smooth in folders with thousands of files.
 - **Back and forward:** retrace your steps through folders, like a browser.
 - **Several carts:** browse multiple connected carts at the same time.
+- **Every file:** folders list everything on the cart, including files it can't launch. The refresh button re-reads a folder from the cart.
 
 ## Mobile and responsive
 
@@ -133,11 +134,12 @@ For each watch folder you choose:
 - **Cart and storage:** which cart gets the files, on SD or USB.
 - **Cart folder:** where on the cart the files go.
 - **Auto launch:** start a file on the cart as soon as it lands.
+- **File types:** send only the types the TeensyROM takes, or every file type, in the folder and in its archives.
 - **More carts:** send the same folder to several carts.
 
 Add as many watch folders as you like. You can edit a destination, turn a folder off and on, and remove it.
 
-Only files that arrive after you add the folder are sent, and only of types the TeensyROM takes. Archives are unpacked on the cart. Your files stay in the folder: they are copied, never moved or deleted. Files that land close together go as one transfer. A file that lands while its cart is busy with another transfer is skipped, and a file that lands while its folder is turned off is not sent later. A transfer from a watch folder resets the cart like any other, which stops what is running.
+Only files that arrive after you add the folder are sent. Archives are unpacked on the cart. Your files stay in the folder: they are copied, never moved or deleted. Files that land close together go as one transfer. A file that lands while its cart is busy with another transfer is skipped, and a file that lands while its folder is turned off is not sent later. A transfer from a watch folder resets the cart like any other, which stops what is running.
 
 You can also manage watch folders from [Trom Terminal](trom-terminal.md) with `trom watch-folder`.
 
