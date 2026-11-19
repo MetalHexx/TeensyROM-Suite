@@ -2,16 +2,16 @@ class TeensyromSuite < Formula
   desc "TeensyROM Suite: Trom UI, Trom Terminal and Trom API for your TeensyROM"
   homepage "https://github.com/MetalHexx/TeensyROM-Suite"
   license "MIT"
-  version "1.0.0-beta.2"
+  version "1.0.0-beta.3"
 
   on_arm do
     url "https://github.com/MetalHexx/TeensyROM-Suite/releases/download/v#{version}/TeensyROM-Suite-#{version}-osx-arm64.tar.gz"
-    sha256 "04839fc09486051ed25f307ba4df58f57f583f1f67e4903035d3aa7da89ba124"
+    sha256 "5c17fc2387abffd3e75d0d9be890c8115e1f9f3952a34914c8125b657f3ed78f"
   end
 
   on_intel do
     url "https://github.com/MetalHexx/TeensyROM-Suite/releases/download/v#{version}/TeensyROM-Suite-#{version}-osx-x64.tar.gz"
-    sha256 "6e5d27a30949346b95109ec7597b105c22ef1769ef9a8b2aca123ce7f0302ae1"
+    sha256 "d8c2e7084492d1eef007d33572b74473aa44a8e3c637733bda5efa9f113e948a"
   end
 
   depends_on :macos
