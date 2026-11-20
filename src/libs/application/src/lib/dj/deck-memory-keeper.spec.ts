@@ -2,7 +2,7 @@ import { TestBed } from '@angular/core/testing';
 import { signal } from '@angular/core';
 import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest';
 import type { ReplayRunner } from '@sidablist/core';
-import { FakeDeckClock } from './testing/deck-runtime-fakes';
+import { ENGINE_TEST_PROVIDERS, FakeDeckClock } from './testing/deck-runtime-fakes';
 import { InMemorySetStore, InMemoryTuneMemoryStore } from '@sidablist/tunes';
 import type { TuneReference } from '@sidablist/tunes';
 import {
@@ -157,6 +157,7 @@ describe('DeckMemoryKeeper', () => {
         { provide: TUNE_RESOLVER, useValue: { resolve: vi.fn() } },
         { provide: DeviceStore, useValue: { usableDevices: signal<Device[]>([]) } },
         { provide: FRAME_CLOCK_FACTORY, useValue: (): FakeDeckClock => new FakeDeckClock() },
+        ...ENGINE_TEST_PROVIDERS,
         { provide: REPLAY_RUNNER_FACTORY, useValue: (): ReplayRunner => idleReplay },
         {
           provide: REGISTER_RECORDER_FACTORY,

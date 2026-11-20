@@ -84,11 +84,11 @@ function seededRecord(): SeededTuneIndexRecord {
     callsPerFrame: 1,
     exactCallsPerFrame: 1,
     timingMode: 'exact',
-    // Must match `TUNE_INDEX_FORMAT_VERSION` (`tune-index.model.ts`, currently 6) or the app
+    // Must match `TUNE_INDEX_FORMAT_VERSION` (`tune-index.model.ts`, currently 7) or the app
     // discards this seed as stale and falls back to a real background scan instead of the
     // deterministic moments above — not imported, to keep this spec at arm's length from the app's
     // own source (see this file's own header comment).
-    formatVersion: 6,
+    formatVersion: 7,
     computedAt: new Date().toISOString(),
   };
 }

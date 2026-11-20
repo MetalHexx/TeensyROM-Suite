@@ -36,7 +36,7 @@ import type {
   RegisterRecorder,
 } from '../../ports';
 import type { Slot } from '../../slot';
-import { FakeDeckClock } from '../../testing/deck-runtime-fakes';
+import { ENGINE_TEST_PROVIDERS, FakeDeckClock } from '../../testing/deck-runtime-fakes';
 import { MappableControls } from '../mappable-controls';
 import { FakeMidiInput } from './fake-midi-input';
 import type { MidiSource, SourceEvent } from '../mapping.models';
@@ -189,6 +189,7 @@ export function setUpMappingHarness(
           return clock;
         },
       },
+      ...ENGINE_TEST_PROVIDERS,
       { provide: REPLAY_RUNNER_FACTORY, useValue: (): ReplayRunner => replay },
       {
         provide: REGISTER_RECORDER_FACTORY,

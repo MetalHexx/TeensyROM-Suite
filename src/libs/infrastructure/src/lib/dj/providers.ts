@@ -1,8 +1,9 @@
 import { inject, Provider } from '@angular/core';
-import { createWorkerReplayRunner } from '@sidablist/core';
+import { createWorkerReplayRunner, milliseconds } from '@sidablist/core';
 import type { ReplayRunner } from '@sidablist/core';
 import { createTuneInserter, createTuneResolver } from '@sidablist/tunes';
 import { API_CONFIG, type IApiConfig } from '@teensyrom-nx/domain';
+import { logError, logWarn } from '@teensyrom-nx/utils';
 import {
   Configuration,
   DjLibraryApiService,
@@ -12,6 +13,8 @@ import {
   ASID_SENDER_LINK,
   BEAT_GRID_STORE,
   DJ_LIBRARY_STATE_REPOSITORY,
+  ENGINE_LOG,
+  ENGINE_TIME,
   FRAME_CLOCK_FACTORY,
   MIDI_ACCESS,
   MIDI_INPUT,
@@ -84,7 +87,8 @@ export const DJ_STORAGE_PROVIDERS: Provider[] = [
 ];
 
 /**
- * Provider configuration for the DJ engine's browser adapters: Web MIDI access, and the two
+ * Provider configuration for the DJ engine's browser adapters: Web MIDI access, the engine's time
+ * source and log, and the two
  * per-deck-slot factories a deck builds its own clock and its own replay threads from. Two frame
  * clocks and four replay workers is the design, not something to hoist "for efficiency" — a deck
  * slot calls the replay factory twice, one worker for jumps and one for prepared builds, and its
@@ -99,6 +103,11 @@ export const DJ_ENGINE_PROVIDERS: Provider[] = [
   { provide: MIDI_ACCESS, useExisting: MidiAccessService },
   { provide: MIDI_INPUT, useExisting: MidiInputService },
   { provide: ASID_SENDER_LINK, useExisting: AsidSenderLinkService },
+  { provide: ENGINE_TIME, useValue: { now: () => milliseconds(performance.now()) } },
+  {
+    provide: ENGINE_LOG,
+    useValue: { warn: (m: string) => logWarn(m), error: (m: string) => logError(m) },
+  },
   {
     provide: FRAME_CLOCK_FACTORY,
     useFactory: () => {

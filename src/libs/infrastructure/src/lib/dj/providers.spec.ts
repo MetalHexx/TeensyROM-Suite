@@ -3,6 +3,8 @@ import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest';
 import { TestBed } from '@angular/core/testing';
 import {
   DJ_LIBRARY_STATE_REPOSITORY,
+  ENGINE_LOG,
+  ENGINE_TIME,
   FRAME_CLOCK_FACTORY,
   REGISTER_RECORDER_FACTORY,
   SET_STORE,
@@ -11,12 +13,18 @@ import {
   TUNE_RESOLVER,
 } from '@teensyrom-nx/application';
 import { ALERT_SERVICE, API_CONFIG, IAlertService } from '@teensyrom-nx/domain';
+import { logError, logWarn } from '@teensyrom-nx/utils';
 import { DjDatabase, DJ_DATABASE_NAME } from './database/dj-database';
 import { DeckTickClock } from './clock/deck-tick-clock';
 import { WorkerRegisterRecorder } from './analysis/worker-register-recorder';
 import { WorkerTuneIndexer } from './analysis/worker-tune-indexer';
 import { ApiDjLibraryStateRepository, ApiSetStore, ApiTuneMemoryStore } from './dj-library';
 import { DJ_ENGINE_PROVIDERS, DJ_STORAGE_PROVIDERS } from './providers';
+
+vi.mock('@teensyrom-nx/utils', async (importOriginal) => {
+  const actual = await importOriginal<typeof import('@teensyrom-nx/utils')>();
+  return { ...actual, logWarn: vi.fn(), logError: vi.fn() };
+});
 
 const PSID_HEADER_SIZE = 0x7c;
 
@@ -98,6 +106,22 @@ describe('DJ_ENGINE_PROVIDERS composition', () => {
       request.onerror = () => resolve();
       request.onblocked = () => resolve();
     });
+  });
+
+  it("sends the engine log's warnings and errors to TeensyROM-Web's logging as they are", () => {
+    const log = TestBed.inject(ENGINE_LOG);
+
+    log.warn('SID player: late frame');
+    log.error('ASID sink: send failed');
+
+    expect(logWarn).toHaveBeenCalledWith('SID player: late frame');
+    expect(logError).toHaveBeenCalledWith('ASID sink: send failed');
+  });
+
+  it('reads the engine time from the page clock in milliseconds', () => {
+    vi.spyOn(performance, 'now').mockReturnValue(1234.5);
+
+    expect(TestBed.inject(ENGINE_TIME).now()).toBe(1234.5);
   });
 
   it('builds a recorder of its own for every call of the register recorder factory', () => {
