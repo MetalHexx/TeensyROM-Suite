@@ -35,11 +35,13 @@ measure('machine.runFrame', () => {
 // The full player tick, through the real ASID sink onto a port that drops the bytes.
 const port = { portId: 'probe', supportsCancel: false, send() {}, cancelPending: () => false };
 const stubRunner = { run: () => new Promise(() => {}), dispose() {} };
+const time = { now: () => performance.now() };
+const log = console;
 for (const aheadMs of [0, 30]) {
   measure(`player tick + asid sink (ahead ${aheadMs})`, () => {
     const clock = new core.FakeClock();
-    const sink = asid.createAsidSink(port, { scheduleAheadMs: aheadMs });
-    const player = core.createSidPlayer({ sink, clock, replayRunner: stubRunner });
+    const sink = asid.createAsidSink(port, { time, scheduleAheadMs: aheadMs, log });
+    const player = core.createSidPlayer({ sink, clock, replayRunner: stubRunner, time, log });
     player.loadTune(file);
     player.selectSubtune(sub);
     void player.play();
@@ -50,7 +52,7 @@ for (const aheadMs of [0, 30]) {
 measure('player tick + FakeSink', () => {
   const clock = new core.FakeClock();
   const sink = new core.FakeSink();
-  const player = core.createSidPlayer({ sink, clock, replayRunner: stubRunner });
+  const player = core.createSidPlayer({ sink, clock, replayRunner: stubRunner, time, log });
   player.loadTune(file);
   player.selectSubtune(sub);
   void player.play();
@@ -64,7 +66,7 @@ const HISTORY_CAPACITY = 64;
 measure('player tick + FakeSink + history', () => {
   const clock = new core.FakeClock();
   const sink = new core.FakeSink();
-  const player = core.createSidPlayer({ sink, clock, replayRunner: stubRunner });
+  const player = core.createSidPlayer({ sink, clock, replayRunner: stubRunner, time, log });
   player.loadTune(file);
   player.selectSubtune(sub);
   player.keepDeliveries(HISTORY_CAPACITY);
@@ -75,7 +77,7 @@ measure('player tick + FakeSink + history', () => {
 measure('  ... + drain every 2nd tick', () => {
   const clock = new core.FakeClock();
   const sink = new core.FakeSink();
-  const player = core.createSidPlayer({ sink, clock, replayRunner: stubRunner });
+  const player = core.createSidPlayer({ sink, clock, replayRunner: stubRunner, time, log });
   player.loadTune(file);
   player.selectSubtune(sub);
   player.keepDeliveries(HISTORY_CAPACITY);

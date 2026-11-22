@@ -3,6 +3,7 @@ import { TestBed } from '@angular/core/testing';
 import { MidiAccessService } from './midi-access.service';
 import { DeckMidiBinding } from './deck-midi-binding';
 import { ASID_SYSEX_END, ASID_SYSEX_START, createAsidSink } from '@sidablist/asid';
+import { milliseconds } from '@sidablist/core';
 import { createFakeAsidSink } from '../../testing/player-doubles';
 
 interface FakeMidiOutput {
@@ -41,6 +42,8 @@ function stubRequestMidiAccess(
     value: impl,
   });
 }
+
+const time = { now: () => milliseconds(performance.now()) };
 
 describe('DeckMidiBinding', () => {
   let access: MidiAccessService;
@@ -295,7 +298,7 @@ describe('DeckMidiBinding', () => {
       await grant([output]);
       deckA.selectPort('port-1');
 
-      createAsidSink(deckA.outputPort).showText('TEST');
+      createAsidSink(deckA.outputPort, { time }).showText('TEST');
 
       expect(output.send).toHaveBeenCalledTimes(1);
       const [bytes] = vi.mocked(output.send).mock.calls[0];

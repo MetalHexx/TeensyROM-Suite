@@ -18,7 +18,9 @@ import {
   playCallIntervalUs,
   VOICE_COUNT,
 } from '@sidablist/core';
+import type { EngineLog, TimeSource } from '@sidablist/core';
 import { createAsidSink } from '@sidablist/asid';
+import { logError, logWarn } from '@teensyrom-nx/utils';
 import {
   BindingCardComponent,
   LoopsCuesPanelComponent,
@@ -107,6 +109,12 @@ const TRANSPORT_STATE_LABELS: Record<StatusLedState, string> = {
 const createReplayWorker = (): Worker =>
   new Worker(new URL('../../diagnostics/core-replay.worker', import.meta.url), { type: 'module' });
 
+/** The one time source a deck's sink and player both read, so their timings agree. */
+const engineTime: TimeSource = { now: () => milliseconds(performance.now()) };
+
+/** The library's messages carry their own prefix, so the log adds none. */
+const engineLog: EngineLog = { warn: (m) => logWarn(m), error: (m) => logError(m) };
+
 /**
  * One deck: the whole of what "a deck owns" — its own player, ASID sink, clock, replay worker,
  * analysis scanner, tune index, marker collection and MIDI binding — behind a `providers` array that
@@ -154,7 +162,11 @@ const createReplayWorker = (): Worker =>
     DeckMidiBinding,
     // Built over the binding's own port façade, which re-resolves the deck's selection on every
     // send — so a port swap never needs the sink (or the player above it) rebuilt.
-    { provide: ASID_SINK, useFactory: () => createAsidSink(inject(DeckMidiBinding).outputPort) },
+    {
+      provide: ASID_SINK,
+      useFactory: () =>
+        createAsidSink(inject(DeckMidiBinding).outputPort, { time: engineTime, log: engineLog }),
+    },
     { provide: FRAME_CLOCK, useFactory: () => new ScriptProcessorFrameClock() },
     { provide: REPLAY_RUNNER, useFactory: () => createWorkerReplayRunner(createReplayWorker) },
     {
@@ -164,6 +176,8 @@ const createReplayWorker = (): Worker =>
           sink: inject(ASID_SINK),
           clock: inject(FRAME_CLOCK),
           replayRunner: inject(REPLAY_RUNNER),
+          time: engineTime,
+          log: engineLog,
         }),
     },
     { provide: DECK_PLAYER_VIEW, useFactory: () => createDeckPlayerView(inject(SID_PLAYER)) },

@@ -1,5 +1,5 @@
 import { InjectionToken } from '@angular/core';
-import type { FrameClock, ReplayRunner } from '@sidablist/core';
+import type { EngineLog, FrameClock, ReplayRunner, TimeSource } from '@sidablist/core';
 import type { LatenessSummary } from '@teensyrom-nx/asid-sender-protocol';
 
 /** What drives a deck's frames: the silent audio graph on the mixer page, or the sender's wake. */
@@ -38,3 +38,9 @@ export const FRAME_CLOCK_FACTORY = new InjectionToken<() => DeckFrameClock>('FRA
 export const REPLAY_RUNNER_FACTORY = new InjectionToken<() => ReplayRunner>(
   'REPLAY_RUNNER_FACTORY'
 );
+
+/** The clock the player and the ASID sink of a slot both read, so their timings agree. */
+export const ENGINE_TIME = new InjectionToken<TimeSource>('ENGINE_TIME');
+
+/** Where the player's and the sink's warnings and errors go. */
+export const ENGINE_LOG = new InjectionToken<EngineLog>('ENGINE_LOG');

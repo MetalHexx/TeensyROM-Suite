@@ -192,7 +192,7 @@ const file = {
 const stubRunner = { run: () => new Promise(() => {}), dispose() {} };
 const clock = new core.FakeClock();
 const sink = new core.FakeSink();
-const player = core.createSidPlayer({ sink, clock, replayRunner: stubRunner });
+const player = core.createSidPlayer({ sink, clock, replayRunner: stubRunner, time: { now: () => performance.now() }, log: console });
 player.loadTune(file);
 player.keepDeliveries(HISTORY);
 void player.play();

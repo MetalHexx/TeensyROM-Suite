@@ -81,14 +81,14 @@ that is all the transformer sees; and the specifier must be a **relative path**,
 resolves it with a plain `path.join` rather than module resolution — a bare package specifier cannot
 work there. The shim is the smallest thing satisfying both.
 
-The package's `createWorkerReplayRunner(workerFactory?)` takes the worker as its argument, so no
+The package's `createWorkerReplayRunner(workerFactory)` takes the worker as its argument, so no
 part of this leaks back into the library — `@sidablist/core` exposes `./replay.worker` as a public
 subpath export and knows nothing about who consumes it. That is the same mechanism a real published
 npm package would use, so nothing here needs rework when these libraries stop being `file:` links.
 
-**Passing the factory is not optional here.** Calling `createWorkerReplayRunner()` bare falls back to
-the package's own worker and reproduces the silent 404 above. Every linked worker this app grows
-needs its own one-line shim; there is no build setting that makes the fallback work.
+**The factory is required.** `createWorkerReplayRunner` has no fallback to the package's own worker,
+which would reproduce the silent 404 above, so a call that omits the factory does not compile. Every
+linked worker this app grows needs its own one-line shim.
 
 ### Why `prebundle.exclude` Exists
 

@@ -19,7 +19,10 @@ const TUNE_LABEL = 'InSID3 Out — Divertigo';
 // Both bundled tunes carry `songs: 1, startSong: 1` in their PSID header (checked against the raw
 // bytes at the header's own offsets 0x0e/0x10) — the subtune this spec loads is always `1`.
 const TUNE_SUBTUNE = 1;
-const TUNE_INDEX_STORAGE_KEY = `teensyrom_dj_tune_index_${TUNE_LABEL}:${TUNE_SUBTUNE}`;
+// MD5 of the bundled `InSID3_Out.sid` (`src/libs/poc/dj-player/src/lib/sid/bundled/InSID3_Out.sid`),
+// the hash the deck loader keys the tune index by. Recompute with `md5sum` on that file if it changes.
+const TUNE_SID_HASH = '2ad8af727276ab982a1ccd0bf2361a69';
+const TUNE_INDEX_STORAGE_KEY = `teensyrom_dj_tune_index_${TUNE_SID_HASH}:${TUNE_SUBTUNE}`;
 
 // Absolute frames, well inside even a conservative nudge range (±~50 frames, a 1x PAL tune's
 // 1-second window), and with nothing seeded below frame 10 — comfortably past the tiny frame the
@@ -35,7 +38,7 @@ const SIDE_BY_SIDE_WIDTHS = [1500, 1240, 999] as const;
  *  app drives the served build through the DOM only, the same arm's-length relationship every other
  *  spec here keeps with the app's own source. */
 interface SeededTuneIndexRecord {
-  readonly filename: string;
+  readonly sidHash: string;
   readonly subtune: number;
   readonly loopStartFrame: number | null;
   readonly loopPeriodFrames: number | null;
@@ -65,7 +68,7 @@ interface SeededTuneIndexRecord {
 
 function seededRecord(): SeededTuneIndexRecord {
   return {
-    filename: TUNE_LABEL,
+    sidHash: TUNE_SID_HASH,
     subtune: TUNE_SUBTUNE,
     loopStartFrame: null,
     loopPeriodFrames: null,
@@ -84,11 +87,11 @@ function seededRecord(): SeededTuneIndexRecord {
     callsPerFrame: 1,
     exactCallsPerFrame: 1,
     timingMode: 'exact',
-    // Must match `TUNE_INDEX_FORMAT_VERSION` (`tune-index.model.ts`, currently 6) or the app
+    // Must match `TUNE_INDEX_FORMAT_VERSION` (`tune-index.model.ts`, currently 7) or the app
     // discards this seed as stale and falls back to a real background scan instead of the
     // deterministic moments above — not imported, to keep this spec at arm's length from the app's
     // own source (see this file's own header comment).
-    formatVersion: 6,
+    formatVersion: 7,
     computedAt: new Date().toISOString(),
   };
 }
