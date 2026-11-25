@@ -8,8 +8,9 @@ Node-only toolchain that stamps the newest release (version, date, download link
 | Path | What |
 |------|------|
 | `site/page/` | The page source. Only this folder is copied into a build. |
-| `site/tools/` | The toolchain: `site.mjs` (CLI) and `lib/` (config, semver, releases, build). |
+| `site/tools/` | The toolchain: `site.mjs` (CLI), `record.mjs` (motion recorder) and `lib/` (config, semver, releases, build, check, serve, dev-client). |
 | `site/tools/test/` | Unit tests and the fixture page. |
+| `site/tools/font-trial/` | Dev-only font candidates for the preview server (`__dev/fonts/`); never built. |
 | `site/build/` | Build output. Git-ignored. |
 
 ## Commands
@@ -19,7 +20,10 @@ Run from the repo root.
 ```
 node site/tools/site.mjs build [--offline] [--src <dir>] [--out <dir>]
 node site/tools/site.mjs gate
-node --test "site/tools/test/*.test.mjs"
+node site/tools/site.mjs check [--out <dir>] [--external]
+node site/tools/site.mjs dev [--port <n>] [--offline] [--src <dir>]
+node site/tools/record.mjs --url <page url> --seconds <n> --out <path without extension> [options]
+node --test "site/tools/test/**/*.test.mjs"
 ```
 
 - `build` looks up the release once and stamps it into every release region of `index.html`.
@@ -28,9 +32,51 @@ node --test "site/tools/test/*.test.mjs"
 - `gate` prints `publish=true|false` and the reason. It appends `publish=...` to `$GITHUB_OUTPUT`
   when that is set. When the releases cannot be read it exits 1: holding blind beats publishing
   blind.
+- `check` runs every check over `site/build/` (or `--out`), prints `PASS`/`FAIL` per check with a
+  `- problem` line for each problem, and exits 1 if any fails. `--external` also asks the network about
+  each external link (HEAD, then GET; 10 s timeout; 4 at a time). It is local only, never in CI.
+- `dev` builds, then serves the page at `http://127.0.0.1:8087/TeensyROM-Suite/` (127.0.0.1 only) with live
+  reload, rebuilding on every save under `site/page/` and keeping the last good build when a rebuild fails.
+  It looks the release up once at start unless `--offline`. `__dev/preview` shows the page at 1440, 768 and
+  390 px side by side; a hash (`__dev/preview#tv`) opens every frame at that section, and
+  `__dev/preview?clean` passes `?clean` on. The dev client is injected into served pages only and is never
+  part of a build. Stop it with Ctrl+C.
+- `record.mjs` is a dev tool (headless Chrome or Edge, ffmpeg) that writes `<out>.mp4` and `<out>.gif`. Options:
+  `--at <selector>`, `--crop`, `--seconds`, `--width`, `--height`, `--reduced-motion`, `--browser <path>`,
+  `--from-load` (record from before the page loads, and scroll to `--at` smoothly once recording runs), and
+  `--hover <selector>` (sweep the pointer across the matches). Recordings never go in the repo.
 
 Environment: `SITE_GITHUB_API` replaces the GitHub API base (tests, local use); `GITHUB_TOKEN` (or
 `GH_TOKEN`) is sent only to `https://api.github.com`.
+
+## The preview loop
+
+1. Start `node site/tools/site.mjs dev --offline` in the background.
+2. Open the page and `__dev/preview` in Chrome.
+3. Edit `site/page/` and watch the frames reload.
+4. Read timed states with JavaScript (classes, computed styles, `document.getAnimations()`); screenshots lag.
+5. Record motion with `record.mjs` (add `?clean` to the URL so the dev panel stays out of the shot).
+6. Finish with `build` and `check`.
+
+## What `check` enforces
+
+Every check runs and every problem is reported in one run.
+
+| Check | Rule |
+|-------|------|
+| `entry` | `index.html` exists. |
+| `weight` | Budgets: 400 KB a file, 3 MB in all, 500 KB for the first screen (`index.html`, its stylesheets and scripts, their `url()`s, icons and preloads, and every image not `loading="lazy"`). |
+| `links` | Every local `src`, `href`, `srcset` candidate and CSS `url()` resolves to a built file; no root-absolute URL (it breaks under `/TeensyROM-Suite/`). |
+| `https` | No `http://` URL (the SVG namespace excepted). |
+| `images` | Every `<img>` has `alt` (empty for decoration) and numeric `width` and `height`. |
+| `h1` | Exactly one `<h1>`. |
+| `csp` | The exact content policy `<meta>` and the referrer policy; no `<style>`, inline `<script>`, `style=` or `on…=` attribute. |
+| `dev` | Nothing mentions `__dev`. |
+| `release` | Each region appears once; all regions share one state and tag; a stamped region shows its tag; no `{{` or source marker is left; every download link sits under the shown tag. |
+| `version` | No hand-written version outside release regions, comments and SVG. |
+| `head` | `<html lang>`, `<title>`, description and `og:title`, `og:description`, `og:image`, `og:url` (equal to the site URL). |
+| `external` | Every link to another origin has `rel="noreferrer"`. |
+| `wording` | In visible text, `<title>`, meta descriptions, `og:*`, `twitter:*`, and `alt`, `aria-label` and `title` attributes: never "Claude" or "Anthropic", and no internal project name such as `ASID-DJ-12`. Write licence names in words ("SIL Open Font License"), not ids. |
 
 ## Release regions
 

@@ -3,7 +3,8 @@ import fs from 'node:fs';
 import path from 'node:path';
 import { parseArgs } from 'node:util';
 import { buildSite } from './lib/build.mjs';
-import { SiteError } from './lib/config.mjs';
+import { checkExternalLinks, checkSite, readSiteFiles } from './lib/check.mjs';
+import { SiteError, paths } from './lib/config.mjs';
 import {
   decideGate,
   fetchReleases,
@@ -11,11 +12,14 @@ import {
   readPropsVersion,
   selectRelease,
 } from './lib/releases.mjs';
+import { DEFAULT_PORT, startSiteServer } from './lib/serve.mjs';
 
 const USAGE = `usage: node site/tools/site.mjs <command>
 
   build [--offline] [--src <dir>] [--out <dir>]   build the page, stamped with the newest release
-  gate                                            print publish=true|false for the Pages workflow`;
+  gate                                            print publish=true|false for the Pages workflow
+  check [--out <dir>] [--external]                check the build (--external also asks the network about links)
+  dev [--port <n>] [--offline] [--src <dir>]      serve the page with live reload and a three-width preview`;
 
 class UsageError extends Error {}
 
@@ -37,26 +41,28 @@ function parse(args, options) {
   }
 }
 
+/**
+ * Looks the newest usable release up, logging what was passed over.
+ * @returns {Promise<{ release: object | null, kept: string }>} `kept` says why the fallback stays.
+ */
+async function lookupRelease() {
+  const fetched = await fetchReleases(githubApi());
+  if (!fetched.ok) {
+    console.warn(`warning: cannot read releases: ${fetched.reason}`);
+    return { release: null, kept: fetched.reason };
+  }
+  const picked = selectRelease(fetched.releases);
+  for (const reason of picked.passedOver) console.log(`passed over: ${reason}`);
+  return picked.release ? { release: picked.release, kept: '' } : { release: null, kept: picked.fallback };
+}
+
 async function build(args) {
   const opts = parse(args, {
     offline: { type: 'boolean' },
     src: { type: 'string' },
     out: { type: 'string' },
   });
-  let release = null;
-  let kept = 'offline';
-  if (!opts.offline) {
-    const fetched = await fetchReleases(githubApi());
-    if (fetched.ok) {
-      const picked = selectRelease(fetched.releases);
-      for (const reason of picked.passedOver) console.log(`passed over: ${reason}`);
-      if (picked.release) release = picked.release;
-      else kept = picked.fallback;
-    } else {
-      kept = fetched.reason;
-      console.warn(`warning: cannot read releases: ${fetched.reason}`);
-    }
-  }
+  const { release, kept } = opts.offline ? { release: null, kept: 'offline' } : await lookupRelease();
   const { out } = buildSite({
     ...(opts.src && { src: path.resolve(opts.src) }),
     ...(opts.out && { out: path.resolve(opts.out) }),
@@ -85,7 +91,74 @@ async function gate(args) {
   return 0;
 }
 
-const COMMANDS = { build, gate };
+const kib = (bytes) => (bytes / 1024).toFixed(1);
+
+/** Prints `PASS/FAIL  <title>` and one `- <problem>` line per problem. */
+function printChecks(checks) {
+  for (const check of checks) {
+    console.log(`${check.ok ? 'PASS' : 'FAIL'}  ${check.title}`);
+    for (const problem of check.problems) console.log(`  - ${problem}`);
+  }
+}
+
+function printLinkTable(results) {
+  const width = Math.max(0, ...results.map((r) => r.url.length));
+  console.log('\nexternal links');
+  for (const r of results) console.log(`  ${r.url.padEnd(width)}  ${r.ok ? 'ok  ' : 'FAIL'}  ${r.detail}`);
+}
+
+async function check(args) {
+  const opts = parse(args, { out: { type: 'string' }, external: { type: 'boolean' } });
+  const files = readSiteFiles(opts.out ? path.resolve(opts.out) : paths.buildDir);
+  const result = checkSite(files);
+  const checks = [...result.checks];
+  let linkResults = null;
+  if (opts.external) {
+    const external = await checkExternalLinks(files);
+    linkResults = external.results;
+    checks.push(external);
+  }
+  printChecks(checks);
+  if (linkResults) printLinkTable(linkResults);
+  const passed = checks.filter((c) => c.ok).length;
+  const counted = passed === checks.length ? `${passed}` : `${passed} of ${checks.length}`;
+  console.log(
+    `\n${counted} checks passed (${result.files} files, ${kib(result.bytes)} KB, first screen ${(result.firstScreenBytes / 1000).toFixed(1)} KB)`,
+  );
+  if (checks.every((c) => c.ok)) return 0;
+  console.error('hint: Fix site/page/, then run build and check again.');
+  return 1;
+}
+
+async function dev(args) {
+  const opts = parse(args, { port: { type: 'string' }, offline: { type: 'boolean' }, src: { type: 'string' } });
+  const port = opts.port === undefined ? DEFAULT_PORT : Number(opts.port);
+  if (!Number.isInteger(port) || port < 0 || port > 65535) {
+    throw new UsageError(`--port must be a whole number from 0 to 65535, got "${opts.port}"`);
+  }
+  const { release, kept } = opts.offline ? { release: null, kept: 'offline' } : await lookupRelease();
+  const server = await startSiteServer({
+    ...(opts.src && { src: path.resolve(opts.src) }),
+    release,
+    port,
+    log: {
+      ok: (message) => console.log(message),
+      warn: (message) => console.warn(`warning: ${message}`),
+      error: (message) => console.error(`error: ${message}`),
+    },
+  });
+  console.log(release ? `stamped ${release.tag}` : `fallback markup (${kept})`);
+  console.log(`page     ${server.url}`);
+  console.log(`preview  ${server.previewUrl}`);
+  console.log('Ctrl+C to stop.');
+  await new Promise((resolve) => {
+    for (const signal of ['SIGINT', 'SIGTERM']) process.once(signal, resolve);
+  });
+  await server.close();
+  return 0;
+}
+
+const COMMANDS = { build, gate, check, dev };
 
 /**
  * Runs the CLI. Exit codes: 0 ok, 1 failure, 2 usage error.
