@@ -160,7 +160,11 @@ test('dev.js and dev.css are served; the font trial uses absolute dev URLs', asy
     assert.ok(js.body.includes('/TeensyROM-Suite/__dev/fonts/'));
     assert.ok(js.body.includes('trom-site-dev-font'));
     assert.match((await request(server, `${PAGE}__dev/dev.css`)).headers['content-type'], /^text\/css/);
-    assert.equal((await request(server, `${PAGE}__dev/fonts/fonts.json`)).status, 404);
+    const fonts = await request(server, `${PAGE}__dev/fonts/fonts.json`);
+    assert.equal(fonts.status, 200);
+    assert.match(fonts.headers['content-type'], /^application\/json/);
+    const list = JSON.parse(fonts.body);
+    assert.ok(Array.isArray(list) && list.length > 0);
   } finally {
     await server.close();
   }
