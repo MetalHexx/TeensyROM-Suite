@@ -1,0 +1,28 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <title>Fixture page</title>
+  <link rel="stylesheet" href="css/site.css">
+</head>
+<body>
+  <section id="hero">
+    <!-- release:hero:fallback -->
+    <a href="https://github.com/MetalHexx/TeensyROM-Suite/releases">See the releases</a>
+    <!-- release:hero:stamped -->
+    <p class="release">{{tag}} <time datetime="{{date}}">{{dateText}}</time></p>
+    <a href="{{windows.url}}" title="{{version}}">Windows {{windows.size}}</a>
+    <!-- release:hero:end -->
+  </section>
+  <section id="get">
+    <!-- release:get:fallback -->
+    <a href="https://github.com/MetalHexx/TeensyROM-Suite/releases">All downloads</a>
+    <!-- release:get:stamped -->
+    <a href="{{windows.url}}">Windows {{windows.size}}</a>
+    <a href="{{linux.url}}">Linux {{linux.size}}</a>
+    <a href="{{pi.url}}">Raspberry Pi {{pi.size}}</a>
+    <a href="{{releaseUrl}}">Release notes</a>
+    <!-- release:get:end -->
+  </section>
+</body>
+</html>
