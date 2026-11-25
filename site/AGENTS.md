@@ -85,10 +85,11 @@ Every check runs and every problem is reported in one run.
 
 | Path | What |
 |------|------|
-| `index.html` | The whole page: head, skip link, sticky header, `<main>` (hero, then `#get`), footer. Holds the inline-SVG art (`#cart-art`, `#voices-art`). |
-| `css/site.css` | Tokens, base, components, header, hero, footer, keyframes, reduced motion, in that order. |
-| `js/site.js` | Adds the `js` class, scroll reveal, the cursor-following card glow, cursor blinking in view, the cartridge's replay on hover. Progressive: the page reads without it. |
+| `index.html` | The whole page: head, skip link, sticky header, `<main>` (hero, `#trom-ui`, then `#get`), footer. Holds the inline-SVG art (`#cart-art`, `#voices-art`). |
+| `css/site.css` | Tokens, base, components, header, hero, the TV, footer, keyframes, reduced motion, in that order. |
+| `js/site.js` | Adds the `js` class, scroll reveal, the cursor-following card glow, cursor blinking in view, the cartridge's replay on hover, the TV and its video facades. Progressive: the page reads without it. |
 | `img/` | `icon.svg` (the header icon, 16 cells), `favicon-32.png`, `apple-touch-icon.png`, `og-card.png`, `glow.svg` (the Web UI's background glows, fixed behind the page). |
+| `img/tv/` | The TV's pictures: three video posters and seven screenshots, WebP. See "Images". |
 | `fonts/` | The self-hosted pixel font (Web437 IBM VGA 8x16) and its licence file; see "The pixel font". |
 
 Rules for every file in `page/`:
@@ -96,7 +97,8 @@ Rules for every file in `page/`:
 - Relative URLs for the page's own files (`css/site.css`, never `/css/...`). Docs are absolute
   `https://github.com/MetalHexx/TeensyROM-Suite/blob/main/docs/...` links. Every external link has `rel="noreferrer"`.
 - Keep the CSP meta. No inline `<style>`, `<script>` or `style=""`; JS styles only through classes and CSS
-  custom properties (it may set `hidden`, `aria-*`, `loading`, text, and insert the YouTube iframe on a click).
+  custom properties (it may set `hidden`, `aria-*`, `loading`, text, build the video play buttons, and insert the YouTube
+  iframe on a click).
 - Only `transform`, `opacity` and `filter` animate. Anything that moves by itself can be paused and stays still
   under `prefers-reduced-motion: reduce`. A one-off entrance under five seconds that then rests needs no pause.
 - Every `<img>` has `alt`, `width` and `height`. One `<h1>`.
@@ -139,7 +141,65 @@ page (same parts, its own look): pink and purple are the brand here, ReBeep's li
   box so a mascot can replace it without moving the layout.
 - **Shared parts.** `.wrap`; `.sechead` with an eyebrow number `01`..`06`; `.card` with `data-glow` (the glow
   follows the cursor through `--mx`/`--my`); `.tags`; `.btn--primary` and `.btn--ghost`; `.link-arrow`;
-  `[data-reveal]` fade-and-rise for elements below the first screen only; `.cursor`.
+  `[data-reveal]` fade-and-rise for elements below the first screen only; `.cursor`; `.monitor` with `.tv__*` (the
+  TV, see "The TV").
+
+### The TV
+
+Section 02 (`#trom-ui`) is built around a physical CRT, `<div class="monitor tv" id="tv">`: dark plum plastic with a
+magenta and cyan glow, a 16:9 screen, a chin with the "TeensyROM" badge, prev / next / pause buttons and a power
+LED, and a stand. It changes channel by itself between its pictures. The cards, the section head and the two docs
+links sit around it.
+
+**Channels.** Each is a `.tv__ch` inside `#tv-channels` with `role="group"`, `aria-roledescription="slide"` and
+`aria-label="n of N: …"` (today N is 10); every one but the first has `hidden`. Today, in order:
+
+| # | Channel | Picture |
+|---|---------|---------|
+| 1 to 3 | Video: Mix Preview, Scratch / Beat Juggle Preview, CRX 2026 Interview | `mix-preview.webp`, `scratch-preview.webp`, `crx-interview.webp` (posters) |
+| 4 to 10 | The player, the DJ Mixer, CRT effects, full screen, file transfer, watch folders, themes | `player`, `dj-mixer`, `crt-effects`, `full-screen`, `file-transfer`, `watch-folders`, `themes` (`.webp`; all but `themes` also have a `-960.webp` copy) |
+
+**Add, remove or reorder a channel.** Only `index.html` lists the channels: `site.js` and `site.css` count them from
+the DOM, and the on-screen number (`CH 01` to `CH 10`) is the channel's position.
+
+1. Copy a block of the same kind. A screenshot is `<figure class="tv__ch">` holding `<img class="tv__img">`; a video
+   is `<div class="tv__ch video">` (see "Video facade").
+2. Put it where it belongs (the order in the file is the order on the TV), or delete or move a block.
+3. Renumber every `aria-label` (`n of N`: both the position and the total). Keep `hidden` on every channel but the
+   first.
+4. A new picture follows "Images": WebP in `img/tv/`, `loading="lazy"`, `width` and `height`, alt text.
+5. `data-hold` (ms) on a channel overrides the 4.5 s default. Videos use 7000.
+6. Check in the dev server: every channel shows through one full loop and the network log shows no picture before its
+   channel is next. Removing a channel? Delete its image from `img/tv/` too.
+
+The 460 ms switch-off and 420 ms switch-on in `site.js` (`OFF`, `ON`) mirror the `crt-off-*` and `crt-on-*`
+keyframes in `site.css`; change them together.
+
+**Behaviour.** A change is a CRT switch-off (`is-off`), a dark beat (`is-dark`) and a switch-on with a slight
+overshoot and bloom (`is-on`), with a channel-number OSD that pops up and fades. The buttons are hidden until JS
+runs; pause is hidden under reduced motion, where a button changes channel instantly with no effect. The TV holds
+still on mouse hover and keyboard focus (not on tap), off screen (an observer at 0.3), in a hidden tab, under reduced
+motion, while paused and while a video plays. `aria-live` is `polite` only for changes by hand or while paused. A
+channel's picture loads only when it is next (`loading="lazy"`, set to `eager` one channel ahead and when the TV
+first comes into view); nothing is requested from another origin until a play button is pressed. Only `transform`,
+`opacity` and `filter` animate. Without JS the first channel shows, still, with its link.
+
+**Video facade.** Every video channel is its own facade:
+
+- The HTML carries the stored poster (`<img class="video__img">`, lazy, with alt) in `.video__stage` and a plain link
+  `https://www.youtube.com/watch?v=<id>` (`rel="noreferrer"`) in the channel, outside the frame, always shown, so a
+  video that cannot load (YouTube blocked or down) still has a way to it. `data-video-id` and `data-video-title`
+  hold the id and the title.
+- `site.js` validates the id against `/^[A-Za-z0-9_-]{11}$/` (no match, no play button; the poster and the link stay)
+  and wraps the poster in a `<button>` labelled "Play video: <title>" with a pixel play icon.
+- On click it replaces the poster with an iframe on `https://www.youtube-nocookie.com/embed/<id>?autoplay=1&rel=0&cc_load_policy=1`,
+  `title` = the video title, `allow="autoplay; encrypted-media; picture-in-picture; fullscreen"`, `allowfullscreen`
+  and `referrerpolicy="strict-origin-when-cross-origin"` (YouTube fails with error 153 without a referrer), and
+  focuses it. The CSP's `frame-src` lets in only `youtube-nocookie.com`.
+- While a video plays the TV never changes channel by itself. Previous and next stay available; changing channel
+  stops the video (the iframe is removed and the poster facade comes back) and the automatic changes resume unless
+  paused.
+- The page never requests YouTube images: the poster is a stored copy (see "Images").
 
 ### The pixel font
 
@@ -179,6 +239,56 @@ headless Chrome. The social card's source is `site/tools/art/og-card.html` (it l
 ```
 
 To shrink a PNG: `ffmpeg -i in.png -compression_level 100 out.png`; keep the result only when it is smaller.
+
+### Images
+
+The page's screenshots and video posters are WebP files, made from the app's own pictures in `.github/images/`
+(the TV's live in `page/img/tv/`, named for what they show, never for a game or a tune). To make or remake one so
+the release step can swap a picture without any other notes:
+
+1. **Look first** (see "The privacy look" below), and cover what needs covering in the source picture.
+2. **Resize and compress** (ffmpeg with libwebp):
+   `ffmpeg -i in.png -vf scale=1920:-2:flags=lanczos -c:v libwebp -quality 82 -compression_level 6 out.webp`.
+   Never wider than the source (a 1200 px source such as `themes.png` keeps 1200). `-2` rounds the height to an
+   even number, so read the real size from the result (`ffprobe -v error -show_entries stream=width,height -of csv=p=0 out.webp`).
+   The TV's screen is about 960 CSS px wide on a desktop, so 1920 keeps the app's text sharp at 2x density (1600 is
+   the least that stays legible there). Tune the width and quality until the text stays legible on the TV at 1440
+   px and 390 px.
+   Each screenshot also has a 960 px copy (`scale=960:-2`, same recipe, `<name>-960.webp`) for phones at 2x and
+   desktops at 1x; the `<img>` lists both: `srcset="img/tv/<name>-960.webp 960w, img/tv/<name>.webp 1920w"` and
+   `sizes="(min-width: 768px) 960px, 96vw"`, with `src` and `width` / `height` those of the larger file.
+3. **Budget**: under 400 KB a file (`check` enforces it), the whole build under 3 MB.
+4. **Markup**: `loading="lazy"` with `width` and `height` that match the file, and alt text saying what it shows at
+   feature level.
+
+**Video posters** are stored copies; the page never requests YouTube images. Fetch the video's thumbnail once,
+`https://i.ytimg.com/vi/<id>/maxresdefault.jpg` (`hqdefault.jpg` when there is no max resolution), and store it
+as WebP at about 1280 x 720 with the same recipe (`scale=1280:720`, `-quality 80`). They are the videos' public
+thumbnails, kept as published apart from the covers below.
+
+**The privacy look.** Before any picture ships, open it at full size and zoom in on every part. Look for private IP
+addresses, local paths with a user name, tokens, e-mail addresses, device names and serial numbers, and any other
+personal data. Cover what you find in the *source* picture, before scaling, with a filled box in the colour around
+it (sample the surroundings), for example `-vf "drawbox=x=<x>:y=<y>:w=<w>:h=<h>:color=0x<hex>:t=fill,scale=1600:-2:flags=lanczos"`,
+and add a line to the covers list. Version numbers shown in the app's header are accepted for now.
+
+**Covers.** One line per site image that carries a cover: what is covered and where (pixels in the source picture).
+A cover goes on every size made from that source. Add to this list whenever a cover is added or a picture is remade.
+
+- `file-transfer.png` (`img/tv/watch-folders.webp`): a grey box over a private path at the top of the Watch Folders
+  list, already in the source (kept as is); a USB serial number under "TR-2" in the device picker, 92 x 22 at 184, 578
+  (`#230d25`).
+- `file-transfer-details.png` (`img/tv/file-transfer.webp`): a USB serial number under "TR-1" in the device picker,
+  84 x 22 at 167, 527 (`#2c1a2c`). A transfer row behind the dialog is blurred in the source (kept as is).
+- `dj-mixer.png` (`img/tv/dj-mixer.webp`): the USB serial numbers in both deck pickers, 64 x 18 at 374, 796 and
+  66 x 18 at 2080, 796 (`#08060a`).
+- `crt-emulation.png` (`img/tv/crt-effects.webp`): a device name in the dimmed device tree at the lower left,
+  100 x 22 at 148, 866 (`#050205`).
+- Video posters `mix-preview.webp` (from `PjhqYkmsScg`) and `scratch-preview.webp` (from `xoJBOEPB5IY`): the USB
+  serial numbers in the deck pickers at the foot of the frame, boxes 38 x 12 at 196, 699 and 44 x 12 at 1082, 699 in the
+  first, 32 x 11 at 171, 565 and 30 x 11 at 987, 565 in the second (colours sampled around each, about `#0d0a10`).
+  `crx-interview.webp` (from `ACT5R9AYFKA`) shows the same pickers only as an unreadable blur, and the presenter's
+  name as the video's own caption.
 
 ## Release regions
 
