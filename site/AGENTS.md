@@ -435,6 +435,10 @@ non-draft release with a SemVer tag, packages or not), so the page never gets ah
 download. With no published release the gate holds. Known limit: once a stable release exists,
 publishing a newer pre-release clears the hold although the page keeps showing the stable release.
 
+## How the page stays current
+
+App changes reach the page through the release process: the `release` skill's product page step decides what each release needs on the page, and it merges with the release. A page-only fix can merge any time and publishes on its own, held only while a release is being prepared (see "Publishing").
+
 ## Publishing
 
 `.github/workflows/pages.yml` publishes `site/build/` to `https://metalhexx.github.io/TeensyROM-Suite/`. Three triggers:
