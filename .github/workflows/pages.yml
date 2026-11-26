@@ -1,0 +1,93 @@
+name: Pages
+
+# Publishes the product page in site/ to GitHub Pages, and never gets ahead of the download.
+#
+# ReBeep's trigger (workflow_run of its release workflow alone) doesn't carry over. Here release.yml
+# runs on a v* tag push, not on pushes to main, so a workflow_run of it can't be filtered to main, and
+# page-only fixes need their own push trigger on site/**. The release's version bump merges to main
+# before the tag is pushed, so a page change in that merge must wait for the release: the gate (see
+# "Publish gate" in site/AGENTS.md) holds while src/apps/Version.props is ahead of the newest published
+# release. A release made with the built-in token starts no other workflow, which is why workflow_run
+# is the after-release trigger. The Release workflow's own conclusion does not gate this job; the gate
+# reads which releases actually exist.
+#
+# workflow_run and workflow_dispatch use the copy of this file on main, so these triggers can't be
+# tried from a pull request. The first real run is the merge.
+on:
+  workflow_run:
+    workflows: [Release]
+    types: [completed]
+  push:
+    branches: [main]
+    paths:
+      - 'site/**'
+      - '.github/workflows/pages.yml'
+  workflow_dispatch: # re-publishes by hand; only main can publish
+
+permissions:
+  contents: read
+
+concurrency:
+  group: pages
+  cancel-in-progress: false # a deploy in flight finishes; the newest queued one runs next
+
+jobs:
+  build:
+    name: build
+    # Also true for workflow_run, which runs on the default branch.
+    if: github.ref == 'refs/heads/main'
+    runs-on: ubuntu-latest
+    outputs:
+      publish: ${{ steps.gate.outputs.publish }}
+    steps:
+      - name: Checkout
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+
+      - name: Setup Node
+        uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
+        with:
+          node-version: 22
+
+      # A hold ends green with the gate's notice. A failed release lookup fails the job (re-run it) and
+      # leaves the live page as it was.
+      - name: Gate
+        id: gate
+        env:
+          GITHUB_TOKEN: ${{ github.token }}
+        run: node site/tools/site.mjs gate
+
+      - name: Build the site and stamp the latest release
+        if: steps.gate.outputs.publish == 'true'
+        env:
+          GITHUB_TOKEN: ${{ github.token }}
+        run: node site/tools/site.mjs build
+
+      - name: Check the site
+        if: steps.gate.outputs.publish == 'true'
+        run: node site/tools/site.mjs check
+
+      - name: Configure Pages
+        if: steps.gate.outputs.publish == 'true'
+        uses: actions/configure-pages@45bfe0192ca1faeb007ade9deae92b16b8254a0d # v6.0.0
+
+      - name: Upload the site
+        if: steps.gate.outputs.publish == 'true'
+        uses: actions/upload-pages-artifact@fc324d3547104276b827a68afc52ff2a11cc49c9 # v5.0.0
+        with:
+          path: site/build
+
+  deploy:
+    name: deploy
+    needs: build
+    if: needs.build.outputs.publish == 'true'
+    runs-on: ubuntu-latest
+    permissions:
+      pages: write
+      id-token: write
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    steps:
+      - name: Deploy to GitHub Pages
+        id: deployment
+        uses: actions/deploy-pages@368f82528645a54fb793d4d04e342629a3f51346 # v5.0.1

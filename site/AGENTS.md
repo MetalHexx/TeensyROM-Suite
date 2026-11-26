@@ -434,3 +434,39 @@ A publish may go out only when `Version.props` is not ahead of the newest publis
 non-draft release with a SemVer tag, packages or not), so the page never gets ahead of the
 download. With no published release the gate holds. Known limit: once a stable release exists,
 publishing a newer pre-release clears the hold although the page keeps showing the stable release.
+
+## Publishing
+
+`.github/workflows/pages.yml` publishes `site/build/` to `https://metalhexx.github.io/TeensyROM-Suite/`. Three triggers:
+
+- `workflow_run` of `Release` completing: the after-release trigger. A release made with the built-in token starts no other
+  workflow, and the release runs on a `v*` tag push, so it can't be filtered to `main`; the gate reads which releases exist, not
+  how that run ended.
+- `push` to `main` touching `site/**` or `pages.yml`: page-only fixes.
+- `workflow_dispatch`: re-publish by hand (only `main` can publish).
+
+The hold: the gate (`node site/tools/site.mjs gate`, see "Publish gate") ends the job green with a notice while `Version.props`
+is ahead of the newest published release, so a page change in a release's version-bump merge waits for the release. A hold skips
+the build and the deploy.
+
+`.github/workflows/pr-site-checks.yml` runs the site tests, an offline build and `check` on every pull request that touches
+`site/**` or either workflow.
+
+Owner's one-time setup:
+
+- Settings -> Pages -> Source "GitHub Actions", before the first merge of this work. Otherwise the first run fails at
+  `configure-pages`.
+- The repo's homepage link, set only when the user agrees:
+  `gh repo edit MetalHexx/TeensyROM-Suite --homepage https://metalhexx.github.io/TeensyROM-Suite/`
+
+Actions: `actions/checkout` and `actions/setup-node` were already used here; the other three, `actions/configure-pages`,
+`actions/upload-pages-artifact` and `actions/deploy-pages`, were added with the Pages workflow because they are the first-party
+way to deploy Pages from Actions. All five are pinned to the full commit SHA of their release tag, with the tag in a trailing
+comment (look up a tag with `gh api repos/<owner>/<repo>/git/ref/tags/<tag>`; dereference an annotated tag to its commit).
+
+Pitfalls:
+
+- Pages serves under `/TeensyROM-Suite/`, so a root-absolute URL (`/img/...`) breaks live. Use relative URLs; `check` catches them.
+- `workflow_run` and `workflow_dispatch` use the copy of the workflow on `main`, so the triggers can't be tried from a pull
+  request. The first real run is the merge.
+- A failed release lookup fails the run (re-run it) and leaves the live page as it was.
