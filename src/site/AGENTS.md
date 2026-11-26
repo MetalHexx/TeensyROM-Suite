@@ -218,7 +218,7 @@ when the TV first comes into view); nothing is requested from another origin unt
   video that cannot load (YouTube blocked or down) still has a way to it. `data-video-id` and `data-video-title`
   hold the id and the title.
 - A caption at the bottom centre gives the video's subtitle (the part of YouTube's title after the main title, in the pixel
-  face at 16 px, 32 px from a 700 px TV). The full title stays in `data-video-title`, which names the play button. It is hidden
+  face, the section headings' size: 32 px, 48 px from a 700 px TV). The full title stays in `data-video-title`, which names the play button. It is hidden
   while the video plays.
 - `site.js` validates the id against `/^[A-Za-z0-9_-]{11}$/` (no match, no play button; the poster and the link stay)
   and wraps the poster in a `<button>` labelled "Play video: <title>" with a pixel play icon.
