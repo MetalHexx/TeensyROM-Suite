@@ -80,16 +80,6 @@ body {
   overflow-x: clip;
 }
 
-/* the Web UI's soft magenta and cyan glows, fixed behind the page */
-body::before {
-  content: "";
-  position: fixed;
-  inset: 0;
-  z-index: -1;
-  background: url("../img/glow.svg") center / 100% 100% no-repeat;
-  pointer-events: none;
-}
-
 @media (min-width: 768px) {
   body { font-size: 18px; }
 }
