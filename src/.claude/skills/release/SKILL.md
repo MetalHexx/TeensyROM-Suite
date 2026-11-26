@@ -1,6 +1,6 @@
 ---
 name: release
-description: Release TeensyROM Suite - version bump, CHANGELOG notes, Package Test, tag, GitHub Release checks, and publishing Trom Agent to tr-plugin-marketplace
+description: Release TeensyROM Suite - version bump, CHANGELOG notes, the product page, Package Test, tag, GitHub Release checks, and publishing Trom Agent to tr-plugin-marketplace
 user-invocable: true
 disable-model-invocation: true
 ---
@@ -26,7 +26,7 @@ This skill releases TeensyROM Suite: it bumps the version, writes the release no
 
 ### Step 1: Bump Version and Write the Notes
 
-When `Version.props`, the plugin version and the `CHANGELOG.md` section already carry the version (as for `1.0.0-beta.1`), go to Step 2.
+When `Version.props`, the plugin version and the `CHANGELOG.md` section already carry the version (as for `1.0.0-beta.1`), skip the bump and the notes and go on to *Update the product page*, then Step 2.
 
 Ask the user for the new version number, then update the `<Version>` element in the shared version file. It stamps both the engine (`TeensyRom.Api`) and the CLI (`TeensyRom.Cli`), so there is one place to bump:
 
@@ -92,13 +92,23 @@ Docs: https://github.com/MetalHexx/TeensyROM-Suite/blob/main/docs/getting-starte
 
 When a feature in the notes is missing from `docs/` or the README, or the docs describe something that has changed, update them in the same PR. Keep them high level, like the rest of each page: what a feature lets you do and where to find it, in a sentence or two. Leave out internals, numbers and ranges, edge cases, and labels a user doesn't need. User docs describe features only: no troubleshooting, tips, roadmap or known issues.
 
+#### Update the product page
+
+Take every user-facing change since the last release (the same list the changelog is written from) and decide what the page in `src/site/page/` needs: a card, a section, a screenshot, the How it works diagram, the DJ Mixer rig, a TV channel, or the Get it facts. The [product-page skill](../product-page/SKILL.md) holds the bar and the procedure for any page edit. Page edits follow the rules in `src/site/AGENTS.md`: features only, at feature level, no internal project names, no counts that go stale, no version written by hand, and the AI tool Trom Agent runs in is never named.
+
+- Show the changes on the local preview: start `node src/site/tools/site.mjs dev --offline` in the background, then open `http://127.0.0.1:8087/TeensyROM-Suite/` and `__dev/preview` (three widths side by side). Get the user's approval, stop the preview server this step started (the background process, by its PID), then run `node src/site/tools/site.mjs build && node src/site/tools/site.mjs check`.
+- "No page change needed" is a stated outcome in the release PR description, never a skipped step.
+- When a changed feature has made a screenshot on the page wrong, say which one and ask the user for a new one. Make the site's copy by the recipe, privacy look and covers list in the Images section of `src/site/AGENTS.md`.
+- The page changes merge with the release PR and go live when the release is published, not before: the Pages workflow holds while `src/apps/Version.props` is ahead of the newest release, and publishes when the release workflow finishes.
+- The version, the date and the download links on the page are stamped by the Pages build from the newest release, never written by hand. Two things make that happen: Settings → Pages has Source set to GitHub Actions (`gh api repos/MetalHexx/TeensyROM-Suite/pages` answers, not 404), and `.github/workflows/pages.yml` is on `main`. Check both before the release is cut.
+
 #### Open the release PR
 
 Put the doc updates, the version bump and the notes on a release branch, and open a PR so the user can review them on GitHub:
 
 ```bash
 git switch -c release/{version} origin/main
-git add docs/ README.md        # the doc updates, if any
+git add docs/ README.md src/site/  # the doc and product page updates, if any
 git commit -m "docs: ..."
 git add src/apps/Version.props src/plugins/trom-agent/claude/.claude-plugin/plugin.json src/plugins/trom-agent/claude/skills/trom/SKILL.md CHANGELOG.md
 git commit -m "chore: bump version to {version}"
@@ -106,7 +116,7 @@ git push -u origin release/{version}
 gh pr create -R MetalHexx/TeensyROM-Suite --base main --head release/{version} --title "Release {version}: changelog, version bump and docs" --body-file <file>
 ```
 
-The PR description lists the notes' sections and the docs it touches, at the same level as the notes. Fold the user's corrections into the branch, and go to Step 2 once they have merged it.
+The PR description lists the notes' sections and the docs it touches, at the same level as the notes, and names the product page changes or says none were needed. Fold the user's corrections into the branch, and go to Step 2 once they have merged it.
 
 ### Step 2: Run Package Test on main
 
@@ -163,6 +173,7 @@ bash .github/scripts/changelog-section.sh {version} > notes.md && gh release edi
 3. Download one package from the release page and smoke-test it. Point `TEENSYROM_DATA_DIR` at a temp folder, unpack, run `cli/trom --version` (prints `trom {version}`) and `cli/trom ui --no-open --json`, then `cli/trom api stop`.
 4. From an older install, `trom update --check` reports the new release. On `1.0.0-beta.1`, the first release with `trom update`, run it on the new install instead: it reports current.
 5. On a Mac with Homebrew: `brew update && brew upgrade teensyrom-suite`, then `trom --version`.
+6. The product page: once the release workflow finishes, the `Pages` workflow runs. Find it with `gh run list -R MetalHexx/TeensyROM-Suite --workflow pages.yml -L 1` and wait for it to finish. Then `https://metalhexx.github.io/TeensyROM-Suite/` shows the release the page selects beside Download: the new version (except that a pre-release published after a stable release leaves the page on the newest stable), with its date, and the Windows, Linux and Raspberry Pi links download that release's packages. If the run failed on the release lookup, re-run it.
 
 ### Step 7: Publish Trom Agent to tr-plugin-marketplace
 
@@ -224,6 +235,7 @@ If you need to retry:
 ## Technical Details
 
 - Workflow file: `.github/workflows/release.yml` (jobs `validate`, `build`, `update-formula`, `release`). `build` calls the reusable `.github/workflows/build-packages.yml`, which builds Trom UI once and then one package per platform with `.github/scripts/package.sh`. `update-formula` runs `.github/scripts/update-formula.sh`, which sets the version and checksums and points the URLs at `TeensyROM-Suite`
+- Pages workflow: `.github/workflows/pages.yml` (triggers: `workflow_run` of Release, page-only pushes to `main`, and `workflow_dispatch`). It holds while `src/apps/Version.props` is ahead of the newest published release, so the product page goes live with the release
 - Version source: `src/apps/Version.props` (imported by the engine and the CLI projects)
 - Build platforms: win-x64, osx-x64, osx-arm64, linux-x64, linux-arm64
 - Build time: ~15-20 minutes (parallel matrix builds)
@@ -234,3 +246,4 @@ If you need to retry:
 
 - **Local test release** (no tagging/CI): the `release-local` skill (`.claude/skills/release-local/SKILL.md`)
 - **Packaging, the formula and the workflows in depth**: the `distribution` skill
+- **Product page, its preview loop and the Pages workflow**: `src/site/AGENTS.md`

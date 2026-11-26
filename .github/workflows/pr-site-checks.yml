@@ -1,0 +1,42 @@
+name: PR Site Checks
+
+on:
+  pull_request:
+    types: [opened, synchronize, reopened]
+    paths:
+      - 'src/site/**'
+      - '.github/workflows/pages.yml'
+      - '.github/workflows/pr-site-checks.yml'
+  workflow_dispatch:
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+
+jobs:
+  site-checks:
+    name: Site tests and checks
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+
+      - name: Setup Node
+        uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
+        with:
+          node-version: 22
+
+      - name: Tests
+        run: node --test "src/site/tools/test/**/*.test.mjs"
+
+      # Offline: a pull request never asks the GitHub API for the release; the page keeps its fallbacks.
+      - name: Build
+        run: node src/site/tools/site.mjs build --offline
+
+      - name: Check
+        run: node src/site/tools/site.mjs check

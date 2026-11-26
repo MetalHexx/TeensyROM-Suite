@@ -1,0 +1,655 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta http-equiv="Content-Security-Policy" content="default-src 'self'; img-src 'self'; style-src 'self'; script-src 'self'; font-src 'self'; frame-src https://www.youtube-nocookie.com; object-src 'none'; base-uri 'none'; form-action 'none'">
+  <meta name="referrer" content="strict-origin-when-cross-origin">
+  <title>TeensyROM Suite · Turn your Commodore 64 into a jukebox, arcade or DJ booth</title>
+  <meta name="description" content="Apps for the TeensyROM cartridge. Every game, demo, SID tune and image on your cart, a click, a command or a sentence away, all playing on your real Commodore 64. Free and open source.">
+  <meta name="theme-color" content="#151116">
+  <meta property="og:type" content="website">
+  <meta property="og:title" content="TeensyROM Suite · Your Commodore 64 as a jukebox, arcade or DJ booth">
+  <meta property="og:description" content="Apps for the TeensyROM cartridge: browse, stream, script and mix everything on your cart. It all plays on your real C64.">
+  <meta property="og:url" content="https://metalhexx.github.io/TeensyROM-Suite/">
+  <meta property="og:image" content="https://metalhexx.github.io/TeensyROM-Suite/img/og-card.png">
+  <meta property="og:image:width" content="1200">
+  <meta property="og:image:height" content="630">
+  <meta property="og:image:alt" content="A glowing pixel-art TeensyROM cartridge beside the headline: Turn your Commodore 64 into a jukebox, arcade or DJ booth.">
+  <meta name="twitter:card" content="summary_large_image">
+  <link rel="icon" type="image/png" sizes="32x32" href="img/favicon-32.png">
+  <link rel="apple-touch-icon" href="img/apple-touch-icon.png">
+  <link rel="preload" href="fonts/Web437_IBM_VGA_8x16.woff" as="font" type="font/woff" crossorigin>
+  <link rel="stylesheet" href="css/site.css">
+  <script src="js/site.js" defer></script>
+  <script src="js/rig.js" defer></script>
+</head>
+<body>
+  <a class="skip" href="#main">Skip to content</a>
+
+  <header class="topbar">
+    <div class="wrap topbar__in">
+      <div class="topbar__lead">
+        <a class="brand" href="./" aria-label="TeensyROM Suite home">
+          <img class="brand__mark" src="img/icon.svg" alt="" width="32" height="32">
+          <span class="brand__word"><span>TeensyROM</span> <span class="brand__suite">Suite</span></span>
+        </a>
+      </div>
+      <nav class="topnav" aria-label="Project">
+        <a class="topnav__link topnav__link--wide" href="https://github.com/MetalHexx/TeensyROM-Suite/blob/main/docs/README.md" rel="noreferrer">Docs</a>
+        <a class="topnav__link" href="https://github.com/MetalHexx/TeensyROM-Suite" rel="noreferrer">GitHub</a>
+        <a class="topnav__link" href="https://discord.com/invite/ubSAb74S5U" rel="noreferrer">Discord</a>
+      </nav>
+    </div>
+  </header>
+
+  <main id="main">
+
+    <!-- ============ HERO ============ -->
+    <section class="hero" aria-labelledby="hero-title">
+      <div class="hero__dots" aria-hidden="true"></div>
+      <div class="wrap hero__grid">
+        <div class="hero__copy">
+          <p class="eyebrow eyebrow--hero"><span class="pip" aria-hidden="true"></span>Apps for the TeensyROM cartridge</p>
+          <h1 class="hero__title" id="hero-title">Turn your Commodore 64 into a <span class="hl hl--cyan">jukebox</span>, <span class="hl hl--magenta">arcade</span> or <span class="hl hl--yellow">DJ booth</span>.</h1>
+          <p class="hero__lede">Every game, demo, SID tune and image on your cart, a click, a command or a sentence away. It all plays on your real C64.</p>
+
+          <!-- release:hero:fallback -->
+          <div class="hero__download" data-release="fallback">
+            <div class="hero__actions">
+              <a class="btn btn--primary" href="https://github.com/MetalHexx/TeensyROM-Suite/releases" rel="noreferrer">
+                <svg class="btn__icon" viewBox="0 0 16 16" aria-hidden="true" shape-rendering="crispEdges"><path fill="currentColor" d="M7 1h2v8h2v-1h1v1h1v1h-1v1h-1v1h-1v1H7v-1H6v-1H5v-1H4V9h1V8h1v1h1zM2 13h12v2H2z"/></svg>
+                <span class="btn__label">Download TeensyROM Suite</span>
+              </a>
+              <a class="link-arrow" href="https://github.com/MetalHexx/TeensyROM-Suite/blob/main/docs/getting-started.md" rel="noreferrer">Getting started <span aria-hidden="true">→</span></a>
+            </div>
+            <p class="release"><a href="https://github.com/MetalHexx/TeensyROM-Suite/releases" rel="noreferrer">See the releases on GitHub</a></p>
+          </div>
+          <!-- release:hero:stamped -->
+          <div class="hero__download" data-release="stamped">
+            <div class="hero__actions">
+              <a class="btn btn--primary" href="{{releaseUrl}}" rel="noreferrer">
+                <svg class="btn__icon" viewBox="0 0 16 16" aria-hidden="true" shape-rendering="crispEdges"><path fill="currentColor" d="M7 1h2v8h2v-1h1v1h1v1h-1v1h-1v1h-1v1H7v-1H6v-1H5v-1H4V9h1V8h1v1h1zM2 13h12v2H2z"/></svg>
+                <span class="btn__label">Download TeensyROM Suite</span>
+              </a>
+              <a class="link-arrow" href="https://github.com/MetalHexx/TeensyROM-Suite/blob/main/docs/getting-started.md" rel="noreferrer">Getting started <span aria-hidden="true">→</span></a>
+            </div>
+            <p class="release"><span class="release__version">{{tag}}</span> · <time datetime="{{date}}">{{dateText}}</time>
+              · <a href="{{windows.url}}" rel="noreferrer">Windows</a> · <a href="{{linux.url}}" rel="noreferrer">Linux</a>
+              · <a href="{{pi.url}}" rel="noreferrer">Raspberry Pi</a> · <a href="#get">macOS (Homebrew)</a></p>
+          </div>
+          <!-- release:hero:end -->
+        </div>
+
+        <div class="hero__art">
+          <div class="hero__halo" aria-hidden="true"></div>
+          <div class="cart">
+            <svg class="cart__svg" viewBox="0 0 56 62" width="224" height="248" role="img" aria-labelledby="cart-title cart-desc" shape-rendering="crispEdges">
+              <title id="cart-title">The TeensyROM cartridge</title>
+              <desc id="cart-desc">Pixel art of the TeensyROM cartridge, glowing. A purple circuit board carries a green Teensy 4.1, three black chips with a neon cyan script reading Suite across them, an Ethernet jack, a USB port and a reset button, with gold contacts along the bottom edge.</desc>
+              <g id="cart-art">
+                <path fill="#f1f4f8" d="M7 2h15v1h-15zM34 3h12v1h-12zM7 3h1v9h-1zM34 4h1v8h-1zM44 25h7v1h-7zM5 26h7v1h-7zM35 28h3v1h-3z"/>
+                <path fill="#c8cdd6" d="M8 3h2v1h-2zM20 3h2v1h-2zM9 4h1v2h-1zM20 4h1v2h-1zM8 6h2v5h-2zM20 6h2v5h-2zM35 4h1v7h-1zM45 4h1v7h-1zM8 11h1v1h-1zM21 11h1v1h-1zM44 26h7v1h-7zM6 27h6v1h-6zM24 27h1v1h-1zM8 28h4v1h-4zM44 27h6v2h-6zM9 29h3v1h-3zM35 29h3v1h-3zM8 30h4v1h-4zM44 29h2v2h-2zM49 29h1v2h-1zM6 31h6v1h-6zM44 31h6v1h-6zM44 32h7v1h-7z"/>
+                <path fill="#17171f" d="M10 3h10v1h-10zM36 4h9v1h-9zM10 4h1v2h-1zM19 4h1v2h-1zM36 5h1v3h-1zM44 5h1v3h-1zM10 6h10v3h-10zM10 9h3v1h-3zM17 9h3v1h-3zM36 8h9v2h-9zM5 27h1v1h-1zM5 28h3v3h-3zM5 31h1v1h-1zM50 27h1v5h-1z"/>
+                <path fill="#30283a" d="M11 4h8v1h-8zM37 5h7v2h-7zM38 7h1v1h-1zM40 7h1v1h-1zM42 7h1v1h-1zM23 26h8v1h-8zM25 29h4v1h-4zM5 38h10v1h-10zM18 38h10v1h-10zM31 38h10v1h-10zM6 39h2v1h-2zM19 39h2v1h-2zM32 39h2v1h-2zM7 41h4v1h-4zM20 41h6v1h-6zM33 41h5v1h-5z"/>
+                <path fill="#144a2c" d="M8 4h1v2h-1z"/>
+                <path fill="#e9b73b" d="M11 5h1v1h-1zM13 5h1v1h-1zM15 5h1v1h-1zM17 5h1v1h-1zM37 7h1v1h-1zM39 7h1v1h-1zM41 7h1v1h-1zM43 7h1v1h-1zM25 11h1v1h-1zM27 11h1v1h-1zM29 11h1v1h-1zM31 11h1v1h-1zM12 25h1v1h-1zM14 25h1v1h-1zM16 25h1v1h-1zM18 25h1v1h-1zM20 25h1v1h-1zM22 25h1v1h-1zM24 25h1v1h-1zM26 25h1v1h-1zM28 25h1v1h-1zM30 25h1v1h-1zM32 25h1v1h-1zM34 25h1v1h-1zM36 25h1v1h-1zM38 25h1v1h-1zM40 25h1v1h-1zM42 25h1v1h-1zM33 29h2v1h-2zM12 32h1v1h-1zM14 32h1v1h-1zM16 32h1v1h-1zM18 32h1v1h-1zM20 32h1v1h-1zM22 32h1v1h-1zM24 32h1v1h-1zM26 32h1v1h-1zM28 32h1v1h-1zM30 32h1v1h-1zM32 32h1v1h-1zM34 32h1v1h-1zM36 32h1v1h-1zM38 32h1v1h-1zM40 32h1v1h-1zM42 32h1v1h-1zM8 56h1v4h-1zM10 56h1v4h-1zM12 56h1v4h-1zM14 56h1v4h-1zM16 56h1v4h-1zM18 56h1v4h-1zM20 56h1v4h-1zM22 56h1v4h-1zM24 56h1v4h-1zM30 56h1v4h-1zM32 56h1v4h-1zM34 56h1v4h-1zM36 56h1v4h-1zM38 56h1v4h-1zM40 56h1v4h-1zM42 56h1v4h-1zM44 56h1v4h-1zM46 56h1v4h-1z"/>
+                <path fill="#a8761a" d="M12 5h1v1h-1zM14 5h1v1h-1zM16 5h1v1h-1zM18 5h1v1h-1zM8 60h1v1h-1zM10 60h1v1h-1zM12 60h1v1h-1zM14 60h1v1h-1zM16 60h1v1h-1zM18 60h1v1h-1zM20 60h1v1h-1zM22 60h1v1h-1zM24 60h1v1h-1zM30 60h1v1h-1zM32 60h1v1h-1zM34 60h1v1h-1zM36 60h1v1h-1zM38 60h1v1h-1zM40 60h1v1h-1zM42 60h1v1h-1zM44 60h1v1h-1zM46 60h1v1h-1z"/>
+                <path fill="#5b4a14" d="M21 4h1v2h-1zM42 28h2v1h-2z"/>
+                <path fill="#1b0626" d="M3 8h4v1h-4zM23 8h11v1h-11zM47 8h6v1h-6zM2 9h1v44h-1zM53 9h1v44h-1zM3 53h4v1h-4zM49 53h4v1h-4zM25 56h5v1h-5zM6 54h1v6h-1zM49 54h1v6h-1zM6 60h2v1h-2zM9 60h1v1h-1zM11 60h1v1h-1zM13 60h1v1h-1zM15 60h1v1h-1zM17 60h1v1h-1zM19 60h1v1h-1zM21 60h1v1h-1zM23 60h1v1h-1zM25 57h1v4h-1zM29 57h1v4h-1zM31 60h1v1h-1zM33 60h1v1h-1zM35 60h1v1h-1zM37 60h1v1h-1zM39 60h1v1h-1zM41 60h1v1h-1zM43 60h1v1h-1zM45 60h1v1h-1zM47 60h3v1h-3z"/>
+                <path fill="#5b1771" d="M3 9h1v1h-1zM52 9h1v1h-1zM4 10h3v1h-3zM23 10h11v1h-11zM47 10h5v1h-5zM23 11h2v1h-2zM26 11h1v1h-1zM28 11h1v1h-1zM30 11h1v1h-1zM32 11h2v1h-2zM23 12h11v1h-11zM47 11h2v2h-2zM7 13h1v1h-1zM11 13h37v2h-37zM11 15h1v1h-1zM15 15h1v1h-1zM19 15h1v1h-1zM23 15h1v1h-1zM26 15h2v1h-2zM31 15h1v1h-1zM38 15h2v1h-2zM45 15h1v1h-1zM17 16h3v1h-3zM21 16h3v1h-3zM29 16h3v1h-3zM33 15h1v2h-1zM35 15h1v2h-1zM37 16h1v1h-1zM39 16h1v1h-1zM18 17h2v1h-2zM22 17h2v1h-2zM27 16h1v2h-1zM38 17h2v1h-2zM9 13h1v6h-1zM11 16h2v3h-2zM17 18h3v1h-3zM21 18h3v1h-3zM27 18h3v1h-3zM41 16h1v3h-1zM10 19h3v1h-3zM14 16h2v4h-2zM19 19h1v1h-1zM23 19h1v1h-1zM25 16h1v4h-1zM27 19h1v1h-1zM31 17h2v3h-2zM34 17h2v3h-2zM37 18h1v2h-1zM39 18h1v2h-1zM43 15h1v5h-1zM45 18h1v2h-1zM47 15h1v5h-1zM4 14h4v9h-4zM10 20h38v3h-38zM49 14h1v9h-1zM51 14h1v9h-1zM47 23h5v2h-5zM4 23h5v3h-5zM4 26h1v7h-1zM51 25h1v9h-1zM4 33h5v2h-5zM47 34h5v1h-5zM4 35h2v2h-2zM7 35h1v2h-1zM9 35h1v2h-1zM11 35h1v2h-1zM13 35h6v2h-6zM20 35h1v2h-1zM22 35h1v2h-1zM24 35h1v2h-1zM26 35h6v2h-6zM33 35h1v2h-1zM35 35h1v2h-1zM37 35h1v2h-1zM39 35h13v2h-13zM24 45h1v2h-1zM4 45h2v3h-2zM7 45h1v3h-1zM9 45h1v3h-1zM11 45h1v3h-1zM13 45h6v3h-6zM20 45h1v3h-1zM22 45h1v3h-1zM26 45h6v3h-6zM33 45h1v3h-1zM35 45h1v3h-1zM37 45h1v3h-1zM39 45h1v3h-1zM43 45h3v3h-3zM47 45h1v3h-1zM4 48h3v1h-3zM8 48h1v1h-1zM10 48h1v1h-1zM12 48h1v1h-1zM14 48h4v1h-4zM25 48h6v1h-6zM32 48h1v1h-1zM34 48h1v1h-1zM36 48h1v1h-1zM38 48h2v1h-2zM41 45h1v4h-1zM43 48h2v1h-2zM46 48h2v1h-2zM49 45h3v4h-3zM37 49h2v1h-2zM40 49h2v1h-2zM45 49h1v1h-1zM47 49h1v1h-1zM37 50h1v1h-1zM39 50h3v1h-3zM7 49h1v3h-1zM9 49h1v3h-1zM11 49h1v3h-1zM13 49h1v3h-1zM15 49h3v3h-3zM19 48h1v4h-1zM21 48h1v4h-1zM23 48h1v4h-1zM25 49h5v3h-5zM31 49h1v3h-1zM33 49h1v3h-1zM35 49h1v3h-1zM37 51h5v1h-5zM43 49h1v3h-1zM45 50h3v2h-3zM3 52h1v1h-1zM52 52h1v1h-1zM15 53h3v2h-3zM37 53h5v2h-5zM45 53h3v2h-3zM25 53h5v3h-5zM9 53h1v7h-1zM11 53h1v7h-1zM13 53h1v7h-1zM15 55h1v5h-1zM17 55h1v5h-1zM19 53h1v7h-1zM21 53h1v7h-1zM23 53h1v7h-1zM31 53h1v7h-1zM33 53h1v7h-1zM35 53h1v7h-1zM37 55h1v5h-1zM39 55h1v5h-1zM41 55h1v5h-1zM43 53h1v7h-1zM45 55h1v5h-1zM47 55h1v5h-1z"/>
+                <path fill="#7b2594" d="M4 9h3v1h-3zM23 9h11v1h-11zM47 9h5v1h-5zM3 10h1v42h-1zM7 53h1v7h-1z"/>
+                <path fill="#7e8491" d="M13 9h4v1h-4zM10 10h10v1h-10zM36 10h9v1h-9zM46 3h1v8h-1zM9 11h12v1h-12zM22 2h1v10h-1zM35 11h12v1h-12zM7 12h16v1h-16zM34 12h13v1h-13zM8 29h1v1h-1zM46 29h3v2h-3zM5 32h7v1h-7zM44 33h7v1h-7zM6 37h1v1h-1zM8 37h1v1h-1zM10 37h1v1h-1zM12 37h1v1h-1zM19 37h1v1h-1zM21 37h1v1h-1zM23 37h1v1h-1zM25 37h1v1h-1zM32 37h1v1h-1zM34 37h1v1h-1zM36 37h1v1h-1zM38 37h1v1h-1zM6 44h1v1h-1zM8 44h1v1h-1zM10 44h1v1h-1zM12 44h1v1h-1zM19 44h1v1h-1zM21 44h1v1h-1zM23 44h1v1h-1zM25 44h1v1h-1zM32 44h1v1h-1zM34 44h1v1h-1zM36 44h1v1h-1zM38 44h1v1h-1z"/>
+                <path fill="#cf8ee3" d="M4 11h3v1h-3zM49 11h3v1h-3zM4 12h1v1h-1zM6 12h1v1h-1zM4 13h3v1h-3zM49 12h1v2h-1zM51 12h1v2h-1zM4 49h3v1h-3zM46 49h1v1h-1zM49 49h3v1h-3zM4 50h1v1h-1zM6 50h1v1h-1zM38 50h1v1h-1zM49 50h1v1h-1zM51 50h1v1h-1zM4 51h3v1h-3zM49 51h3v1h-3zM48 52h1v1h-1z"/>
+                <path fill="#25092f" d="M5 12h1v1h-1zM50 12h1v1h-1zM8 17h1v1h-1zM48 17h1v1h-1zM8 47h1v1h-1zM12 47h1v1h-1zM19 47h1v1h-1zM24 47h1v1h-1zM32 47h1v1h-1zM38 47h1v1h-1zM5 50h1v1h-1zM50 50h1v1h-1z"/>
+                <path fill="#f3e1f7" d="M12 15h3v1h-3zM16 15h3v1h-3zM20 15h3v1h-3zM24 15h2v1h-2zM28 15h3v1h-3zM36 15h2v1h-2zM40 15h3v1h-3zM44 15h1v1h-1zM46 15h1v1h-1zM16 16h1v1h-1zM20 16h1v1h-1zM28 16h1v1h-1zM32 15h1v2h-1zM34 15h1v2h-1zM36 16h1v1h-1zM38 16h1v1h-1zM16 17h2v1h-2zM20 17h2v1h-2zM28 17h3v1h-3zM36 17h2v1h-2zM44 16h3v2h-3zM16 18h1v1h-1zM20 18h1v1h-1zM30 18h1v1h-1zM40 16h1v3h-1zM42 16h1v3h-1zM13 16h1v4h-1zM16 19h3v1h-3zM20 19h3v1h-3zM24 16h1v4h-1zM26 16h1v4h-1zM28 19h3v1h-3zM33 17h1v3h-1zM36 18h1v2h-1zM38 18h1v2h-1zM40 19h3v1h-3zM44 18h1v2h-1zM46 18h1v2h-1z"/>
+                <path fill="#a04bbb" d="M8 13h1v4h-1zM48 13h1v4h-1zM8 18h1v1h-1zM10 13h1v6h-1zM8 19h2v4h-2zM48 18h1v5h-1zM50 13h1v10h-1zM6 35h1v2h-1zM8 35h1v2h-1zM10 35h1v2h-1zM12 35h1v2h-1zM19 35h1v2h-1zM21 35h1v2h-1zM23 35h1v2h-1zM25 35h1v2h-1zM32 35h1v2h-1zM34 35h1v2h-1zM36 35h1v2h-1zM38 35h1v2h-1zM8 45h1v2h-1zM12 45h1v2h-1zM19 45h1v2h-1zM32 45h1v2h-1zM38 45h1v2h-1zM6 45h1v3h-1zM10 45h1v3h-1zM21 45h1v3h-1zM23 45h1v3h-1zM25 45h1v3h-1zM34 45h1v3h-1zM36 45h1v3h-1zM46 44h1v4h-1zM7 48h1v1h-1zM9 48h1v1h-1zM11 48h1v1h-1zM13 48h1v1h-1zM31 48h1v1h-1zM33 48h1v1h-1zM35 48h1v1h-1zM37 48h1v1h-1zM40 44h1v5h-1zM45 48h1v1h-1zM39 49h1v1h-1zM48 44h1v8h-1zM8 49h1v6h-1zM10 49h1v6h-1zM12 49h1v6h-1zM14 49h1v6h-1zM18 48h1v7h-1zM20 48h1v7h-1zM22 48h1v7h-1zM24 48h1v7h-1zM30 49h1v6h-1zM32 49h1v6h-1zM34 49h1v6h-1zM36 49h1v6h-1zM42 44h1v11h-1zM44 49h1v6h-1z"/>
+                <path fill="#10593a" d="M9 23h38v1h-38zM46 24h1v1h-1zM9 24h1v2h-1zM9 33h1v1h-1zM9 34h38v1h-38z"/>
+                <path fill="#52c27d" d="M10 24h36v1h-36z"/>
+                <path fill="#1e8a4d" d="M10 25h2v1h-2zM13 25h1v1h-1zM15 25h1v1h-1zM17 25h1v1h-1zM19 25h1v1h-1zM21 25h1v1h-1zM23 25h1v1h-1zM25 25h1v1h-1zM27 25h1v1h-1zM29 25h1v1h-1zM31 25h1v1h-1zM33 25h1v1h-1zM35 25h1v1h-1zM37 25h1v1h-1zM39 25h1v1h-1zM41 25h1v1h-1zM43 25h1v1h-1zM12 26h11v1h-11zM31 26h13v1h-13zM12 27h7v1h-7zM21 27h2v1h-2zM31 27h1v1h-1zM33 27h11v1h-11zM31 28h4v1h-4zM38 28h4v1h-4zM18 28h5v2h-5zM31 29h2v1h-2zM38 29h2v1h-2zM42 29h2v1h-2zM12 28h3v3h-3zM18 30h1v1h-1zM21 30h2v1h-2zM31 30h13v1h-13zM12 31h11v1h-11zM31 31h9v1h-9zM41 31h3v1h-3zM13 32h1v1h-1zM15 32h1v1h-1zM17 32h1v1h-1zM19 32h1v1h-1zM21 32h1v1h-1zM23 32h1v1h-1zM25 32h1v1h-1zM27 32h1v1h-1zM29 32h1v1h-1zM31 32h1v1h-1zM33 32h1v1h-1zM35 32h1v1h-1zM37 32h1v1h-1zM39 32h1v1h-1zM41 32h1v1h-1zM43 32h1v1h-1zM10 33h34v1h-34z"/>
+                <path fill="#15111b" d="M19 27h2v1h-2zM23 27h1v1h-1zM25 27h6v1h-6zM32 27h1v1h-1zM23 28h8v1h-8zM23 29h2v1h-2zM29 29h2v1h-2zM40 29h2v1h-2zM19 30h2v1h-2zM23 30h8v2h-8zM40 31h1v1h-1zM5 39h1v1h-1zM8 39h7v1h-7zM18 39h1v1h-1zM21 39h7v1h-7zM31 39h1v1h-1zM34 39h7v1h-7zM5 40h10v1h-10zM18 40h10v1h-10zM31 40h10v1h-10zM5 41h2v1h-2zM11 41h4v1h-4zM18 41h2v1h-2zM26 41h2v1h-2zM31 41h2v1h-2zM38 41h3v1h-3zM5 42h10v2h-10zM18 42h10v2h-10zM31 42h10v2h-10z"/>
+                <path fill="#2b2932" d="M15 28h3v1h-3zM15 29h1v1h-1zM17 29h1v1h-1zM15 30h3v1h-3zM45 38h6v1h-6zM45 39h2v1h-2zM49 39h2v1h-2zM45 40h1v2h-1zM50 40h1v2h-1zM45 42h2v1h-2zM49 42h2v1h-2zM45 43h6v1h-6z"/>
+                <path fill="#a4a9b4" d="M16 29h1v1h-1zM47 39h2v1h-2zM46 40h1v1h-1zM49 40h1v1h-1zM46 41h4v1h-4zM47 42h2v1h-2z"/>
+                <path fill="#481059" d="M52 10h1v27h-1zM4 37h2v1h-2zM7 37h1v1h-1zM9 37h1v1h-1zM11 37h1v1h-1zM13 37h6v1h-6zM20 37h1v1h-1zM22 37h1v1h-1zM24 37h1v1h-1zM26 37h6v1h-6zM33 37h1v1h-1zM35 37h1v1h-1zM37 37h1v1h-1zM39 37h14v1h-14zM41 38h4v3h-4zM41 41h2v2h-2zM44 41h1v2h-1zM4 38h1v6h-1zM15 38h3v6h-3zM28 38h3v6h-3zM41 43h4v1h-4zM51 38h2v6h-2zM4 44h2v1h-2zM7 44h1v1h-1zM9 44h1v1h-1zM11 44h1v1h-1zM13 44h6v1h-6zM20 44h1v1h-1zM22 44h1v1h-1zM24 44h1v1h-1zM26 44h6v1h-6zM33 44h1v1h-1zM35 44h1v1h-1zM37 44h1v1h-1zM39 44h1v1h-1zM41 44h1v1h-1zM43 44h3v1h-3zM47 44h1v1h-1zM49 44h4v1h-4zM52 45h1v7h-1zM4 52h4v1h-4zM9 52h1v1h-1zM11 52h1v1h-1zM13 52h1v1h-1zM15 52h3v1h-3zM19 52h1v1h-1zM21 52h1v1h-1zM23 52h1v1h-1zM25 52h5v1h-5zM31 52h1v1h-1zM33 52h1v1h-1zM35 52h1v1h-1zM37 52h5v1h-5zM43 52h1v1h-1zM45 52h3v1h-3zM49 52h3v1h-3zM48 53h1v7h-1z"/>
+                <path fill="#e2e6ec" d="M47 40h2v1h-2z"/>
+                <path fill="#0d4b52" d="M43 41h1v2h-1z"/>
+                <path fill="#ffe28c" d="M8 55h1v1h-1zM10 55h1v1h-1zM12 55h1v1h-1zM14 55h1v1h-1zM16 55h1v1h-1zM18 55h1v1h-1zM20 55h1v1h-1zM22 55h1v1h-1zM24 55h1v1h-1zM30 55h1v1h-1zM32 55h1v1h-1zM34 55h1v1h-1zM36 55h1v1h-1zM38 55h1v1h-1zM40 55h1v1h-1zM42 55h1v1h-1zM44 55h1v1h-1zM46 55h1v1h-1z"/>
+                <g class="cart__led cart__led--a"><path fill="#6fdc8c" opacity="0.38" d="M7 4h1v1h-1zM7 5h1v1h-1zM9 4h1v1h-1zM9 5h1v1h-1zM8 3h1v1h-1zM8 6h1v1h-1z"/><path fill="#6fdc8c" d="M8 4h1v1h-1zM8 5h1v1h-1z"/></g>
+                <g class="cart__led cart__led--b"><path fill="#f5e29e" opacity="0.38" d="M20 4h1v1h-1zM20 5h1v1h-1zM22 4h1v1h-1zM22 5h1v1h-1zM21 3h1v1h-1zM21 6h1v1h-1z"/><path fill="#f5e29e" d="M21 4h1v1h-1zM21 5h1v1h-1z"/></g>
+                <g class="cart__led cart__led--c"><path fill="#00f7ff" opacity="0.38" d="M42 41h1v1h-1zM42 42h1v1h-1zM44 41h1v1h-1zM44 42h1v1h-1zM43 40h1v1h-1zM43 43h1v1h-1z"/><path fill="#00f7ff" d="M43 41h1v1h-1zM43 42h1v1h-1z"/></g>
+              </g>
+            </svg>
+            <div class="cart__mirror" aria-hidden="true">
+              <svg viewBox="0 0 56 62" width="224" height="248" shape-rendering="crispEdges" focusable="false"><use href="#cart-art"/></svg>
+            </div>
+            <p class="cart__title" aria-hidden="true"><span class="cart__tube"><span class="cart__unlit">Suite</span><span class="cart__lit">Suite</span></span></p>
+          </div>
+          <div class="hero__floor" aria-hidden="true"></div>
+        </div>
+      </div>
+
+      <!-- the three SID traces are defined here once, at zero size, and drawn with <use> by the DJ rig's windows and the footer -->
+      <svg class="voices-defs" width="0" height="0" viewBox="0 0 960 72" aria-hidden="true" focusable="false">
+        <g id="voices-art" fill="none">
+          <path class="voices__p voices__p--pulse" d="M0 21H14V3H26V21H40H54V3H66V21H80H94V3H106V21H120H134V3H146V21H160H174V3H186V21H200H214V3H226V21H240H254V3H266V21H280H294V3H306V21H320H334V3H346V21H360H374V3H386V21H400H414V3H426V21H440H454V3H466V21H480H494V3H506V21H520H534V3H546V21H560H574V3H586V21H600H614V3H626V21H640H654V3H666V21H680H694V3H706V21H720H734V3H746V21H760H774V3H786V21H800H814V3H826V21H840H854V3H866V21H880H894V3H906V21H920H934V3H946V21H960"/>
+          <path class="voices__p voices__p--saw" d="M0 45H6.67V42H13.33V39H20V36H26.67V33H33.33V30H40V27V45H46.67V42H53.33V39H60V36H66.67V33H73.33V30H80V27V45H86.67V42H93.33V39H100V36H106.67V33H113.33V30H120V27V45H126.67V42H133.33V39H140V36H146.67V33H153.33V30H160V27V45H166.67V42H173.33V39H180V36H186.67V33H193.33V30H200V27V45H206.67V42H213.33V39H220V36H226.67V33H233.33V30H240V27V45H246.67V42H253.33V39H260V36H266.67V33H273.33V30H280V27V45H286.67V42H293.33V39H300V36H306.67V33H313.33V30H320V27V45H326.67V42H333.33V39H340V36H346.67V33H353.33V30H360V27V45H366.67V42H373.33V39H380V36H386.67V33H393.33V30H400V27V45H406.67V42H413.33V39H420V36H426.67V33H433.33V30H440V27V45H446.67V42H453.33V39H460V36H466.67V33H473.33V30H480V27V45H486.67V42H493.33V39H500V36H506.67V33H513.33V30H520V27V45H526.67V42H533.33V39H540V36H546.67V33H553.33V30H560V27V45H566.67V42H573.33V39H580V36H586.67V33H593.33V30H600V27V45H606.67V42H613.33V39H620V36H626.67V33H633.33V30H640V27V45H646.67V42H653.33V39H660V36H666.67V33H673.33V30H680V27V45H686.67V42H693.33V39H700V36H706.67V33H713.33V30H720V27V45H726.67V42H733.33V39H740V36H746.67V33H753.33V30H760V27V45H766.67V42H773.33V39H780V36H786.67V33H793.33V30H800V27V45H806.67V42H813.33V39H820V36H826.67V33H833.33V30H840V27V45H846.67V42H853.33V39H860V36H866.67V33H873.33V30H880V27V45H886.67V42H893.33V39H900V36H906.67V33H913.33V30H920V27V45H926.67V42H933.33V39H940V36H946.67V33H953.33V30H960V27V45"/>
+          <path class="voices__p voices__p--tri" d="M0 69H3.33V66H6.67V63H10V60H13.33V57H16.67V54H20V51H23.33V54H26.67V57H30V60H33.33V63H36.67V66H40V69H43.33V66H46.67V63H50V60H53.33V57H56.67V54H60V51H63.33V54H66.67V57H70V60H73.33V63H76.67V66H80V69H83.33V66H86.67V63H90V60H93.33V57H96.67V54H100V51H103.33V54H106.67V57H110V60H113.33V63H116.67V66H120V69H123.33V66H126.67V63H130V60H133.33V57H136.67V54H140V51H143.33V54H146.67V57H150V60H153.33V63H156.67V66H160V69H163.33V66H166.67V63H170V60H173.33V57H176.67V54H180V51H183.33V54H186.67V57H190V60H193.33V63H196.67V66H200V69H203.33V66H206.67V63H210V60H213.33V57H216.67V54H220V51H223.33V54H226.67V57H230V60H233.33V63H236.67V66H240V69H243.33V66H246.67V63H250V60H253.33V57H256.67V54H260V51H263.33V54H266.67V57H270V60H273.33V63H276.67V66H280V69H283.33V66H286.67V63H290V60H293.33V57H296.67V54H300V51H303.33V54H306.67V57H310V60H313.33V63H316.67V66H320V69H323.33V66H326.67V63H330V60H333.33V57H336.67V54H340V51H343.33V54H346.67V57H350V60H353.33V63H356.67V66H360V69H363.33V66H366.67V63H370V60H373.33V57H376.67V54H380V51H383.33V54H386.67V57H390V60H393.33V63H396.67V66H400V69H403.33V66H406.67V63H410V60H413.33V57H416.67V54H420V51H423.33V54H426.67V57H430V60H433.33V63H436.67V66H440V69H443.33V66H446.67V63H450V60H453.33V57H456.67V54H460V51H463.33V54H466.67V57H470V60H473.33V63H476.67V66H480V69H483.33V66H486.67V63H490V60H493.33V57H496.67V54H500V51H503.33V54H506.67V57H510V60H513.33V63H516.67V66H520V69H523.33V66H526.67V63H530V60H533.33V57H536.67V54H540V51H543.33V54H546.67V57H550V60H553.33V63H556.67V66H560V69H563.33V66H566.67V63H570V60H573.33V57H576.67V54H580V51H583.33V54H586.67V57H590V60H593.33V63H596.67V66H600V69H603.33V66H606.67V63H610V60H613.33V57H616.67V54H620V51H623.33V54H626.67V57H630V60H633.33V63H636.67V66H640V69H643.33V66H646.67V63H650V60H653.33V57H656.67V54H660V51H663.33V54H666.67V57H670V60H673.33V63H676.67V66H680V69H683.33V66H686.67V63H690V60H693.33V57H696.67V54H700V51H703.33V54H706.67V57H710V60H713.33V63H716.67V66H720V69H723.33V66H726.67V63H730V60H733.33V57H736.67V54H740V51H743.33V54H746.67V57H750V60H753.33V63H756.67V66H760V69H763.33V66H766.67V63H770V60H773.33V57H776.67V54H780V51H783.33V54H786.67V57H790V60H793.33V63H796.67V66H800V69H803.33V66H806.67V63H810V60H813.33V57H816.67V54H820V51H823.33V54H826.67V57H830V60H833.33V63H836.67V66H840V69H843.33V66H846.67V63H850V60H853.33V57H856.67V54H860V51H863.33V54H866.67V57H870V60H873.33V63H876.67V66H880V69H883.33V66H886.67V63H890V60H893.33V57H896.67V54H900V51H903.33V54H906.67V57H910V60H913.33V63H916.67V66H920V69H923.33V66H926.67V63H930V60H933.33V57H936.67V54H940V51H943.33V54H946.67V57H950V60H953.33V63H956.67V66H960V69"/>
+        </g>
+      </svg>
+    </section>
+
+    <!-- ============ 01 HOW IT WORKS ============ -->
+    <section class="section" id="how" aria-labelledby="how-title">
+      <div class="wrap">
+        <header class="sechead" data-reveal>
+          <p class="eyebrow"><span class="eyebrow__n">01</span>How it works</p>
+          <h2 class="sechead__title" id="how-title">From a click to your C64</h2>
+          <p class="sechead__lede">Every Suite app runs on Trom API, and Trom API talks to your cartridge. Whichever app you pick, it all ends up playing on a real Commodore 64.</p>
+        </header>
+
+        <figure class="flow" data-reveal>
+          <div class="flow__stage" id="flow-stage" role="img" aria-label="How a click reaches your C64" aria-describedby="flow-desc">
+            <div class="flow__map">
+              <div class="flow__node flow__node--apps">
+                <svg class="flow__icon" viewBox="0 0 16 16" aria-hidden="true" focusable="false" shape-rendering="crispEdges"><path fill="#00f7ff" d="M1 2h14v2H1zM1 4h1v9H1zM14 4h1v9h-1zM1 13h14v1H1z"/><path fill="#100c11" d="M3 3h1v1H3zM5 3h1v1H5zM7 3h1v1H7z"/><path fill="#d66ed6" d="M3 6h4v3H3zM8 6h5v3H8zM3 10h10v2H3z"/></svg>
+                <p class="flow__name">Suite Apps</p>
+                <ul class="flow__sub"><li>Trom UI</li><li>Trom Terminal</li><li>Trom Agent</li></ul>
+              </div>
+
+              <div class="flow__link flow__link--1" aria-hidden="true">
+                <span class="flow__wire flow__wire--h"><i class="flow__sig"></i><svg class="flow__head" viewBox="0 0 6 12" focusable="false" shape-rendering="crispEdges"><path d="M0 0h2v12H0zM2 2h2v8H2zM4 4h2v4H4z"/></svg></span>
+                <span class="flow__wire flow__wire--v"><i class="flow__sig"></i><svg class="flow__head" viewBox="0 0 12 6" focusable="false" shape-rendering="crispEdges"><path d="M0 0h12v2H0zM2 2h8v2H2zM4 4h4v2H4z"/></svg></span>
+              </div>
+
+              <div class="flow__node flow__node--api">
+                <svg class="flow__icon" viewBox="0 0 16 16" aria-hidden="true" focusable="false" shape-rendering="crispEdges"><path fill="#00f7ff" d="M2 1h12v1H2zM2 4h12v1H2zM2 2h1v2H2zM13 2h1v2h-1zM2 6h12v1H2zM2 9h12v1H2zM2 7h1v2H2zM13 7h1v2h-1zM2 11h12v1H2zM2 14h12v1H2zM2 12h1v2H2zM13 12h1v2h-1z"/><path fill="#6fdc8c" d="M4 2h2v2H4zM4 7h2v2H4zM4 12h2v2H4z"/><path fill="#d66ed6" d="M8 2h4v2H8zM8 7h4v2H8zM8 12h4v2H8z"/></svg>
+                <p class="flow__name">Trom API</p>
+                <p class="flow__sub">runs on your computer</p>
+              </div>
+
+              <div class="flow__link flow__link--2" aria-hidden="true">
+                <span class="flow__wire flow__wire--h"><i class="flow__sig"></i><svg class="flow__head" viewBox="0 0 6 12" focusable="false" shape-rendering="crispEdges"><path d="M0 0h2v12H0zM2 2h2v8H2zM4 4h2v4H4z"/></svg></span>
+                <span class="flow__wire flow__wire--v"><i class="flow__sig"></i><svg class="flow__head" viewBox="0 0 12 6" focusable="false" shape-rendering="crispEdges"><path d="M0 0h12v2H0zM2 2h8v2H2zM4 4h4v2H4z"/></svg></span>
+                <span class="flow__via">USB or network</span>
+              </div>
+
+              <div class="flow__node flow__node--cart">
+                <svg class="flow__icon" viewBox="0 0 16 16" aria-hidden="true" focusable="false" shape-rendering="crispEdges"><path fill="#cf8ee3" d="M3 1h10v1H3zM3 2h1v11H3zM12 2h1v11h-1zM3 13h10v1H3z"/><path fill="#5b1771" d="M4 2h8v11H4z"/><path fill="#17171f" d="M5 4h6v4H5z"/><path fill="#00f7ff" d="M10 3h1v1h-1z"/><path fill="#6fdc8c" d="M5 3h1v1H5z"/><path fill="#a04bbb" d="M5 9h6v1H5zM5 11h4v1H5z"/><path fill="#e9b73b" d="M4 14h1v2H4zM6 14h1v2H6zM8 14h1v2H8zM10 14h1v2h-1z"/></svg>
+                <p class="flow__name">TeensyROM</p>
+                <p class="flow__sub">the cartridge</p>
+              </div>
+
+              <div class="flow__link flow__link--3" aria-hidden="true">
+                <span class="flow__wire flow__wire--h"><i class="flow__sig"></i><svg class="flow__head" viewBox="0 0 6 12" focusable="false" shape-rendering="crispEdges"><path d="M0 0h2v12H0zM2 2h2v8H2zM4 4h2v4H4z"/></svg></span>
+                <span class="flow__wire flow__wire--v"><i class="flow__sig"></i><svg class="flow__head" viewBox="0 0 12 6" focusable="false" shape-rendering="crispEdges"><path d="M0 0h12v2H0zM2 2h8v2H2zM4 4h4v2H4z"/></svg></span>
+              </div>
+
+              <div class="flow__node flow__node--c64">
+                <div class="flow__screen">
+                  <div class="flow__tube crt">
+                    <div class="flow__frames crt__pic">
+                      <img src="img/c64/frame-01.webp" width="384" height="272" loading="lazy" decoding="async" alt="">
+                      <img src="img/c64/frame-02.webp" width="480" height="360" loading="lazy" decoding="async" alt="" hidden>
+                      <img src="img/c64/frame-03.webp" width="384" height="272" loading="lazy" decoding="async" alt="" hidden>
+                      <img src="img/c64/frame-04.webp" width="480" height="360" loading="lazy" decoding="async" alt="" hidden>
+                      <img src="img/c64/frame-05.webp" width="384" height="272" loading="lazy" decoding="async" alt="" hidden>
+                      <img src="img/c64/frame-06.webp" width="384" height="272" loading="lazy" decoding="async" alt="" hidden>
+                      <img src="img/c64/frame-07.webp" width="480" height="360" loading="lazy" decoding="async" alt="" hidden>
+                      <img src="img/c64/frame-08.webp" width="384" height="272" loading="lazy" decoding="async" alt="" hidden>
+                      <img src="img/c64/frame-09.webp" width="480" height="360" loading="lazy" decoding="async" alt="" hidden>
+                      <img src="img/c64/frame-10.webp" width="384" height="272" loading="lazy" decoding="async" alt="" hidden>
+                      <img src="img/c64/frame-11.webp" width="384" height="272" loading="lazy" decoding="async" alt="" hidden>
+                      <img src="img/c64/frame-12.webp" width="480" height="360" loading="lazy" decoding="async" alt="" hidden>
+                      <img src="img/c64/frame-13.webp" width="384" height="272" loading="lazy" decoding="async" alt="" hidden>
+                    </div>
+                    <div class="flow__glass" aria-hidden="true"></div>
+                    <div class="crt__beam" aria-hidden="true"></div>
+                    <div class="crt__dot" aria-hidden="true"></div>
+                  </div>
+                </div>
+                <p class="flow__name">Commodore 64</p>
+                <p class="flow__sub">games, music and art</p>
+              </div>
+            </div>
+          </div>
+
+          <p class="sr-only" id="flow-desc">A click in Trom UI, a command in Trom Terminal or a question for Trom Agent goes to Trom API, which runs on your computer. Trom API sends it to your TeensyROM cartridge over USB or your network, and the cartridge plays it on your Commodore 64. A small screen on the C64 shows what was launched: games, SID tunes and pictures.</p>
+
+          <figcaption>
+            <ol class="steps3">
+              <li class="steps3__item"><span><b>You pick something</b> on your computer or phone, in the terminal, or just by asking.</span></li>
+              <li class="steps3__item"><span><b>Trom API sends it</b> to your cartridge, over USB or your network.</span></li>
+              <li class="steps3__item"><span><b>Your C64 plays it</b> on real hardware, and you can hear it on your phone, tablet or laptop too.</span></li>
+            </ol>
+          </figcaption>
+        </figure>
+
+        <div class="flow__foot" data-reveal>
+          <button class="btn btn--ghost flow__pause" type="button" aria-controls="flow-stage" hidden>
+            <svg class="btn__icon" viewBox="0 0 16 16" aria-hidden="true" focusable="false" shape-rendering="crispEdges"><path class="i-pause" fill="currentColor" d="M3 2h4v12H3zM9 2h4v12H9z"/><path class="i-play" fill="currentColor" d="M4 2h2v1h2v1h2v1h2v1h2v4h-2v1h-2v1H8v1H6v1H4z"/></svg>
+            <span class="flow__pause-label">Pause animation</span>
+          </button>
+        </div>
+      </div>
+    </section>
+
+    <!-- ============ 02 TROM UI ============ -->
+    <section class="section" id="trom-ui" aria-labelledby="trom-ui-title">
+      <div class="wrap">
+        <header class="sechead sechead--center" data-reveal>
+          <p class="eyebrow"><span class="eyebrow__n">02</span>Trom UI</p>
+          <h2 class="sechead__title" id="trom-ui-title">Browse, search and launch your whole library</h2>
+          <p class="sechead__lede">Open Trom UI in your browser on a desktop, phone or tablet, pick a game, demo, SID or image, and it launches on your real C64.</p>
+        </header>
+
+        <div class="monitor tv crt" id="tv" data-reveal>
+          <div class="monitor__bezel">
+            <div class="monitor__screen tv__screen" role="region" aria-roledescription="carousel" aria-label="Trom UI on screen">
+              <div class="tv__picture">
+                <div class="tv__channels crt__pic" id="tv-channels" aria-live="off">
+                  <div class="tv__ch video" role="group" aria-roledescription="slide" aria-label="1 of 6: video, Phone Demo" data-hold="7000" data-video-id="hcfaokI_lHw" data-video-title="TeensyROM Web UI: Phone Demo">
+                    <div class="video__stage">
+                      <img class="video__img" src="img/tv/phone-demo.webp" width="1280" height="720" loading="lazy" decoding="async" alt="Poster of the Phone Demo video: Trom UI's player on a phone, held up in front of the C64's screen.">
+                    </div>
+                    <p class="video__caption" aria-hidden="true">Phone Demo</p>
+                    <a class="video__link" href="https://www.youtube.com/watch?v=hcfaokI_lHw" rel="noreferrer">Watch on YouTube <span aria-hidden="true">↗</span></a>
+                  </div>
+                  <figure class="tv__ch" role="group" aria-roledescription="slide" aria-label="2 of 6: the player" hidden>
+                    <img class="tv__img" src="img/tv/player.webp" srcset="img/tv/player-960.webp 960w, img/tv/player.webp 1920w" sizes="(min-width: 768px) 960px, 96vw" width="1920" height="946" loading="lazy" decoding="async" alt="Trom UI's player with a SID tune playing: the composer, release and tags, the C64's own screen in the corner, and the file browser below.">
+                  </figure>
+                  <figure class="tv__ch" role="group" aria-roledescription="slide" aria-label="3 of 6: CRT effects" hidden>
+                    <img class="tv__img" src="img/tv/crt-effects.webp" srcset="img/tv/crt-effects-960.webp 960w, img/tv/crt-effects.webp 1920w" sizes="(min-width: 768px) 960px, 96vw" width="1920" height="976" loading="lazy" decoding="async" alt="The C64's picture in the browser with CRT effects on: scanlines and a curved screen, with sliders to tune each effect.">
+                  </figure>
+                  <figure class="tv__ch" role="group" aria-roledescription="slide" aria-label="4 of 6: full screen" hidden>
+                    <img class="tv__img" src="img/tv/full-screen.webp" srcset="img/tv/full-screen-960.webp 960w, img/tv/full-screen.webp 1920w" sizes="(min-width: 768px) 960px, 96vw" width="1920" height="1082" loading="lazy" decoding="async" alt="The C64's picture full screen, with scanlines and a curved screen, and the player controls along the bottom.">
+                  </figure>
+                  <figure class="tv__ch" role="group" aria-roledescription="slide" aria-label="5 of 6: file transfer" hidden>
+                    <img class="tv__img" src="img/tv/file-transfer.webp" srcset="img/tv/file-transfer-960.webp 960w, img/tv/file-transfer.webp 1920w" sizes="(min-width: 768px) 960px, 96vw" width="1920" height="956" loading="lazy" decoding="async" alt="A transfer's details: files staged, files written to the cart, failures and the latest files sent.">
+                  </figure>
+                  <figure class="tv__ch" role="group" aria-roledescription="slide" aria-label="6 of 6: themes" hidden>
+                    <img class="tv__img" src="img/tv/themes.webp" width="1200" height="676" loading="lazy" decoding="async" alt="The Themes view: the shipped themes, the colours a theme sets for the C64's menu, and a preview of the menu.">
+                  </figure>
+                </div>
+              </div>
+              <div class="tv__glass" aria-hidden="true"></div>
+              <div class="tv__beam crt__beam" aria-hidden="true"></div>
+              <div class="tv__dot crt__dot" aria-hidden="true"></div>
+              <p class="tv__osd" aria-hidden="true">CH <span class="tv__num">01</span></p>
+            </div>
+            <div class="monitor__chin">
+              <span class="monitor__badge" aria-hidden="true">TeensyROM</span>
+              <div class="tv__controls" hidden>
+                <button class="tv__btn" type="button" data-tv="prev" aria-controls="tv-channels" aria-label="Previous channel">
+                  <svg viewBox="0 0 10 10" aria-hidden="true" shape-rendering="crispEdges"><path fill="currentColor" d="M1 3h8v1H1zM2 4h6v1H2zM3 5h4v1H3zM4 6h2v1H4z"/></svg>
+                </button>
+                <button class="tv__btn" type="button" data-tv="next" aria-controls="tv-channels" aria-label="Next channel">
+                  <svg viewBox="0 0 10 10" aria-hidden="true" shape-rendering="crispEdges"><path fill="currentColor" d="M4 3h2v1H4zM3 4h4v1H3zM2 5h6v1H2zM1 6h8v1H1z"/></svg>
+                </button>
+                <button class="tv__btn tv__btn--pause" type="button" data-tv="pause" aria-controls="tv-channels" aria-pressed="false" aria-label="Pause automatic channel changes">
+                  <svg viewBox="0 0 10 10" aria-hidden="true" shape-rendering="crispEdges"><path class="i-pause" fill="currentColor" d="M2 2h2v6H2zM6 2h2v6H6z"/><path class="i-play" fill="currentColor" d="M3 1h1v8H3zM4 2h1v6H4zM5 3h1v4H5zM6 4h1v2H6z"/></svg>
+                </button>
+              </div>
+              <span class="monitor__vents" aria-hidden="true"></span>
+              <span class="monitor__led" aria-hidden="true"></span>
+            </div>
+          </div>
+          <div class="monitor__stand" aria-hidden="true"><span class="monitor__neck"></span><span class="monitor__base"></span></div>
+        </div>
+
+        <div class="cards tv__cards">
+          <article class="card" data-glow data-reveal>
+            <svg class="card__icon" viewBox="0 0 16 16" aria-hidden="true" shape-rendering="crispEdges"><path fill="#00f7ff" d="M2 2h2v12H2zM4 3h2v10H4zM6 4h2v8H6zM8 5h2v6H8zM10 6h1v4h-1z"/><path fill="#d66ed6" d="M13 3h2v10h-2z"/></svg>
+            <h3 class="card__title">Stream it</h3>
+            <p class="card__text">Shuffle and auto-play games, demos, SIDs and images, hands-free.</p>
+          </article>
+          <article class="card" data-glow data-reveal>
+            <svg class="card__icon" viewBox="0 0 16 16" aria-hidden="true" shape-rendering="crispEdges"><path fill="#00f7ff" d="M1 2h14v1H1zM1 11h14v1H1zM1 3h1v8H1zM14 3h1v8h-1zM5 13h6v1H5z"/><path fill="#d66ed6" d="M3 4h10v6H3z"/><path fill="#fbf6fc" d="M4 5h3v1H4z"/></svg>
+            <h3 class="card__title">Watch it</h3>
+            <p class="card__text">Your C64's picture in the browser, with CRT effects, through a video capture device.</p>
+          </article>
+          <article class="card" data-glow data-reveal>
+            <svg class="card__icon" viewBox="0 0 16 16" aria-hidden="true" shape-rendering="crispEdges"><path fill="#00f7ff" d="M3 1h7v1H3zM3 14h7v1H3zM3 2h1v12H3zM9 2h1v12H9zM6 12h1v1H6z"/><path fill="#d66ed6" d="M4 3h5v8H4zM13 3h1v1h-1zM14 4h1v2h-1zM15 6h1v4h-1zM14 10h1v2h-1zM13 12h1v1h-1z"/><path fill="#fbf6fc" d="M5 5h1v4H5zM6 6h1v2H6z"/><path fill="#f5e29e" d="M11 5h1v1h-1zM12 6h1v4h-1zM11 10h1v1h-1z"/></svg>
+            <h3 class="card__title">Take it anywhere</h3>
+            <p class="card__text">Open Trom UI on your phone, tablet or laptop, and hear your C64 there too.</p>
+          </article>
+          <article class="card" data-glow data-reveal>
+            <svg class="card__icon" viewBox="0 0 16 16" aria-hidden="true" shape-rendering="crispEdges"><path fill="#00f7ff" d="M1 2h6v2H1zM1 4h14v10H1z"/><path fill="#100c11" d="M2 5h12v8H2z"/><path fill="#d66ed6" d="M4 8h2v2H4z"/><path fill="#00f7ff" d="M7 8h2v2H7z"/><path fill="#f5e29e" d="M10 8h2v2h-2z"/></svg>
+            <h3 class="card__title">Make it yours</h3>
+            <p class="card__text">Copy files to your cart, watch folders for new ones, and set your C64's menu themes.</p>
+          </article>
+        </div>
+
+        <p class="tv__more" data-reveal>
+          <a class="link-arrow" href="https://github.com/MetalHexx/TeensyROM-Suite/blob/main/docs/trom-ui.md" rel="noreferrer">Explore Trom UI <span aria-hidden="true">→</span></a>
+        </p>
+      </div>
+    </section>
+
+    <!-- ============ 03 DJ MIXER ============ -->
+    <section class="section" id="dj" aria-labelledby="dj-title">
+      <div class="wrap">
+        <header class="sechead" data-reveal>
+          <p class="eyebrow"><span class="eyebrow__n">03</span>DJ Mixer</p>
+          <h2 class="sechead__title" id="dj-title">Your C64s are the decks</h2>
+          <p class="sechead__lede">The DJ Mixer is part of Trom UI. Each deck plays its tune on a real C64's SID chip, and you mix them live: voices, loops, cues and scratches.</p>
+        </header>
+
+        <figure class="rig" data-reveal>
+          <div class="rig__stage" id="rig-stage" role="img" aria-label="How the DJ Mixer plays a tune on your C64" aria-describedby="rig-desc">
+            <div class="rig__map">
+              <svg class="rig__art rig__art--app" viewBox="0 0 70 50" width="140" height="100" aria-hidden="true" focusable="false" shape-rendering="crispEdges"><path fill="#7b2594" d="M0 0h70v1h-70zM0 49h70v1h-70zM0 0h1v50h-1zM69 0h1v50h-1z"/><path fill="#3a2140" d="M1 1h68v7h-68z"/><path fill="#5b1771" d="M1 8h68v1h-68zM5 34h16v4h-16z"/><path fill="#d66ed6" d="M3 3h3v3h-3zM27 17h3v3h-3z"/><path fill="#f5e29e" d="M8 3h3v3h-3zM39 20h3v3h-3z"/><path fill="#6fdc8c" d="M13 3h3v3h-3z"/><path fill="#251d27" d="M20 3h44v3h-44z"/><path fill="#5a4d5f" d="M22 4h14v1h-14zM32 40h5v5h-5z"/><path fill="#100c11" d="M1 9h68v40h-68z"/><path fill="#00f7ff" d="M8 14h10v1h-10zM8 29h10v1h-10zM5 17h1v10h-1zM20 17h1v10h-1zM6 15h2v2h-2zM18 15h2v2h-2zM6 27h2v2h-2zM18 27h2v2h-2zM52 14h10v1h-10zM52 29h10v1h-10zM49 17h1v10h-1zM64 17h1v10h-1zM50 15h2v2h-2zM62 15h2v2h-2zM50 27h2v2h-2zM62 27h2v2h-2zM50 36h3v1h-3zM53 35h2v1h-2zM55 36h4v1h-4zM59 35h2v1h-2zM61 36h3v1h-3zM33 24h3v3h-3z"/><path fill="#231e22" d="M8 15h10v14h-10zM6 17h14v10h-14zM52 15h10v14h-10zM50 17h14v10h-14z"/><path fill="#3d3540" d="M11 20h4v4h-4zM55 20h4v4h-4zM28 13h1v22h-1zM34 13h1v22h-1zM40 13h1v22h-1zM24 42h22v1h-22z"/><path fill="#fbf6fc" d="M12 16h2v3h-2zM56 16h2v3h-2zM27 18h3v1h-3zM33 25h3v1h-3zM39 21h3v1h-3zM34 40h1v5h-1z"/><path fill="#b333b3" d="M6 35h2v1h-2zM8 36h3v1h-3zM11 35h3v1h-3zM14 36h2v1h-2zM16 35h4v1h-4z"/><path fill="#0d4b52" d="M49 34h16v4h-16z"/></svg>
+              <p class="rig__label rig__label--app"><span class="rig__name">DJ Mixer</span><span class="rig__sub">in your browser</span></p>
+
+              <div class="rig__link rig__link--1" aria-hidden="true">
+                <span class="rig__wire">
+                  <i class="rig__pkt"><b></b></i><i class="rig__pkt"><b></b></i><i class="rig__pkt"><b></b></i><i class="rig__pkt"><b></b></i><i class="rig__pkt"><b></b></i><i class="rig__pkt"><b></b></i>
+                  <svg class="rig__head rig__head--h" viewBox="0 0 6 12" focusable="false" shape-rendering="crispEdges"><path d="M0 0h2v12H0zM2 2h2v8H2zM4 4h2v4H4z"/></svg><svg class="rig__head rig__head--v" viewBox="0 0 12 6" focusable="false" shape-rendering="crispEdges"><path d="M0 0h12v2H0zM2 2h8v2H2zM4 4h4v2H4z"/></svg>
+                </span>
+                <span class="rig__via">ASID over USB</span>
+              </div>
+
+              <svg class="rig__art rig__art--cart" viewBox="0 0 56 62" width="112" height="124" aria-hidden="true" focusable="false" shape-rendering="crispEdges"><use href="#cart-art"/></svg>
+              <p class="rig__label rig__label--cart"><span class="rig__name">TeensyROM</span><span class="rig__sub">the cartridge</span></p>
+
+              <div class="rig__link rig__link--2" aria-hidden="true">
+                <span class="rig__wire">
+                  <i class="rig__pkt"><b></b></i><i class="rig__pkt"><b></b></i><i class="rig__pkt"><b></b></i><i class="rig__pkt"><b></b></i><i class="rig__pkt"><b></b></i><i class="rig__pkt"><b></b></i>
+                  <svg class="rig__head rig__head--h" viewBox="0 0 6 12" focusable="false" shape-rendering="crispEdges"><path d="M0 0h2v12H0zM2 2h2v8H2zM4 4h2v4H4z"/></svg><svg class="rig__head rig__head--v" viewBox="0 0 12 6" focusable="false" shape-rendering="crispEdges"><path d="M0 0h12v2H0zM2 2h8v2H2zM4 4h4v2H4z"/></svg>
+                </span>
+                <span class="rig__via">register writes</span>
+              </div>
+
+              <div class="rig__scope">
+                <div class="rig__win"><svg class="rig__still" viewBox="0 0 160 24" preserveAspectRatio="none" aria-hidden="true" focusable="false"><use href="#voices-art"/></svg></div>
+                <div class="rig__win"><svg class="rig__still" viewBox="0 24 160 24" preserveAspectRatio="none" aria-hidden="true" focusable="false"><use href="#voices-art"/></svg></div>
+                <div class="rig__win"><svg class="rig__still" viewBox="0 48 160 24" preserveAspectRatio="none" aria-hidden="true" focusable="false"><use href="#voices-art"/></svg></div>
+                <canvas class="rig__waves" aria-hidden="true"></canvas>
+              </div>
+              <div class="rig__chip">
+                <svg class="rig__art rig__art--chip" viewBox="0 0 98 40" width="196" height="80" aria-hidden="true" focusable="false" shape-rendering="crispEdges"><path fill="#a4a9b4" d="M3 0h4v7h-4zM3 33h4v7h-4zM10 0h4v7h-4zM10 33h4v7h-4zM17 0h4v7h-4zM17 33h4v7h-4zM24 0h4v7h-4zM24 33h4v7h-4zM31 0h4v7h-4zM31 33h4v7h-4zM38 0h4v7h-4zM38 33h4v7h-4zM45 0h4v7h-4zM45 33h4v7h-4zM52 0h4v7h-4zM52 33h4v7h-4zM59 0h4v7h-4zM59 33h4v7h-4zM66 0h4v7h-4zM66 33h4v7h-4zM73 0h4v7h-4zM73 33h4v7h-4zM80 0h4v7h-4zM80 33h4v7h-4zM87 0h4v7h-4zM87 33h4v7h-4zM94 0h4v7h-4zM94 33h4v7h-4z"/><path fill="#c8cdd6" d="M3 0h4v1h-4zM3 33h4v1h-4zM10 0h4v1h-4zM10 33h4v1h-4zM17 0h4v1h-4zM17 33h4v1h-4zM24 0h4v1h-4zM24 33h4v1h-4zM31 0h4v1h-4zM31 33h4v1h-4zM38 0h4v1h-4zM38 33h4v1h-4zM45 0h4v1h-4zM45 33h4v1h-4zM52 0h4v1h-4zM52 33h4v1h-4zM59 0h4v1h-4zM59 33h4v1h-4zM66 0h4v1h-4zM66 33h4v1h-4zM73 0h4v1h-4zM73 33h4v1h-4zM80 0h4v1h-4zM80 33h4v1h-4zM87 0h4v1h-4zM87 33h4v1h-4zM94 0h4v1h-4zM94 33h4v1h-4z"/><path fill="#7e8491" d="M3 6h4v1h-4zM3 39h4v1h-4zM10 6h4v1h-4zM10 39h4v1h-4zM17 6h4v1h-4zM17 39h4v1h-4zM24 6h4v1h-4zM24 39h4v1h-4zM31 6h4v1h-4zM31 39h4v1h-4zM38 6h4v1h-4zM38 39h4v1h-4zM45 6h4v1h-4zM45 39h4v1h-4zM52 6h4v1h-4zM52 39h4v1h-4zM59 6h4v1h-4zM59 39h4v1h-4zM66 6h4v1h-4zM66 39h4v1h-4zM73 6h4v1h-4zM73 39h4v1h-4zM80 6h4v1h-4zM80 39h4v1h-4zM87 6h4v1h-4zM87 39h4v1h-4zM94 6h4v1h-4zM94 39h4v1h-4z"/><path fill="#17171f" d="M0 7h98v26h-98z"/><path fill="#2b2932" d="M0 7h98v1h-98zM6 27h3v3h-3z"/><path fill="#0d0d12" d="M0 32h98v1h-98z"/><path fill="#22222b" d="M1 8h96v2h-96z"/><path fill="#08080c" d="M0 16h2v8h-2zM2 17h1v6h-1zM3 18h1v4h-1z"/><g class="rig__pins"><rect class="rig__pin" data-pin="28" x="3" y="0" width="4" height="7"/><rect class="rig__pin" data-pin="27" x="10" y="0" width="4" height="7"/><rect class="rig__pin" data-pin="26" x="17" y="0" width="4" height="7"/><rect class="rig__pin" data-pin="25" x="24" y="0" width="4" height="7"/><rect class="rig__pin" data-pin="24" x="31" y="0" width="4" height="7"/><rect class="rig__pin" data-pin="23" x="38" y="0" width="4" height="7"/><rect class="rig__pin" data-pin="22" x="45" y="0" width="4" height="7"/><rect class="rig__pin" data-pin="21" x="52" y="0" width="4" height="7"/><rect class="rig__pin" data-pin="20" x="59" y="0" width="4" height="7"/><rect class="rig__pin" data-pin="19" x="66" y="0" width="4" height="7"/><rect class="rig__pin" data-pin="18" x="73" y="0" width="4" height="7"/><rect class="rig__pin" data-pin="17" x="80" y="0" width="4" height="7"/><rect class="rig__pin" data-pin="16" x="87" y="0" width="4" height="7"/><rect class="rig__pin" data-pin="15" x="94" y="0" width="4" height="7"/><rect class="rig__pin" data-pin="1" x="3" y="33" width="4" height="7"/><rect class="rig__pin" data-pin="2" x="10" y="33" width="4" height="7"/><rect class="rig__pin" data-pin="3" x="17" y="33" width="4" height="7"/><rect class="rig__pin" data-pin="4" x="24" y="33" width="4" height="7"/><rect class="rig__pin" data-pin="5" x="31" y="33" width="4" height="7"/><rect class="rig__pin" data-pin="6" x="38" y="33" width="4" height="7"/><rect class="rig__pin" data-pin="7" x="45" y="33" width="4" height="7"/><rect class="rig__pin" data-pin="8" x="52" y="33" width="4" height="7"/><rect class="rig__pin" data-pin="9" x="59" y="33" width="4" height="7"/><rect class="rig__pin" data-pin="10" x="66" y="33" width="4" height="7"/><rect class="rig__pin" data-pin="11" x="73" y="33" width="4" height="7"/><rect class="rig__pin" data-pin="12" x="80" y="33" width="4" height="7"/><rect class="rig__pin" data-pin="13" x="87" y="33" width="4" height="7"/><rect class="rig__pin" data-pin="14" x="94" y="33" width="4" height="7"/></g></svg>
+                <span class="rig__mark" aria-hidden="true">6581</span>
+              </div>
+              <p class="rig__label rig__label--chip"><span class="rig__name">SID chip</span><span class="rig__sub">in your C64</span></p>
+            </div>
+          </div>
+          <p class="sr-only" id="rig-desc">The DJ Mixer runs in your browser and sends each deck's tune to its TeensyROM as ASID messages over USB. The TeensyROM writes them to the SID chip in your C64, frame by frame, and the chip plays them on its three voices. Above the chip, a window for each voice draws its wave as it plays, as the mixer does.</p>
+          <button class="btn btn--ghost rig__pause" type="button" aria-controls="rig-stage" hidden>
+            <svg class="btn__icon" viewBox="0 0 16 16" aria-hidden="true" focusable="false" shape-rendering="crispEdges"><path class="i-pause" fill="currentColor" d="M3 2h4v12H3zM9 2h4v12H9z"/><path class="i-play" fill="currentColor" d="M4 2h2v1h2v1h2v1h2v1h2v4h-2v1h-2v1H8v1H6v1H4z"/></svg>
+            <span class="rig__pause-label">Pause animation</span>
+          </button>
+        </figure>
+
+        <div class="split split--dj">
+          <div class="monitor monitor--small tv crt" id="tv-dj" data-reveal>
+            <div class="monitor__bezel">
+              <div class="monitor__screen tv__screen" role="region" aria-roledescription="carousel" aria-label="The DJ Mixer on screen">
+                <div class="tv__picture">
+                  <div class="tv__channels crt__pic" id="tv-dj-channels" aria-live="off">
+                    <div class="tv__ch video" role="group" aria-roledescription="slide" aria-label="1 of 4: video, Mix Demo" data-hold="7000" data-video-id="PjhqYkmsScg" data-video-title="SID DJ on Commodore 64 (ft. TeensyROM) - Mix Demo">
+                      <div class="video__stage">
+                        <img class="video__img" src="img/tv/mix-preview.webp" width="1280" height="720" loading="lazy" decoding="async" alt="Poster of the Mix Demo video: two Commodore 64s either side of a DJ controller, above the DJ Mixer with a tune on each deck.">
+                      </div>
+                      <p class="video__caption" aria-hidden="true">Mix Demo</p>
+                      <a class="video__link" href="https://www.youtube.com/watch?v=PjhqYkmsScg" rel="noreferrer">Watch on YouTube <span aria-hidden="true">↗</span></a>
+                    </div>
+                    <div class="tv__ch video" role="group" aria-roledescription="slide" aria-label="2 of 4: video, Scratch and Beat Juggle Demo" data-hold="7000" data-video-id="xoJBOEPB5IY" data-video-title="SID DJ on Commodore 64 (ft. TeensyROM) - Scratch / Beat Juggle Demo" hidden>
+                      <div class="video__stage">
+                        <img class="video__img" src="img/tv/scratch-preview.webp" width="1280" height="720" loading="lazy" decoding="async" alt="Poster of the Scratch and Beat Juggle Demo video: a DJ's hands on a controller beside two Commodore 64s, above the DJ Mixer.">
+                      </div>
+                      <p class="video__caption" aria-hidden="true">Scratch / Beat Juggle Demo</p>
+                      <a class="video__link" href="https://www.youtube.com/watch?v=xoJBOEPB5IY" rel="noreferrer">Watch on YouTube <span aria-hidden="true">↗</span></a>
+                    </div>
+                    <div class="tv__ch video" role="group" aria-roledescription="slide" aria-label="3 of 4: video, CRX 2026 Interview / Demo" data-hold="7000" data-video-id="ACT5R9AYFKA" data-video-title="SID DJ on Commodore 64 (ft. TeensyROM) - CRX 2026 Interview / Demo" hidden>
+                      <div class="video__stage">
+                        <img class="video__img" src="img/tv/crx-interview.webp" width="1280" height="720" loading="lazy" decoding="async" alt="Poster of the CRX 2026 Interview video: a DJ at work between a Commodore 64 and a keyboard, above the DJ Mixer.">
+                      </div>
+                      <p class="video__caption" aria-hidden="true">CRX 2026 Interview / Demo</p>
+                      <a class="video__link" href="https://www.youtube.com/watch?v=ACT5R9AYFKA" rel="noreferrer">Watch on YouTube <span aria-hidden="true">↗</span></a>
+                    </div>
+                    <figure class="tv__ch" role="group" aria-roledescription="slide" aria-label="4 of 4: the DJ Mixer" hidden>
+                      <img class="tv__img" src="img/tv/dj-mixer.webp" srcset="img/tv/dj-mixer-960.webp 960w, img/tv/dj-mixer.webp 1920w" sizes="(min-width: 900px) 680px, 96vw" width="1920" height="942" loading="lazy" decoding="async" alt="The DJ Mixer with a tune loaded on each deck: voice and filter controls for the SID chip, loops and cues, and a saved set of tunes to load from.">
+                    </figure>
+                  </div>
+                </div>
+                <div class="tv__glass" aria-hidden="true"></div>
+                <div class="tv__beam crt__beam" aria-hidden="true"></div>
+                <div class="tv__dot crt__dot" aria-hidden="true"></div>
+                <p class="tv__osd" aria-hidden="true">CH <span class="tv__num">01</span></p>
+              </div>
+              <div class="monitor__chin">
+                <span class="monitor__badge" aria-hidden="true">TeensyROM</span>
+                <div class="tv__controls" hidden>
+                  <button class="tv__btn" type="button" data-tv="prev" aria-controls="tv-dj-channels" aria-label="Previous channel">
+                    <svg viewBox="0 0 10 10" aria-hidden="true" shape-rendering="crispEdges"><path fill="currentColor" d="M1 3h8v1H1zM2 4h6v1H2zM3 5h4v1H3zM4 6h2v1H4z"/></svg>
+                  </button>
+                  <button class="tv__btn" type="button" data-tv="next" aria-controls="tv-dj-channels" aria-label="Next channel">
+                    <svg viewBox="0 0 10 10" aria-hidden="true" shape-rendering="crispEdges"><path fill="currentColor" d="M4 3h2v1H4zM3 4h4v1H3zM2 5h6v1H2zM1 6h8v1H1z"/></svg>
+                  </button>
+                  <button class="tv__btn tv__btn--pause" type="button" data-tv="pause" aria-controls="tv-dj-channels" aria-pressed="false" aria-label="Pause automatic channel changes">
+                    <svg viewBox="0 0 10 10" aria-hidden="true" shape-rendering="crispEdges"><path class="i-pause" fill="currentColor" d="M2 2h2v6H2zM6 2h2v6H6z"/><path class="i-play" fill="currentColor" d="M3 1h1v8H3zM4 2h1v6H4zM5 3h1v4H5zM6 4h1v2H6z"/></svg>
+                  </button>
+                </div>
+                <span class="monitor__vents" aria-hidden="true"></span>
+                <span class="monitor__led" aria-hidden="true"></span>
+              </div>
+            </div>
+            <div class="monitor__stand" aria-hidden="true"><span class="monitor__neck"></span><span class="monitor__base"></span></div>
+          </div>
+
+          <div class="split__copy" data-reveal>
+            <ul class="featlist featlist--first">
+              <li><b>Shape every voice:</b> waveform, pitch, pulse width and envelope, live as it plays.</li>
+              <li><b>Live loops and slip:</b> loop the beats you just played, and with slip on the tune keeps going underneath, so you drop back in on time.</li>
+              <li><b>Loops and cues:</b> set them on the beat, and give any of them its own voice, filter and key settings.</li>
+              <li><b>Cue by hand:</b> hold, throw or scratch a tune from your MIDI controller, like vinyl.</li>
+            </ul>
+            <p class="split__links"><a class="link-arrow" href="https://github.com/MetalHexx/TeensyROM-Suite/blob/main/docs/dj-mixer.md" rel="noreferrer">Explore the DJ Mixer <span aria-hidden="true">→</span></a></p>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- ============ 04 TROM TERMINAL ============ -->
+    <section class="section" id="terminal" aria-labelledby="terminal-title">
+      <div class="wrap split split--terminal">
+        <div class="split__copy" data-reveal>
+          <p class="eyebrow"><span class="eyebrow__n">04</span>Trom Terminal</p>
+          <h2 class="sechead__title" id="terminal-title">Your library from the command line</h2>
+          <p class="sechead__lede">A BBS-style menu for exploring, plus one-line commands your scripts and other tools can call.</p>
+          <ul class="featlist">
+            <li><b>Guided menu:</b> explore and launch without learning a single command.</li>
+            <li><b>Stream Player:</b> plays through your library like a streaming service.</li>
+            <li><b>One-line commands:</b> every action as a command, with <code>--json</code> output that pipes into your scripts.</li>
+          </ul>
+          <p class="split__links"><a class="link-arrow" href="https://github.com/MetalHexx/TeensyROM-Suite/blob/main/docs/trom-terminal.md" rel="noreferrer">Explore Trom Terminal <span aria-hidden="true">→</span></a></p>
+        </div>
+
+        <div class="term-stack">
+          <div class="term" data-reveal>
+            <div class="term__bar" aria-hidden="true"><span class="term__dots"><i></i><i></i><i></i></span><span>trom</span></div>
+            <div class="term__body">
+              <pre class="term__logo" aria-hidden="true"> _______                                     ______  _______  _______
+|_     _|.-----..-----..-----..-----..--.--.|   __ \|       ||   |   |
+  |   |  |  -__||  -__||     ||__ --||  |  ||      &lt;|   -   ||       |
+  |___|  |_____||_____||__|__||_____||___  ||___|__||_______||__|_|__|
+                                     |_____|</pre>
+              <img class="term__img" src="img/terminal/menu.webp" width="1462" height="454" loading="lazy" decoding="async" alt="Trom Terminal's guided menu, under its TeensyROM wordmark: launch files, watch folders, index files, devices, themes and more.">
+            </div>
+          </div>
+          <div class="term-pair">
+            <div class="term term--pair" data-reveal>
+              <div class="term__bar" aria-hidden="true"><span class="term__dots"><i></i><i></i><i></i></span><span>stream player</span></div>
+              <div class="term__body">
+                <img class="term__img" src="img/terminal/stream-player.webp" width="1465" height="1167" loading="lazy" decoding="async" alt="Trom Terminal's Stream Player showing the tune now playing, with its composer, release, length and links, and Next, Previous, Pause, Favorite, Ban and Share to choose from.">
+              </div>
+            </div>
+            <div class="term term--pair" data-reveal>
+              <div class="term__bar" aria-hidden="true"><span class="term__dots"><i></i><i></i><i></i></span><span>commands</span></div>
+              <div class="term__body">
+                <img class="term__img" src="img/terminal/commands.webp" width="1465" height="772" loading="lazy" decoding="async" alt="One-line Trom Terminal commands in a shell: listing devices, searching for a tune, launching it, copying it to the computer and sending a file to a cartridge.">
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- ============ 05 TROM AGENT ============ -->
+    <section class="section" id="agent" aria-labelledby="agent-title">
+      <div class="wrap">
+        <div class="split split--agent">
+          <div class="split__copy" data-reveal>
+            <p class="eyebrow"><span class="eyebrow__n">05</span>Trom Agent</p>
+            <h2 class="sechead__title" id="agent-title">Just ask.</h2>
+            <p class="sechead__lede">The AI-powered way to drive your TeensyROM and your C64: a plugin for your AI coding agent. Say what you want in plain words, and it plays it, builds the set or sorts out the setup for you.</p>
+            <p class="split__links"><a class="link-arrow" href="https://github.com/MetalHexx/TeensyROM-Suite/blob/main/docs/trom-agent.md" rel="noreferrer">Explore Trom Agent <span aria-hidden="true">→</span></a></p>
+          </div>
+
+          <div class="chat" role="group" aria-label="An example conversation with Trom Agent">
+            <ol class="chat__log">
+              <li class="msg msg--you"><span class="sr-only">You: </span>play me some Rob Hubbard</li>
+              <li class="msg msg--agent"><span class="msg__who"><span class="sr-only">Reply from </span>Trom Agent</span>Playing Monty on the Run by Rob Hubbard on your C64. It is one of his best-loved tunes.</li>
+              <li class="msg msg--you"><span class="sr-only">You: </span>give me a 30-minute set</li>
+              <li class="msg msg--agent"><span class="msg__who"><span class="sr-only">Reply from </span>Trom Agent</span>Your set is playing on your cart. It runs for half an hour and moves on by itself.</li>
+              <li class="msg msg--you"><span class="sr-only">You: </span>show me demos from 1989</li>
+              <li class="msg msg--agent"><span class="msg__who"><span class="sr-only">Reply from </span>Trom Agent</span>Here are the demos from 1989 in your library. Which one shall I launch?</li>
+            </ol>
+            <p class="chat__prompt" aria-hidden="true"><span>&gt;</span><span>ask for anything</span><span class="cursor"></span></p>
+          </div>
+        </div>
+
+        <div class="cards agent__cards">
+          <article class="card card--small" data-glow data-reveal>
+            <svg class="card__icon" viewBox="0 0 16 16" aria-hidden="true" focusable="false" shape-rendering="crispEdges"><path fill="#00f7ff" d="M4 2h5v1H4zM3 3h1v1H3zM9 3h1v1H9zM2 4h1v5H2zM10 4h1v5h-1zM3 9h1v1H3zM9 9h1v1H9zM4 10h5v1H4z"/><path fill="#d66ed6" d="M5 5h3v3H5zM10 10h2v1h-2zM11 11h2v1h-2zM12 12h2v1h-2zM13 13h2v2h-2z"/></svg>
+            <h3 class="card__title">Library tours and curation</h3>
+            <p class="card__text">Explores your library with you, finds what you love and tells you about what is playing.</p>
+          </article>
+          <article class="card card--small" data-glow data-reveal>
+            <svg class="card__icon" viewBox="0 0 16 16" aria-hidden="true" focusable="false" shape-rendering="crispEdges"><path fill="#00f7ff" d="M7 1h2v8h2v-1h1v1h1v1h-1v1h-1v1h-1v1H7v-1H6v-1H5v-1H4V9h1V8h1v1h1z"/><path fill="#d66ed6" d="M2 13h12v2H2z"/></svg>
+            <h3 class="card__title">Installs and updates</h3>
+            <p class="card__text">Installs the suite if you don't have it yet, and keeps it up to date.</p>
+          </article>
+          <article class="card card--small" data-glow data-reveal>
+            <svg class="card__icon" viewBox="0 0 16 16" aria-hidden="true" focusable="false" shape-rendering="crispEdges"><path fill="#00f7ff" d="M2 2h12v1H2zM2 13h12v1H2zM2 3h1v10H2zM13 3h1v10h-1z"/><path fill="#6fdc8c" d="M4 8h1v2H4zM5 9h1v2H5zM6 10h1v2H6zM7 9h1v2H7zM8 8h1v2H8zM9 7h1v2H9zM10 6h1v2h-1z"/></svg>
+            <h3 class="card__title">Checks your setup</h3>
+            <p class="card__text">Virtual Travis, an AI stand-in, checks your setup and walks you through the fixes.</p>
+          </article>
+          <article class="card card--small" data-glow data-reveal>
+            <svg class="card__icon" viewBox="0 0 16 16" aria-hidden="true" focusable="false" shape-rendering="crispEdges"><path fill="#00f7ff" d="M2 3h5v1H2zM9 3h5v1H9zM2 3h1v10H2zM13 3h1v10h-1zM2 12h12v1H2z"/><path fill="#d66ed6" d="M7 3h2v10H7zM4 5h2v1H4zM4 7h2v1H4zM4 9h2v1H4zM10 5h2v1h-2zM10 7h2v1h-2zM10 9h2v1h-2z"/></svg>
+            <h3 class="card__title">Points you to the docs</h3>
+            <p class="card__text">Stuck? Trom Agent says so and points you to the page in the docs that covers it.</p>
+          </article>
+        </div>
+      </div>
+    </section>
+
+    <!-- ============ 06 TROM API ============ -->
+    <section class="section" id="api" aria-labelledby="api-title">
+      <div class="wrap split split--api">
+        <div class="split__copy" data-reveal>
+          <p class="eyebrow"><span class="eyebrow__n">06</span>Trom API</p>
+          <h2 class="sechead__title" id="api-title">Drive your cart from your own code</h2>
+          <p class="sechead__lede">Launch files, search your library, copy files and set themes from a script or a full app of your own. A database of your files and their metadata sits behind it and powers search.</p>
+          <p class="sechead__lede">Call it over HTTP from any language, or generate a client from its OpenAPI spec.</p>
+          <ul class="tags" aria-label="What it speaks">
+            <li>HTTP</li>
+            <li>OpenAPI</li>
+            <li>Any language</li>
+          </ul>
+          <p class="split__links"><a class="link-arrow" href="https://github.com/MetalHexx/TeensyROM-Suite/blob/main/docs/trom-api.md" rel="noreferrer">Explore Trom API <span aria-hidden="true">→</span></a></p>
+        </div>
+
+        <div class="shots" data-reveal>
+          <img class="shot" src="img/api/docs.webp" width="1600" height="900" loading="lazy" decoding="async" alt="Trom API's documentation for finding devices: a list of endpoints beside a description, with a ready-to-run request and its JSON response.">
+          <img class="shot" src="img/api/search-files.webp" width="1600" height="900" loading="lazy" decoding="async" alt="The Search Files endpoint in the same documentation: what it searches, how results are filtered and paged, and an example request and response.">
+        </div>
+      </div>
+    </section>
+
+    <!-- ============ 07 GET IT ============ -->
+    <section class="section" id="get" aria-labelledby="get-title">
+      <div class="wrap">
+        <header class="sechead" data-reveal>
+          <p class="eyebrow"><span class="eyebrow__n">07</span>Get it</p>
+          <h2 class="sechead__title" id="get-title">What you need, and three steps to play</h2>
+        </header>
+
+        <div class="get">
+          <div class="panel" data-reveal>
+            <h3 class="panel__title">What you need</h3>
+            <dl class="spec">
+              <div><dt>Cartridge</dt><dd>A <a href="https://github.com/SensoriumEmbedded/TeensyROM" rel="noreferrer">TeensyROM cartridge</a> with current <a href="https://github.com/MetalHexx/TeensyROM-Suite/blob/main/docs/getting-started.md#firmware" rel="noreferrer">firmware</a></dd></div>
+              <div><dt>Commodore</dt><dd>A Commodore 64 or 128</dd></div>
+              <div><dt>Computer</dt><dd>Windows, Linux, macOS or a Raspberry Pi with a 64-bit OS</dd></div>
+              <div><dt>Connection</dt><dd>USB or your network</dd></div>
+            </dl>
+          </div>
+
+          <div class="panel" data-reveal>
+            <h3 class="panel__title">Three steps</h3>
+            <ol class="steps">
+              <li>
+                <b>Install</b> the suite on your computer.
+                <p class="step__note">On Windows, Linux or a Raspberry Pi, download it:</p>
+                <!-- release:get:fallback -->
+                <div class="dl" data-release="fallback">
+                  <a class="btn btn--ghost" href="https://github.com/MetalHexx/TeensyROM-Suite/releases" rel="noreferrer">Download from the releases page</a>
+                </div>
+                <!-- release:get:stamped -->
+                <div class="dl" data-release="stamped">
+                  <a class="btn btn--ghost" href="{{windows.url}}" rel="noreferrer">Windows <span class="dl__meta">x64 · {{windows.size}}</span></a>
+                  <a class="btn btn--ghost" href="{{linux.url}}" rel="noreferrer">Linux <span class="dl__meta">x64 · {{linux.size}}</span></a>
+                  <a class="btn btn--ghost" href="{{pi.url}}" rel="noreferrer">Raspberry Pi <span class="dl__meta">64-bit · {{pi.size}}</span></a>
+                </div>
+                <!-- release:get:end -->
+                <p class="step__note">On a Mac, use Homebrew:</p>
+                <pre class="code"><code>brew tap MetalHexx/TeensyROM-Suite https://github.com/MetalHexx/TeensyROM-Suite
+brew install teensyrom-suite</code></pre>
+                <p class="step__note">Or <a href="https://github.com/MetalHexx/TeensyROM-Suite/blob/main/docs/trom-agent.md#install-and-update-the-suite" rel="noreferrer">let Trom Agent install it</a> and keep it up to date for you.</p>
+              </li>
+              <li><b>Connect</b> your TeensyROM over USB or your network.</li>
+              <li><b>Play.</b> Run <code>trom ui</code> to open Trom UI, run <code>trom</code> for the guided menu, or just ask Trom Agent.</li>
+            </ol>
+            <p class="get__more"><a class="link-arrow" href="https://github.com/MetalHexx/TeensyROM-Suite/blob/main/docs/getting-started.md" rel="noreferrer">Getting started guide <span aria-hidden="true">→</span></a></p>
+          </div>
+        </div>
+      </div>
+    </section>
+
+  </main>
+
+  <!-- ============ FOOTER ============ -->
+  <footer class="footer">
+    <div class="wrap footer__in" data-reveal>
+      <div class="footer__brand">
+        <a class="brand" href="./" aria-label="TeensyROM Suite home">
+          <img class="brand__mark" src="img/icon.svg" alt="" width="32" height="32">
+          <span class="brand__word"><span>TeensyROM</span> <span class="brand__suite">Suite</span></span>
+        </a>
+        <p class="footer__tag">Apps for your TeensyROM and your Commodore 64.</p>
+      </div>
+      <nav class="footer__col" aria-labelledby="foot-project">
+        <h2 class="footer__h" id="foot-project">Project</h2>
+        <a href="https://github.com/MetalHexx/TeensyROM-Suite" rel="noreferrer">GitHub</a>
+        <a href="https://github.com/MetalHexx/TeensyROM-Suite/releases" rel="noreferrer">Releases</a>
+        <a href="https://github.com/MetalHexx/TeensyROM-Suite/blob/main/docs/README.md" rel="noreferrer">Docs</a>
+      </nav>
+      <nav class="footer__col" aria-labelledby="foot-community">
+        <h2 class="footer__h" id="foot-community">Community</h2>
+        <a href="https://discord.com/invite/ubSAb74S5U" rel="noreferrer">Discord</a>
+        <a href="https://github.com/SensoriumEmbedded/TeensyROM" rel="noreferrer">TeensyROM hardware</a>
+      </nav>
+    </div>
+    <div class="wrap footer__fine" data-reveal>
+      <div class="footer__credits">
+        <p>The TeensyROM hardware is created by <a href="https://github.com/SensoriumEmbedded/TeensyROM" rel="noreferrer">Travis Smith / Sensorium</a>.</p>
+        <p>With thanks to Jens-Christian Huus and <a href="https://github.com/Chordian/deepsid" rel="noreferrer">DeepSID</a>, StatMat and <a href="https://oneload64.github.io/" rel="noreferrer">OneLoad64</a>, the HVSC community, <a href="https://www.transbyte.org/SID/SIDlist.html" rel="noreferrer">LaLa's SIDList</a> and Jamie Honn (JTHonn).</p>
+        <p>Free and open source under the <a href="https://github.com/MetalHexx/TeensyROM-Suite/blob/main/LICENSE.md" rel="noreferrer">MIT licence</a>.</p>
+        <p>Headlines are set in Web437 IBM VGA 8x16, from VileR&#39;s <a href="https://int10h.org/oldschool-pc-fonts/" rel="noreferrer">Ultimate Oldschool PC Font Pack</a>, under the <a href="https://creativecommons.org/licenses/by-sa/4.0/" rel="noreferrer">Creative Commons Attribution-ShareAlike 4.0 licence</a>.</p>
+        <p>The neon Suite on the cartridge is set in Neonderthaw, from <a href="https://fonts.google.com/specimen/Neonderthaw" rel="noreferrer">Google Fonts</a>, under the <a href="https://openfontlicense.org" rel="noreferrer">SIL Open Font License</a>.</p>
+      </div>
+      <p class="ready" aria-hidden="true">READY.<span class="cursor"></span></p>
+    </div>
+  </footer>
+</body>
+</html>

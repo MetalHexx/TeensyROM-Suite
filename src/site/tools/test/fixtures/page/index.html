@@ -1,0 +1,38 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta http-equiv="Content-Security-Policy" content="default-src 'self'; img-src 'self'; style-src 'self'; script-src 'self'; font-src 'self'; frame-src https://www.youtube-nocookie.com; object-src 'none'; base-uri 'none'; form-action 'none'">
+  <meta name="referrer" content="strict-origin-when-cross-origin">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Fixture page</title>
+  <meta name="description" content="A page that exercises the build and the check.">
+  <meta property="og:title" content="Fixture page">
+  <meta property="og:description" content="A page that exercises the build and the check.">
+  <meta property="og:image" content="https://metalhexx.github.io/TeensyROM-Suite/img/mark.svg">
+  <meta property="og:url" content="https://metalhexx.github.io/TeensyROM-Suite/">
+  <link rel="stylesheet" href="css/site.css">
+</head>
+<body>
+  <h1>Fixture page</h1>
+  <img src="img/mark.svg" alt="" width="16" height="16">
+  <section id="hero">
+    <!-- release:hero:fallback -->
+    <a href="https://github.com/MetalHexx/TeensyROM-Suite/releases" rel="noreferrer">See the releases</a>
+    <!-- release:hero:stamped -->
+    <p class="release">{{tag}} <time datetime="{{date}}">{{dateText}}</time></p>
+    <a href="{{windows.url}}" title="{{version}}" rel="noreferrer">Windows {{windows.size}}</a>
+    <!-- release:hero:end -->
+  </section>
+  <section id="get">
+    <!-- release:get:fallback -->
+    <a href="https://github.com/MetalHexx/TeensyROM-Suite/releases" rel="noreferrer">All downloads</a>
+    <!-- release:get:stamped -->
+    <a href="{{windows.url}}" rel="noreferrer">Windows {{windows.size}}</a>
+    <a href="{{linux.url}}" rel="noreferrer">Linux {{linux.size}}</a>
+    <a href="{{pi.url}}" rel="noreferrer">Raspberry Pi {{pi.size}}</a>
+    <a href="{{releaseUrl}}" rel="noreferrer">Release notes for {{tag}}</a>
+    <!-- release:get:end -->
+  </section>
+</body>
+</html>

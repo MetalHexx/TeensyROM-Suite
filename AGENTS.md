@@ -4,6 +4,8 @@
 
 TeensyROM-UI is a hybrid .NET/Angular application that provides a modern desktop interface for controlling Commodore 64/128 computers via the TeensyROM hardware cartridge. This project combines a .NET 9 Web API backend with an Angular 19 frontend using Nx monorepo architecture and Clean Architecture principles.
 
+`src/site/` (not an Nx project; own `AGENTS.md`) is the product page for `https://metalhexx.github.io/TeensyROM-Suite/`, plain HTML/CSS/JS with a Node-only toolchain; see `src/site/AGENTS.md`.
+
 ## Architecture & Technology Stack
 
 ### Backend (.NET 9 Web API)

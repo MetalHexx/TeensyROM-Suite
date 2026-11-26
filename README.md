@@ -1,11 +1,11 @@
 <h1 align="center">TeensyROM Suite</h1>
 
 <p align="center">
-  <b>Turn your Commodore 64 into a jukebox, an arcade or a DJ booth.</b>
+  <b>Turn your Commodore 64 into a jukebox, arcade or DJ booth.</b>
 </p>
 
 <p align="center">
-  <a href="#get-started">Get started</a> · <a href="docs/README.md">Docs</a> · <a href="https://discord.com/invite/ubSAb74S5U">Discord</a>
+  <a href="https://metalhexx.github.io/TeensyROM-Suite/">Website</a> · <a href="#get-started">Get started</a> · <a href="docs/README.md">Docs</a> · <a href="https://discord.com/invite/ubSAb74S5U">Discord</a>
 </p>
 
 TeensyROM Suite is a set of apps for the [TeensyROM](https://github.com/SensoriumEmbedded/TeensyROM) cartridge. They put everything on your cart, every game, demo, SID tune and image, a click, a command or a sentence away, and it all plays on your real C64.
