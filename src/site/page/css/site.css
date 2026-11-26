@@ -1132,6 +1132,26 @@ code {
   .video__play svg { width: 48px; height: 48px; }
 }
 .video__stage iframe { position: absolute; inset: 0; width: 100%; height: 100%; border: 0; }
+/* the video's title, centred at the bottom of its picture (YouTube's title); it hides while the video plays */
+.video__caption {
+  position: absolute;
+  left: 0;
+  right: 0;
+  bottom: 12px;
+  z-index: 1;
+  width: max-content;
+  max-width: calc(100% - 24px);
+  margin: 0 auto;
+  padding: 5px 10px 6px;
+  background: rgba(21, 17, 22, 0.8);
+  color: var(--white);
+  font: 500 13px/1.3 var(--font-body);
+  text-align: center;
+  pointer-events: none;
+}
+@container tv (min-width: 480px) { .video__caption { font-size: 14px; bottom: 16px; } }
+@container tv (min-width: 700px) { .video__caption { font-size: 15px; bottom: 20px; } }
+.tv.is-playing .video__caption { display: none; }
 /* a plain link to the video, outside the frame, so a video that cannot load still offers a way to it */
 .video__link {
   position: absolute;

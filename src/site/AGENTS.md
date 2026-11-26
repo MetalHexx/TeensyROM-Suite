@@ -217,6 +217,8 @@ when the TV first comes into view); nothing is requested from another origin unt
   `https://www.youtube.com/watch?v=<id>` (`rel="noreferrer"`) in the channel, outside the frame, always shown, so a
   video that cannot load (YouTube blocked or down) still has a way to it. `data-video-id` and `data-video-title`
   hold the id and the title.
+- A caption at the bottom centre names the video with its title (`data-video-title`, YouTube's, without a version number,
+  since `check` rejects one). It is hidden while the video plays.
 - `site.js` validates the id against `/^[A-Za-z0-9_-]{11}$/` (no match, no play button; the poster and the link stay)
   and wraps the poster in a `<button>` labelled "Play video: <title>" with a pixel play icon.
 - On click it replaces the poster with an iframe on `https://www.youtube-nocookie.com/embed/<id>?autoplay=1&rel=0&cc_load_policy=1`,
