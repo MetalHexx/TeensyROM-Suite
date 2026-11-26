@@ -137,6 +137,82 @@
       </div>
     </section>
 
+    <!-- ============ 01 HOW IT WORKS ============ -->
+    <section class="section" id="how" aria-labelledby="how-title">
+      <div class="wrap">
+        <header class="sechead" data-reveal>
+          <p class="eyebrow"><span class="eyebrow__n">01</span>How it works</p>
+          <h2 class="sechead__title" id="how-title">From a click to your C64</h2>
+          <p class="sechead__lede">Every Suite app runs on Trom API, and Trom API talks to your cartridge. Whichever app you pick, it all ends up playing on a real Commodore 64.</p>
+        </header>
+
+        <figure class="flow" data-reveal>
+          <div class="flow__stage" id="flow-stage" role="img" aria-label="How a click reaches your C64" aria-describedby="flow-desc">
+            <div class="flow__map">
+              <div class="flow__node flow__node--apps">
+                <svg class="flow__icon" viewBox="0 0 16 16" aria-hidden="true" focusable="false" shape-rendering="crispEdges"><path fill="#00f7ff" d="M1 2h14v2H1zM1 4h1v9H1zM14 4h1v9h-1zM1 13h14v1H1z"/><path fill="#100c11" d="M3 3h1v1H3zM5 3h1v1H5zM7 3h1v1H7z"/><path fill="#d66ed6" d="M3 6h4v3H3zM8 6h5v3H8zM3 10h10v2H3z"/></svg>
+                <p class="flow__name">Suite Apps</p>
+                <ul class="flow__sub"><li>Trom UI</li><li>Trom Terminal</li><li>Trom Agent</li></ul>
+              </div>
+
+              <div class="flow__link flow__link--1" aria-hidden="true">
+                <span class="flow__wire flow__wire--h"><i class="flow__sig"></i><svg class="flow__head" viewBox="0 0 6 12" focusable="false" shape-rendering="crispEdges"><path d="M0 0h2v12H0zM2 2h2v8H2zM4 4h2v4H4z"/></svg></span>
+                <span class="flow__wire flow__wire--v"><i class="flow__sig"></i><svg class="flow__head" viewBox="0 0 12 6" focusable="false" shape-rendering="crispEdges"><path d="M0 0h12v2H0zM2 2h8v2H2zM4 4h4v2H4z"/></svg></span>
+              </div>
+
+              <div class="flow__node flow__node--api">
+                <svg class="flow__icon" viewBox="0 0 16 16" aria-hidden="true" focusable="false" shape-rendering="crispEdges"><path fill="#00f7ff" d="M2 1h12v1H2zM2 4h12v1H2zM2 2h1v2H2zM13 2h1v2h-1zM2 6h12v1H2zM2 9h12v1H2zM2 7h1v2H2zM13 7h1v2h-1zM2 11h12v1H2zM2 14h12v1H2zM2 12h1v2H2zM13 12h1v2h-1z"/><path fill="#6fdc8c" d="M4 2h2v2H4zM4 7h2v2H4zM4 12h2v2H4z"/><path fill="#d66ed6" d="M8 2h4v2H8zM8 7h4v2H8zM8 12h4v2H8z"/></svg>
+                <p class="flow__name">Trom API</p>
+                <p class="flow__sub">runs on your computer</p>
+              </div>
+
+              <div class="flow__link flow__link--2" aria-hidden="true">
+                <span class="flow__wire flow__wire--h"><i class="flow__sig"></i><svg class="flow__head" viewBox="0 0 6 12" focusable="false" shape-rendering="crispEdges"><path d="M0 0h2v12H0zM2 2h2v8H2zM4 4h2v4H4z"/></svg></span>
+                <span class="flow__wire flow__wire--v"><i class="flow__sig"></i><svg class="flow__head" viewBox="0 0 12 6" focusable="false" shape-rendering="crispEdges"><path d="M0 0h12v2H0zM2 2h8v2H2zM4 4h4v2H4z"/></svg></span>
+                <span class="flow__via">USB or network</span>
+              </div>
+
+              <div class="flow__node flow__node--cart">
+                <svg class="flow__icon" viewBox="0 0 16 16" aria-hidden="true" focusable="false" shape-rendering="crispEdges"><path fill="#cf8ee3" d="M3 1h10v1H3zM3 2h1v11H3zM12 2h1v11h-1zM3 13h10v1H3z"/><path fill="#5b1771" d="M4 2h8v11H4z"/><path fill="#17171f" d="M5 4h6v4H5z"/><path fill="#00f7ff" d="M10 3h1v1h-1z"/><path fill="#6fdc8c" d="M5 3h1v1H5z"/><path fill="#a04bbb" d="M5 9h6v1H5zM5 11h4v1H5z"/><path fill="#e9b73b" d="M4 14h1v2H4zM6 14h1v2H6zM8 14h1v2H8zM10 14h1v2h-1z"/></svg>
+                <p class="flow__name">TeensyROM</p>
+                <p class="flow__sub">the cartridge</p>
+              </div>
+
+              <div class="flow__link flow__link--3" aria-hidden="true">
+                <span class="flow__wire flow__wire--h"><i class="flow__sig"></i><svg class="flow__head" viewBox="0 0 6 12" focusable="false" shape-rendering="crispEdges"><path d="M0 0h2v12H0zM2 2h2v8H2zM4 4h2v4H4z"/></svg></span>
+                <span class="flow__wire flow__wire--v"><i class="flow__sig"></i><svg class="flow__head" viewBox="0 0 12 6" focusable="false" shape-rendering="crispEdges"><path d="M0 0h12v2H0zM2 2h8v2H2zM4 4h4v2H4z"/></svg></span>
+              </div>
+
+              <div class="flow__node flow__node--c64">
+                <svg class="flow__icon" viewBox="0 0 16 16" aria-hidden="true" focusable="false" shape-rendering="crispEdges"><path fill="#5b1771" d="M1 5h14v8H1z"/><path fill="#cf8ee3" d="M3 3h10v1H3zM2 4h12v1H2zM1 5h14v1H1zM1 6h1v7H1zM14 6h1v7h-1zM1 13h14v1H1z"/><path fill="#00f7ff" d="M3 7h1v1H3zM5 7h1v1H5zM7 7h1v1H7zM9 7h1v1H9zM11 7h2v1h-2zM3 9h2v1H3zM6 9h1v1H6zM8 9h1v1H8zM10 9h1v1h-1z"/><path fill="#f5e29e" d="M5 11h6v1H5z"/><path fill="#6fdc8c" d="M12 11h1v1h-1z"/></svg>
+                <p class="flow__name">Commodore 64</p>
+                <p class="flow__sub">three SID voices</p>
+                <svg class="voices voices--scroll" viewBox="40 0 400 72" preserveAspectRatio="none" aria-hidden="true" focusable="false"><g class="voices__scroll"><use href="#voices-art"/></g></svg>
+              </div>
+            </div>
+          </div>
+
+          <p class="sr-only" id="flow-desc">A click in Trom UI, a command in Trom Terminal or a question for Trom Agent goes to Trom API, which runs on your computer. Trom API sends it to your TeensyROM cartridge over USB or your network, and the cartridge plays it on your Commodore 64. Its three SID voices are drawn as traces in magenta, cyan and yellow.</p>
+
+          <figcaption>
+            <ol class="steps3">
+              <li class="steps3__item"><span><b>You pick something</b> in your browser, in the terminal, or just by asking.</span></li>
+              <li class="steps3__item"><span><b>Trom API sends it</b> to your cartridge, over USB or your network.</span></li>
+              <li class="steps3__item"><span><b>Your C64 plays it</b>, on real hardware, SID voices and all.</span></li>
+            </ol>
+          </figcaption>
+        </figure>
+
+        <div class="flow__foot" data-reveal>
+          <button class="btn btn--ghost flow__pause" type="button" aria-pressed="false" aria-controls="flow-stage" hidden>
+            <svg class="btn__icon" viewBox="0 0 16 16" aria-hidden="true" focusable="false" shape-rendering="crispEdges"><path class="i-pause" fill="currentColor" d="M3 2h4v12H3zM9 2h4v12H9z"/><path class="i-play" fill="currentColor" d="M4 2h2v1h2v1h2v1h2v1h2v4h-2v1h-2v1H8v1H6v1H4z"/></svg>
+            <span class="flow__pause-label">Pause animation</span>
+          </button>
+          <a class="link-arrow" href="https://github.com/MetalHexx/TeensyROM-Suite/blob/main/docs/README.md" rel="noreferrer">Read the docs <span aria-hidden="true">→</span></a>
+        </div>
+      </div>
+    </section>
+
     <!-- ============ 02 TROM UI ============ -->
     <section class="section" id="trom-ui" aria-labelledby="trom-ui-title">
       <div class="wrap">
@@ -247,25 +323,165 @@
       </div>
     </section>
 
-    <!-- ============ 06 GET IT (P02-T03 builds the rest around the release region) ============ -->
+    <!-- ============ 03 TROM TERMINAL ============ -->
+    <section class="section" id="terminal" aria-labelledby="terminal-title">
+      <div class="wrap split split--terminal">
+        <div class="split__copy" data-reveal>
+          <p class="eyebrow"><span class="eyebrow__n">03</span>Trom Terminal</p>
+          <h2 class="sechead__title" id="terminal-title">Your library from the command line</h2>
+          <p class="sechead__lede">A BBS-style menu for exploring, plus one-line commands your scripts and other tools can call.</p>
+          <ul class="featlist">
+            <li><b>Guided menu:</b> explore and launch without learning a single command.</li>
+            <li><b>Stream Player:</b> plays through your library like a streaming service.</li>
+            <li><b>One-line commands:</b> every action as a command, with <code>--json</code> output that pipes into your scripts.</li>
+          </ul>
+          <p class="split__links"><a class="link-arrow" href="https://github.com/MetalHexx/TeensyROM-Suite/blob/main/docs/trom-terminal.md" rel="noreferrer">Explore Trom Terminal <span aria-hidden="true">→</span></a></p>
+        </div>
+
+        <div class="term-stack">
+          <div class="term" data-reveal>
+            <div class="term__bar" aria-hidden="true"><span class="term__dots"><i></i><i></i><i></i></span><span>trom</span></div>
+            <div class="term__body">
+              <pre class="term__logo" aria-hidden="true"> _______                                     ______  _______  _______
+|_     _|.-----..-----..-----..-----..--.--.|   __ \|       ||   |   |
+  |   |  |  -__||  -__||     ||__ --||  |  ||      &lt;|   -   ||       |
+  |___|  |_____||_____||__|__||_____||___  ||___|__||_______||__|_|__|
+                                     |_____|</pre>
+              <img class="term__img" src="img/terminal/menu.webp" width="1462" height="454" loading="lazy" decoding="async" alt="Trom Terminal's guided menu, under its TeensyROM wordmark: launch files, watch folders, index files, devices, themes and more.">
+            </div>
+          </div>
+          <div class="term-pair">
+            <div class="term term--pair" data-reveal>
+              <div class="term__bar" aria-hidden="true"><span class="term__dots"><i></i><i></i><i></i></span><span>stream player</span></div>
+              <div class="term__body">
+                <img class="term__img" src="img/terminal/stream-player.webp" width="1465" height="1167" loading="lazy" decoding="async" alt="Trom Terminal's Stream Player showing the tune now playing, with its composer, release, length and links, and Next, Previous, Pause, Favorite, Ban and Share to choose from.">
+              </div>
+            </div>
+            <div class="term term--pair" data-reveal>
+              <div class="term__bar" aria-hidden="true"><span class="term__dots"><i></i><i></i><i></i></span><span>commands</span></div>
+              <div class="term__body">
+                <img class="term__img" src="img/terminal/commands.webp" width="1465" height="772" loading="lazy" decoding="async" alt="One-line Trom Terminal commands in a shell: listing devices, searching for a tune, launching it, copying it to the computer and sending a file to a cartridge.">
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- ============ 04 TROM AGENT ============ -->
+    <section class="section" id="agent" aria-labelledby="agent-title">
+      <div class="wrap">
+        <div class="split split--agent">
+          <div class="split__copy" data-reveal>
+            <p class="eyebrow"><span class="eyebrow__n">04</span>Trom Agent</p>
+            <h2 class="sechead__title" id="agent-title">Just ask.</h2>
+            <p class="sechead__lede">The AI-powered way to drive your TeensyROM and your C64: a plugin for your AI coding agent. Say what you want in plain words, and it plays it, builds the set or sorts out the setup for you.</p>
+            <p class="split__links"><a class="link-arrow" href="https://github.com/MetalHexx/TeensyROM-Suite/blob/main/docs/trom-agent.md" rel="noreferrer">Explore Trom Agent <span aria-hidden="true">→</span></a></p>
+          </div>
+
+          <div class="chat" role="group" aria-label="An example conversation with Trom Agent">
+            <ol class="chat__log">
+              <li class="msg msg--you"><span class="sr-only">You: </span>play me some Rob Hubbard</li>
+              <li class="msg msg--agent"><span class="msg__who"><span class="sr-only">Reply from </span>Trom Agent</span>Playing Commando by Rob Hubbard on your C64. It is one of his best-loved tunes.</li>
+              <li class="msg msg--you"><span class="sr-only">You: </span>give me a 30-minute set</li>
+              <li class="msg msg--agent"><span class="msg__who"><span class="sr-only">Reply from </span>Trom Agent</span>Your set is playing on your cart. It runs for half an hour and moves on by itself.</li>
+              <li class="msg msg--you"><span class="sr-only">You: </span>show me demos from 1989</li>
+              <li class="msg msg--agent"><span class="msg__who"><span class="sr-only">Reply from </span>Trom Agent</span>Here are the demos from 1989 in your library. Which one shall I launch?</li>
+            </ol>
+            <p class="chat__prompt" aria-hidden="true"><span>&gt;</span><span>ask for anything</span><span class="cursor"></span></p>
+          </div>
+        </div>
+
+        <div class="cards cards--three agent__cards">
+          <article class="card card--small" data-glow data-reveal>
+            <svg class="card__icon" viewBox="0 0 16 16" aria-hidden="true" focusable="false" shape-rendering="crispEdges"><path fill="#00f7ff" d="M4 2h5v1H4zM3 3h1v1H3zM9 3h1v1H9zM2 4h1v5H2zM10 4h1v5h-1zM3 9h1v1H3zM9 9h1v1H9zM4 10h5v1H4z"/><path fill="#d66ed6" d="M5 5h3v3H5zM10 10h2v1h-2zM11 11h2v1h-2zM12 12h2v1h-2zM13 13h2v2h-2z"/></svg>
+            <h3 class="card__title">Library tours and curation</h3>
+            <p class="card__text">Explores your library with you, finds what you love and tells you about what is playing.</p>
+          </article>
+          <article class="card card--small" data-glow data-reveal>
+            <svg class="card__icon" viewBox="0 0 16 16" aria-hidden="true" focusable="false" shape-rendering="crispEdges"><path fill="#00f7ff" d="M7 1h2v8h2v-1h1v1h1v1h-1v1h-1v1h-1v1H7v-1H6v-1H5v-1H4V9h1V8h1v1h1z"/><path fill="#d66ed6" d="M2 13h12v2H2z"/></svg>
+            <h3 class="card__title">Installs and updates</h3>
+            <p class="card__text">Installs the suite if you don't have it yet, and keeps it up to date.</p>
+          </article>
+          <article class="card card--small" data-glow data-reveal>
+            <svg class="card__icon" viewBox="0 0 16 16" aria-hidden="true" focusable="false" shape-rendering="crispEdges"><path fill="#00f7ff" d="M2 2h12v1H2zM2 13h12v1H2zM2 3h1v10H2zM13 3h1v10h-1z"/><path fill="#6fdc8c" d="M4 8h1v2H4zM5 9h1v2H5zM6 10h1v2H6zM7 9h1v2H7zM8 8h1v2H8zM9 7h1v2H9zM10 6h1v2h-1z"/></svg>
+            <h3 class="card__title">Checks your setup</h3>
+            <p class="card__text">Virtual Travis, an AI stand-in, checks your setup and walks you through the fixes.</p>
+          </article>
+        </div>
+      </div>
+    </section>
+
+    <!-- ============ 05 TROM API ============ -->
+    <section class="section" id="api" aria-labelledby="api-title">
+      <div class="wrap split split--api">
+        <div class="split__copy" data-reveal>
+          <p class="eyebrow"><span class="eyebrow__n">05</span>Trom API</p>
+          <h2 class="sechead__title" id="api-title">Drive your cart from your own code</h2>
+          <p class="sechead__lede">Launch files, search your library, copy files and set themes from a script or a full app of your own. A database of your files and their metadata sits behind it and powers search.</p>
+          <p class="sechead__lede">Call it over HTTP from any language, or generate a client from its OpenAPI spec.</p>
+          <ul class="tags" aria-label="What it speaks">
+            <li>HTTP</li>
+            <li>OpenAPI</li>
+            <li>Any language</li>
+          </ul>
+          <p class="split__links"><a class="link-arrow" href="https://github.com/MetalHexx/TeensyROM-Suite/blob/main/docs/trom-api.md" rel="noreferrer">Explore Trom API <span aria-hidden="true">→</span></a></p>
+        </div>
+
+        <div class="shots" data-reveal>
+          <img class="shot" src="img/api/docs.webp" width="1600" height="900" loading="lazy" decoding="async" alt="Trom API's documentation for finding devices: a list of endpoints beside a description, with a ready-to-run request and its JSON response.">
+          <img class="shot" src="img/api/search-files.webp" width="1600" height="900" loading="lazy" decoding="async" alt="The Search Files endpoint in the same documentation: what it searches, how results are filtered and paged, and an example request and response.">
+        </div>
+      </div>
+    </section>
+
+    <!-- ============ 06 GET IT ============ -->
     <section class="section" id="get" aria-labelledby="get-title">
       <div class="wrap">
         <header class="sechead" data-reveal>
           <p class="eyebrow"><span class="eyebrow__n">06</span>Get it</p>
-          <h2 class="sechead__title" id="get-title">Pick your computer</h2>
+          <h2 class="sechead__title" id="get-title">What you need, and three steps to play</h2>
         </header>
 
-        <!-- release:get:fallback -->
-        <div class="dl" data-release="fallback">
-          <a class="btn btn--ghost" href="https://github.com/MetalHexx/TeensyROM-Suite/releases" rel="noreferrer">Download from the releases page</a>
+        <div class="get">
+          <div class="panel" data-reveal>
+            <h3 class="panel__title">What you need</h3>
+            <dl class="spec">
+              <div><dt>Cartridge</dt><dd>A <a href="https://github.com/SensoriumEmbedded/TeensyROM" rel="noreferrer">TeensyROM cartridge</a> with current <a href="https://github.com/MetalHexx/TeensyROM-Suite/blob/main/docs/getting-started.md#firmware" rel="noreferrer">firmware</a></dd></div>
+              <div><dt>Commodore</dt><dd>A Commodore 64 or 128</dd></div>
+              <div><dt>Computer</dt><dd>Windows, Linux, macOS or a Raspberry Pi with a 64-bit OS</dd></div>
+              <div><dt>Connection</dt><dd>USB or your network</dd></div>
+            </dl>
+          </div>
+
+          <div class="panel" data-reveal>
+            <h3 class="panel__title">Three steps</h3>
+            <ol class="steps">
+              <li>
+                <b>Install</b> the suite on your computer.
+                <p class="step__note">On Windows, Linux or a Raspberry Pi, download it:</p>
+                <!-- release:get:fallback -->
+                <div class="dl" data-release="fallback">
+                  <a class="btn btn--ghost" href="https://github.com/MetalHexx/TeensyROM-Suite/releases" rel="noreferrer">Download from the releases page</a>
+                </div>
+                <!-- release:get:stamped -->
+                <div class="dl" data-release="stamped">
+                  <a class="btn btn--ghost" href="{{windows.url}}" rel="noreferrer">Windows <span class="dl__meta">x64 · {{windows.size}}</span></a>
+                  <a class="btn btn--ghost" href="{{linux.url}}" rel="noreferrer">Linux <span class="dl__meta">x64 · {{linux.size}}</span></a>
+                  <a class="btn btn--ghost" href="{{pi.url}}" rel="noreferrer">Raspberry Pi <span class="dl__meta">64-bit · {{pi.size}}</span></a>
+                </div>
+                <!-- release:get:end -->
+                <p class="step__note">On a Mac, use Homebrew:</p>
+                <pre class="code"><code>brew tap MetalHexx/TeensyROM-Suite https://github.com/MetalHexx/TeensyROM-Suite
+brew install teensyrom-suite</code></pre>
+                <p class="step__note">Or <a href="https://github.com/MetalHexx/TeensyROM-Suite/blob/main/docs/trom-agent.md#install-and-update-the-suite" rel="noreferrer">let Trom Agent install it</a> and keep it up to date for you.</p>
+              </li>
+              <li><b>Connect</b> your TeensyROM over USB or your network.</li>
+              <li><b>Play.</b> Run <code>trom ui</code> to open Trom UI, run <code>trom</code> for the guided menu, or just ask Trom Agent.</li>
+            </ol>
+            <p class="get__more"><a class="link-arrow" href="https://github.com/MetalHexx/TeensyROM-Suite/blob/main/docs/getting-started.md" rel="noreferrer">Getting started guide <span aria-hidden="true">→</span></a></p>
+          </div>
         </div>
-        <!-- release:get:stamped -->
-        <div class="dl" data-release="stamped">
-          <a class="btn btn--ghost" href="{{windows.url}}" rel="noreferrer">Windows <span class="dl__meta">x64 · {{windows.size}}</span></a>
-          <a class="btn btn--ghost" href="{{linux.url}}" rel="noreferrer">Linux <span class="dl__meta">x64 · {{linux.size}}</span></a>
-          <a class="btn btn--ghost" href="{{pi.url}}" rel="noreferrer">Raspberry Pi <span class="dl__meta">64-bit · {{pi.size}}</span></a>
-        </div>
-        <!-- release:get:end -->
       </div>
     </section>
 

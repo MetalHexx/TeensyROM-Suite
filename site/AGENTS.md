@@ -85,11 +85,13 @@ Every check runs and every problem is reported in one run.
 
 | Path | What |
 |------|------|
-| `index.html` | The whole page: head, skip link, sticky header, `<main>` (hero, `#trom-ui`, then `#get`), footer. Holds the inline-SVG art (`#cart-art`, `#voices-art`). |
-| `css/site.css` | Tokens, base, components, header, hero, the TV, footer, keyframes, reduced motion, in that order. |
-| `js/site.js` | Adds the `js` class, scroll reveal, the cursor-following card glow, cursor blinking in view, the cartridge's replay on hover, the TV and its video facades. Progressive: the page reads without it. |
+| `index.html` | The whole page: head, skip link, sticky header, `<main>` (hero, then `#how` 01, `#trom-ui` 02, `#terminal` 03, `#agent` 04, `#api` 05 and `#get` 06), footer. Holds the inline-SVG art (`#cart-art`, `#voices-art`). |
+| `css/site.css` | Tokens, base, components, header, hero, the TV, the diagram, Trom Terminal's frame, the chat, Get it, footer, keyframes, reduced motion, in that order. |
+| `js/site.js` | Adds the `js` class, scroll reveal, the cursor-following card glow, cursor blinking in view, the cartridge's replay on hover, the diagram's pause button, the Trom Agent conversation's entrance, the TV and its video facades. Progressive: the page reads without it. |
 | `img/` | `icon.svg` (the header icon, 16 cells), `favicon-32.png`, `apple-touch-icon.png`, `og-card.png`, `glow.svg` (the Web UI's background glows, fixed behind the page). |
 | `img/tv/` | The TV's pictures: three video posters and seven screenshots, WebP. See "Images". |
+| `img/terminal/` | Trom Terminal's three pictures (`menu`, `stream-player`, `commands`), lossless WebP. See "Images" and "Trom Terminal's frame". |
+| `img/api/` | The two Trom API screenshots (`docs`, `search-files`), WebP. |
 | `fonts/` | The self-hosted pixel font (Web437 IBM VGA 8x16) and its licence file; see "The pixel font". |
 
 Rules for every file in `page/`:
@@ -142,7 +144,8 @@ page (same parts, its own look): pink and purple are the brand here, ReBeep's li
 - **Shared parts.** `.wrap`; `.sechead` with an eyebrow number `01`..`06`; `.card` with `data-glow` (the glow
   follows the cursor through `--mx`/`--my`); `.tags`; `.btn--primary` and `.btn--ghost`; `.link-arrow`;
   `[data-reveal]` fade-and-rise for elements below the first screen only; `.cursor`; `.monitor` with `.tv__*` (the
-  TV, see "The TV").
+  TV, see "The TV"); `.split` (copy beside pictures, two columns from 900 px); `.panel` (a still surface for Get it);
+  `.sr-only`; `code`.
 
 ### The TV
 
@@ -200,6 +203,92 @@ first comes into view); nothing is requested from another origin until a play bu
   stops the video (the iframe is removed and the poster facade comes back) and the automatic changes resume unless
   paused.
 - The page never requests YouTube images: the poster is a stored copy (see "Images").
+
+### How it works (the diagram)
+
+Section 01 (`#how`) is `<figure class="flow">`: four nodes and three links in HTML (not one SVG), so the type stays real
+at every width. Suite Apps (Trom UI, Trom Terminal, Trom Agent) → Trom API (runs on your computer) → TeensyROM
+(the link is labelled "USB or network") → Commodore 64, which carries three scrolling SID traces. Pixel icons are
+inline SVGs on a 16-cell grid, as in the cards.
+
+- **Two layouts, one DOM.** Left to right from 720 px (tablet and desktop), top to bottom below it. Each link holds
+  two drawn wires, `.flow__wire--h` and `.flow__wire--v` (dashed line, pixel arrowhead, a `.flow__sig` packet), and
+  the breakpoint hides the other. The stage is `role="img"` with `aria-label` and `aria-describedby="flow-desc"` (a
+  `.sr-only` paragraph); the three-step captions are a real `<ol>` in the `<figcaption>`, outside the image role.
+- **Motion: one 6 s loop**, only while the page has JS and the diagram is not paused (`.js .flow:not(.is-paused)`).
+  A packet runs 0.96 s along each link in turn (started 0.5 s, 1.7 s and 2.9 s in) and the node it reaches lights as
+  it arrives; the first node lights at the "click". Lighting is the opacity of the node's `::after` rim (`lit-1` to
+  `lit-4`); all stay lit until 88 % of the loop, fade, and it starts over. The C64's traces fade up on arrival
+  (`traces-on`) and scroll continuously. The delays and percentages in `site.css` and the `6s` are one timeline: change
+  them together.
+- **Resting state = paused = reduced motion = no JS:** every node lit, every trace drawn, no packet. It is the base
+  style; the animations are layered on top, so pausing just removes them.
+- **Scrolling traces.** `.voices--scroll` reuses `#voices-art` through `<g class="voices__scroll"><use …/></g>` with
+  `viewBox="40 0 400 72"`; the group slides 40 units left and loops (each trace repeats every 40 units, and the
+  window never reaches either end of the 960-unit art). `0.6 s` divides the 6 s loop, so it never jumps.
+- **Pause button** (`.flow__pause`): `hidden` until JS runs; never shown under reduced motion; toggles `.is-paused`,
+  `aria-pressed` and its label ("Pause animation" / "Play animation").
+- **Change a node.** Edit the node in `index.html`; if the order or count of nodes changes, the grid columns in
+  `.flow__map` (7 tracks: node, link, node, link, node, link, node), the `lit-N` keyframes and the link delays all
+  follow.
+
+### Trom Terminal's frame
+
+Section 03 (`#terminal`) is its own look, not the TV's: `.term`, a dark console window with a magenta-bordered title bar
+in the pixel face (three small squares and a lowercase title; decoration, so `aria-hidden`) and faint scanlines. The
+body is the terminal's own `#0c0c0c`, which the screenshots share, so they sit in it without a seam. One large frame
+(the guided menu) sits over a pair (Stream Player, commands) cropped to 16:10 from the top left.
+
+- **The wordmark is real text.** `<pre class="term__logo" aria-hidden="true">` holds Trom Terminal's "TeensyROM"
+  wordmark in `#b4009e`, the colour the app draws it in, rendered from `src/apps/cli/src/TeensyRom.Cli/Fonts/Chunky.flf`
+  (the app's own font): each character's five rows side by side, the hardblank `$` as a space, trailing spaces
+  trimmed, `<` written `&lt;`. It is 70 columns; the screenshot below it is a 73-column terminal, so the pre's
+  `font-size` is `100cqw / 73.1 / 0.6` (the body is a size container) and a column matches the screenshot's. The name
+  is available to assistive tech through the eyebrow, the heading and the picture's alt text.
+- **`img/terminal/menu.webp` is the screenshot with the wordmark cropped off** (y 236 to 690 of the source, 1462 x 454),
+  so the page's text is the only wordmark in the frame.
+
+### Trom Agent's conversation
+
+Section 04 (`#agent`) is a conversation drawn in HTML (`.chat`, an `<ol>` of `.msg`), never a screenshot: the app
+shots show an AI tool's branding. Rules:
+
+- The visitor's lines come from `docs/trom-agent.md` ("play me some Rob Hubbard", "give me a 30-minute set", "show me
+  demos from 1989"). A reply shows only what the agent really does: plays it on your C64 and tells you a little about
+  it; builds a set that runs for the time you chose and moves on by itself; finds the demos in your library and offers
+  to launch one. Invent nothing the docs do not say, no file names, no tool output.
+- It is "a plugin for your AI coding agent". The page never names the host tool (text, alt, images, markup) and makes no
+  promise about other agents; `check` rejects the names.
+- A prompt line ends in the page's `.cursor` (blinks for four seconds once in view, then rests solid).
+- **Entrance:** when the chat is 40 % in view, `site.js` swaps `is-pending` for `is-playing` and each message rises in
+  turn (`msg-in`, delays in `site.css`, 4.2 s in all, played once). Under reduced motion, or without an observer, every
+  message is simply there.
+- Three small cards sit below: library tours and curation, installs and updates, checks your setup (Virtual Travis,
+  "an AI stand-in", as the docs call him).
+
+### Trom API
+
+Section 05 (`#api`): short copy for people building their own tools, two screenshots (`img/api/`), no link to any live
+API (it runs on the visitor's own computer, so a `localhost` address is no use on a public page). Facts from
+`docs/trom-api.md` and the README: launch, search, copy files and set themes; a database of files and their metadata
+behind it; HTTP from any language, or a client generated from its OpenAPI spec.
+
+### Get it
+
+Section 06 (`#get`) has two panels: what you need, and three steps. Every fact and where it comes from:
+
+| Fact | Source |
+|------|--------|
+| A TeensyROM cartridge, linked to `https://github.com/SensoriumEmbedded/TeensyROM` | README |
+| "Current firmware", linked to `docs/getting-started.md#firmware`. Never type a firmware version here: it goes stale, and the doc holds the number | `docs/getting-started.md` |
+| A Commodore 64 or 128 | the repo's root `AGENTS.md` ("Commodore 64/128") |
+| Windows, Linux, macOS, or a Raspberry Pi with a 64-bit OS | README, `docs/getting-started.md` |
+| Connected over USB or the network | README |
+| Install: the `get` release region (Windows, Linux, Raspberry Pi), Homebrew on a Mac (`brew tap MetalHexx/TeensyROM-Suite https://github.com/MetalHexx/TeensyROM-Suite`, `brew install teensyrom-suite`), or let Trom Agent install it (`docs/trom-agent.md#install-and-update-the-suite`) | `docs/getting-started.md` |
+| Play: `trom ui`, `trom` for the guided menu, or ask Trom Agent | README |
+
+The hero's "macOS (Homebrew)" link points at `#get`. The release region keeps its three markers and placeholders inside
+step 1; its markup may be restyled but keep the shape in "Release regions".
 
 ### The pixel font
 
@@ -261,6 +350,11 @@ the release step can swap a picture without any other notes:
 4. **Markup**: `loading="lazy"` with `width` and `height` that match the file, and alt text saying what it shows at
    feature level.
 
+**Terminal and API pictures** (`img/terminal/`, `img/api/`) follow the same steps with two differences. The terminal
+screenshots are flat-coloured text, so they are lossless WebP at their source size (`-lossless 1 -compression_level 6`,
+6 to 28 KB; lossy was 4 to 5 times larger and softer). The API screenshots (2560 x 1440) are scaled to 1600 wide at
+quality 82 (about 80 KB each). They show one frame each and have no 960 px copy.
+
 **Video posters** are stored copies; the page never requests YouTube images. Fetch the video's thumbnail once,
 `https://i.ytimg.com/vi/<id>/maxresdefault.jpg` (`hqdefault.jpg` when there is no max resolution), and store it
 as WebP at about 1280 x 720 with the same recipe (`scale=1280:720`, `-quality 80`). They are the videos' public
@@ -289,6 +383,15 @@ A cover goes on every size made from that source. Add to this list whenever a co
   first, 32 x 11 at 171, 565 and 30 x 11 at 987, 565 in the second (colours sampled around each, about `#0d0a10`).
   `crx-interview.webp` (from `ACT5R9AYFKA`) shows the same pickers only as an unreadable blur, and the presenter's
   name as the video's own caption.
+- `trom-terminal-commands.png` (`img/terminal/commands.webp`): two boxes in the terminal's background `#0c0c0c` over
+  `trom device list`'s table: the private address `192.168.1.38` after `Ethernet` in the Connection column, 145 x 24 at
+  498, 104 (the row reads `Ethernet` alone), and the two USB serial numbers in the Id column, 102 x 39 at 146, 86 (the
+  same numbers the app shows in its device pickers).
+- `trom-terminal-menu.png` (`img/terminal/menu.webp`): no cover. Cropped to y 236 to 690 so the wordmark is the
+  page's own text (see "Trom Terminal's frame").
+- Looked at in full and clear, no cover: `trom-terminal-stream-player.png` (the working folder is `C:\trom-demo`, no user
+  name; the links are public ones), `trom-api-docs.png` and `trom-api-files.png` (only `localhost` and placeholder
+  values). Only the `COM4` port name stays in the commands picture: a port name, not an identifier.
 
 ## Release regions
 

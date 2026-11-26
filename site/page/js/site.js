@@ -71,6 +71,35 @@
     });
   }
 
+  // ---------- how it works: the diagram's pause button (WCAG 2.2.2) ----------
+  // Paused, the diagram rests complete (every node lit, the traces drawn) and nothing moves. Under reduced motion it
+  // already rests that way, so the button stays hidden.
+  var flow = document.querySelector('.flow');
+  var flowPause = document.querySelector('.flow__pause');
+  if (flow && flowPause && !reduceMotion) {
+    var flowLabel = flowPause.querySelector('.flow__pause-label');
+    flowPause.hidden = false;
+    flowPause.addEventListener('click', function () {
+      var paused = flow.classList.toggle('is-paused');
+      flowPause.setAttribute('aria-pressed', paused ? 'true' : 'false');
+      if (flowLabel) flowLabel.textContent = paused ? 'Play animation' : 'Pause animation';
+    });
+  }
+
+  // ---------- Trom Agent: the conversation plays once when it scrolls in ----------
+  // Each message rises in turn (about four seconds, no loop). Under reduced motion every message is simply shown.
+  var chat = document.querySelector('.chat');
+  if (chat && !reduceMotion && hasObserver) {
+    chat.classList.add('is-pending');
+    var chatWatch = new IntersectionObserver(function (entries) {
+      if (!entries.some(function (entry) { return entry.isIntersecting; })) return;
+      chat.classList.remove('is-pending');
+      chat.classList.add('is-playing');
+      chatWatch.disconnect();
+    }, { threshold: 0.4 });
+    chatWatch.observe(chat);
+  }
+
   // ---------- the TV: ten channels that change by themselves ----------
   // A WAI-ARIA carousel with a pause button (WCAG 2.2.2). The channels change on their own except on hover and keyboard
   // focus, off screen, in a hidden tab, under reduced motion, while paused and while a video plays. A picture loads
