@@ -26,7 +26,7 @@ This skill releases TeensyROM Suite: it bumps the version, writes the release no
 
 ### Step 1: Bump Version and Write the Notes
 
-When `Version.props`, the plugin version and the `CHANGELOG.md` section already carry the version (as for `1.0.0-beta.1`), go to Step 2.
+When `Version.props`, the plugin version and the `CHANGELOG.md` section already carry the version (as for `1.0.0-beta.1`), skip the bump and the notes and go on to *Update the product page*, then Step 2.
 
 Ask the user for the new version number, then update the `<Version>` element in the shared version file. It stamps both the engine (`TeensyRom.Api`) and the CLI (`TeensyRom.Cli`), so there is one place to bump:
 
@@ -96,7 +96,7 @@ When a feature in the notes is missing from `docs/` or the README, or the docs d
 
 Take every user-facing change since the last release (the same list the changelog is written from) and decide what the page in `site/page/` needs: a card, a section, a screenshot, the How it works diagram, a TV channel, or the Get it facts. Page edits follow the rules in `site/AGENTS.md`: features only, at feature level, no internal project names, no counts that go stale, no version written by hand, and the AI tool Trom Agent runs in is never named.
 
-- Show the changes on the local preview: start `node site/tools/site.mjs dev --offline` in the background, then open `http://127.0.0.1:8087/TeensyROM-Suite/` and `__dev/preview` (three widths side by side). Get the user's approval, then run `node site/tools/site.mjs build && node site/tools/site.mjs check`.
+- Show the changes on the local preview: start `node site/tools/site.mjs dev --offline` in the background, then open `http://127.0.0.1:8087/TeensyROM-Suite/` and `__dev/preview` (three widths side by side). Get the user's approval, stop the preview server this step started (the background process, by its PID), then run `node site/tools/site.mjs build && node site/tools/site.mjs check`.
 - "No page change needed" is a stated outcome in the release PR description, never a skipped step.
 - When a changed feature has made a screenshot on the page wrong, say which one and ask the user for a new one. Make the site's copy by the recipe, privacy look and covers list in the Images section of `site/AGENTS.md`.
 - The page changes merge with the release PR and go live when the release is published, not before: the Pages workflow holds while `src/apps/Version.props` is ahead of the newest release, and publishes when the release workflow finishes.

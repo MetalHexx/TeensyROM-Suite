@@ -456,6 +456,9 @@ the build and the deploy.
 `.github/workflows/pr-site-checks.yml` runs the site tests, an offline build and `check` on every pull request that touches
 `site/**` or either workflow.
 
+Permissions: the workflow-level token is `contents: read`. The `build` job adds `pages: read`, because `configure-pages` reads
+the Pages site through the API and fails without it (keep it). Only the `deploy` job holds `pages: write` and `id-token: write`.
+
 Owner's one-time setup:
 
 - Settings -> Pages -> Source "GitHub Actions", before the first merge of this work. Otherwise the first run fails at
