@@ -1478,9 +1478,10 @@ code {
   align-items: center;
   justify-content: space-between;
   gap: 16px 24px;
-  margin-top: 28px;
+  margin-top: 0;
 }
 .flow__pause[hidden] { display: none; }
+.flow__pause:focus-visible { margin-top: 16px; }
 .flow__pause .i-play { display: none; }
 .flow__pause.is-paused .i-play { display: inline; }
 .flow__pause.is-paused .i-pause { display: none; }
