@@ -101,7 +101,7 @@ Rules for every file in `page/`:
 - Keep the CSP meta. No inline `<style>`, `<script>` or `style=""`; JS styles only through classes and CSS
   custom properties (it may set `hidden`, `aria-*`, `loading`, text, build the video play buttons, and insert the YouTube
   iframe on a click).
-- Only `transform`, `opacity` and `filter` animate. Anything that moves by itself can be paused and stays still
+- Only `transform`, `opacity` and `filter` animate (hover and focus feedback may also ease a colour or a shadow). Anything that moves by itself can be paused and stays still
   under `prefers-reduced-motion: reduce`. A one-off entrance under five seconds that then rests needs no pause.
 - Every `<img>` has `alt`, `width` and `height`. One `<h1>`.
 - Features only, at feature level: no internal project names, no counts that go stale ("real C64s", never a
@@ -196,9 +196,9 @@ first comes into view); nothing is requested from another origin until a play bu
 - `site.js` validates the id against `/^[A-Za-z0-9_-]{11}$/` (no match, no play button; the poster and the link stay)
   and wraps the poster in a `<button>` labelled "Play video: <title>" with a pixel play icon.
 - On click it replaces the poster with an iframe on `https://www.youtube-nocookie.com/embed/<id>?autoplay=1&rel=0&cc_load_policy=1`,
-  `title` = the video title, `allow="autoplay; encrypted-media; picture-in-picture; fullscreen"`, `allowfullscreen`
-  and `referrerpolicy="strict-origin-when-cross-origin"` (YouTube fails with error 153 without a referrer), and
-  focuses it. The CSP's `frame-src` lets in only `youtube-nocookie.com`.
+  `title` = the video title, `allow="autoplay; encrypted-media; picture-in-picture; fullscreen"` (no `allowfullscreen`:
+  with both, Chrome logs a console warning) and `referrerpolicy="strict-origin-when-cross-origin"` (YouTube fails with
+  error 153 without a referrer), and focuses it. The CSP's `frame-src` lets in only `youtube-nocookie.com`.
 - While a video plays the TV never changes channel by itself. Previous and next stay available; changing channel
   stops the video (the iframe is removed and the poster facade comes back) and the automatic changes resume unless
   paused.

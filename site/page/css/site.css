@@ -591,7 +591,7 @@ code {
   color: var(--cyan);
   box-shadow: 0 0 0 1px rgba(0, 247, 255, 0.6), 0 0 22px -6px rgba(0, 247, 255, 0.55);
 }
-.dl__meta { color: var(--text-dim); }
+.dl__meta { color: var(--text-dim); white-space: nowrap; }
 
 .link-arrow {
   display: inline-flex;
@@ -1531,6 +1531,8 @@ code {
   background: linear-gradient(180deg, var(--surface-2), var(--surface));
   border: 1px solid rgba(179, 51, 179, 0.32);
   box-shadow: var(--glow-soft), 0 20px 40px -24px rgba(0, 0, 0, 0.8);
+  display: flex;
+  flex-direction: column;
 }
 .panel__title {
   margin: 0 0 20px;
@@ -1538,14 +1540,17 @@ code {
   line-height: 1.2;
   color: var(--white);
 }
-.spec { margin: 0; }
+.spec { flex: 1; display: flex; flex-direction: column; margin: 0; }
 .spec > div {
+  flex: 1;
   display: grid;
   grid-template-columns: 104px minmax(0, 1fr);
+  align-items: center;
   gap: 12px;
   padding: 14px 0;
   border-top: 1px solid var(--line);
 }
+.spec > div:last-child { border-bottom: 1px solid var(--line); }
 .spec dt {
   color: var(--cyan);
   font-size: var(--fs-label);
@@ -1601,7 +1606,7 @@ code {
   gap: 12px;
   margin-top: 12px;
 }
-.dl .btn { gap: 14px; }
+.dl .btn { flex-wrap: wrap; gap: 2px 14px; }
 
 /* ---------- footer ---------- */
 
@@ -1619,7 +1624,10 @@ code {
   padding-top: 36px;
 }
 @media (min-width: 768px) {
-  .footer__in { grid-template-columns: 2fr 1fr 1fr; gap: 32px 40px; }
+  .footer__in { grid-template-columns: minmax(0, 1fr) auto auto; gap: 32px 40px; }
+}
+@media (min-width: 900px) {
+  .footer__in { grid-template-columns: 2fr 1fr 1fr; }
 }
 .footer__tag { margin: 12px 0 0; color: var(--text-dim); font-size: 0.94em; max-width: 24em; }
 .footer__col { display: flex; flex-direction: column; gap: 10px; }
@@ -1683,7 +1691,7 @@ code {
 .js [data-reveal] {
   transition: opacity 0.7s ease, transform 0.7s cubic-bezier(0.2, 0.7, 0.2, 1);
 }
-.js .card.is-on { animation: card-on 1.1s ease-out backwards; }
+.js .card.is-on::before { animation: card-on 1.1s ease-out backwards; }
 
 /* ---------- keyframes ---------- */
 
@@ -1740,9 +1748,9 @@ code {
   100% { opacity: 1; }
 }
 @keyframes card-on {
-  0% { box-shadow: 0 0 0 1px rgba(179, 51, 179, 0), 0 0 0 0 rgba(179, 51, 179, 0); }
-  45% { box-shadow: var(--glow-hot); }
-  100% { box-shadow: var(--glow-soft), 0 20px 40px -24px rgba(0, 0, 0, 0.8); }
+  0% { opacity: 0; }
+  45% { opacity: 1; }
+  100% { opacity: 0; }
 }
 
 /* the TV's switch-off and switch-on: squash to a hot line, pinch to a dot, fade; then the same backwards, with a

@@ -172,7 +172,6 @@
       frame.src = 'https://www.youtube-nocookie.com/embed/' + v.id + '?autoplay=1&rel=0&cc_load_policy=1';
       frame.title = v.title;
       frame.allow = 'autoplay; encrypted-media; picture-in-picture; fullscreen';
-      frame.allowFullscreen = true;
       frame.referrerPolicy = 'strict-origin-when-cross-origin';
       v.stage.replaceChildren(frame);
       frame.focus();
