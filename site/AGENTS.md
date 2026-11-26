@@ -92,7 +92,7 @@ Every check runs and every problem is reported in one run.
 | `img/tv/` | The TV's pictures: three video posters and seven screenshots, WebP. See "Images". |
 | `img/terminal/` | Trom Terminal's three pictures (`menu`, `stream-player`, `commands`), lossless WebP. See "Images" and "Trom Terminal's frame". |
 | `img/api/` | The two Trom API screenshots (`docs`, `search-files`), WebP. |
-| `fonts/` | The self-hosted pixel font (Web437 IBM VGA 8x16) and its licence file; see "The pixel font". |
+| `fonts/` | The self-hosted pixel font (Web437 IBM VGA 8x16) and its licence file, and the neon-tube script for the cartridge's "Suite" (Neonderthaw) and its licence; see "The pixel font". |
 
 Rules for every file in `page/`:
 
@@ -304,6 +304,15 @@ redistribution in this public repo, and read the licence text before keeping it.
 share-alike: it covers the font file, not the page's own MIT-licensed code.
 
 Because the face is 16 px tall, set it only at 16, 32, 48 or 64 px (8 px advance per 16 px). Never bold.
+
+**A neon-tube script for the "Suite" on the cartridge.** The cartridge's neon "Suite" (`.cart__title`, over the chips, in
+`--cyan`, with a magenta bloom) is set in **Neonderthaw**, from Google Fonts: `page/fonts/Neonderthaw-latin.woff2` (the latin
+subset) with its licence text, `Neonderthaw-OFL.txt`, beside it. It is under the SIL Open Font License 1.1 and is credited in the
+footer, with the licence named in words. It was added on the owner's request for an 80s neon-tube script, a second face beside the
+pixel font, so the reason is recorded here. It lights once the board powers on, then flicks off into grey (`neon-buzz`, a 23 s loop of uneven flicks on the lit layer `.cart__lit`, which dims the glow too;
+off under reduced motion) over an unlit grey copy (`.cart__unlit`). A slow breath in the bloom behind it (`neon-breathe`, 4.8 s,
+opacity and scale only). Swapping it: replace the `.woff2` and its licence text, keep the `@font-face`
+family name (or change `--font-neon`), and keep the footer credit.
 
 To swap the font:
 

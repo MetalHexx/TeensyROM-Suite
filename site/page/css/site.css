@@ -26,6 +26,8 @@
   --font-display: "Web437 IBM VGA 8x16", ui-monospace, "Cascadia Mono", "SF Mono", Menlo, Consolas, monospace;
   --font-body: system-ui, -apple-system, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
   --font-mono: ui-monospace, "Cascadia Mono", "SF Mono", Menlo, Consolas, monospace;
+  /* the cartridge's neon "Suite": a neon-tube script face (see fonts/Neonderthaw-OFL.txt) */
+  --font-neon: "Neonderthaw", "Brush Script MT", "Segoe Script", cursive;
 
   --display-leading: 1.125;
   --fs-label: 16px;
@@ -53,6 +55,14 @@
 @font-face {
   font-family: "Web437 IBM VGA 8x16";
   src: url("../fonts/Web437_IBM_VGA_8x16.woff") format("woff");
+  font-weight: 400;
+  font-style: normal;
+  font-display: swap;
+}
+
+@font-face {
+  font-family: "Neonderthaw";
+  src: url("../fonts/Neonderthaw-latin.woff2") format("woff2");
   font-weight: 400;
   font-style: normal;
   font-display: swap;
@@ -470,6 +480,87 @@ code {
 .cart__led--b { animation-delay: 1.3s; }
 .cart__led--c { animation-delay: 1.65s; }
 
+/* the neon "Suite" across the chips: a cyan neon tube with a magenta bloom, tilted like a sign. It lights once the board is
+   on (the outer element). A grey unlit tube sits underneath; the lit layer flicks off into that grey (.cart__lit). */
+.cart__title {
+  position: absolute;
+  z-index: 2;
+  left: 50%;
+  top: calc(var(--cell) * 41);
+  margin: 0;
+  transform: translate(-50%, -50%) rotate(-6deg);
+  font-family: var(--font-neon);
+  font-size: calc(var(--cell) * 12);
+  font-weight: 400;
+  line-height: 1;
+  white-space: nowrap;
+  pointer-events: none;
+  animation: neon-on 1.3s linear 2.1s both;
+}
+@keyframes neon-on {
+  0%, 12% { opacity: 0; }
+  16% { opacity: 0.9; }
+  20% { opacity: 0.2; }
+  26% { opacity: 1; }
+  34% { opacity: 0.45; }
+  40%, 100% { opacity: 1; }
+}
+/* the tube: a grey unlit copy of the lettering, with the lit cyan layer on top. When the lit layer flicks off, the tube
+   reads grey, like a neon sign that is switched off. Only opacity and transform animate, so no colour or shadow is tweened. */
+.cart__tube {
+  position: relative;
+  display: inline-block;
+}
+.cart__unlit {
+  display: block;
+  color: #7f8a99;
+}
+.cart__lit {
+  position: absolute;
+  inset: 0;
+  display: block;
+  isolation: isolate;
+  color: var(--cyan);
+  text-shadow:
+    0 0 2px var(--cyan),
+    0 0 6px var(--cyan),
+    0 0 14px rgba(0, 247, 255, 0.9),
+    0 0 30px rgba(0, 247, 255, 0.7),
+    0 0 60px rgba(179, 51, 179, 0.8);
+  animation: neon-buzz 23s linear 3.4s infinite;
+}
+/* the bloom: a blurred copy of the lit lettering behind it. It breathes slowly and flickers with the tube, since it sits
+   inside the lit layer. Only opacity and transform animate. */
+.cart__lit::before {
+  content: "Suite";
+  position: absolute;
+  inset: 0;
+  z-index: -1;
+  color: var(--cyan);
+  text-shadow: none;
+  filter: blur(10px);
+  opacity: 0.9;
+  pointer-events: none;
+  animation: neon-breathe 4.8s ease-in-out infinite;
+}
+@keyframes neon-breathe {
+  0%, 100% { opacity: 0.55; transform: scale(1); }
+  50% { opacity: 1; transform: scale(1.03); }
+}
+/* the tube flicks off into grey and back on, quickly, sometimes twice, with uneven gaps over a long cycle so it never
+   settles into a beat. Most flicks go fully grey; a few only dim. */
+@keyframes neon-buzz {
+  0%, 8.7%, 9.1%, 26.6%, 27.1%, 27.5%, 45.8%, 46.3%, 62.8%, 63.3%, 63.8%, 79.8%, 80.3%, 87.7%, 88.3%, 100% { opacity: 1; }
+  8.8% { opacity: 0.05; }
+  26.9% { opacity: 0.1; }
+  27.3% { opacity: 0.3; }
+  46% { opacity: 0; }
+  63.1% { opacity: 0.4; }
+  63.5% { opacity: 0.05; }
+  80% { opacity: 0; }
+  88% { opacity: 0.35; }
+}
+
 .hero__halo {
   position: absolute;
   inset: 4% -6% 8%;
@@ -497,7 +588,9 @@ code {
 .hero__art.is-reset .cart__mirror,
 .hero__art.is-reset .cart__led,
 .hero__art.is-reset .hero__floor,
+.hero__art.is-reset .cart__title,
 .hero__art.is-reset .hero__halo { animation: none; }
+.hero__art.is-reset .cart__lit { animation: none; }
 
 /* ---------- the three SID voices ---------- */
 
@@ -524,10 +617,6 @@ code {
 .voices__p--pulse { stroke: var(--magenta); filter: drop-shadow(0 0 5px rgba(179, 51, 179, 0.85)); }
 .voices__p--saw { stroke: var(--cyan); filter: drop-shadow(0 0 5px rgba(0, 247, 255, 0.6)); }
 .voices__p--tri { stroke: var(--yellow); filter: drop-shadow(0 0 5px rgba(245, 226, 158, 0.55)); }
-.hero__voices { position: relative; margin-top: 28px; }
-@media (min-width: 900px) {
-  .hero__voices { margin-top: 36px; }
-}
 
 /* ---------- buttons, links ---------- */
 
