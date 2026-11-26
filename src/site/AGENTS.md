@@ -141,7 +141,7 @@ page (same parts, its own look): pink and purple are the brand here, ReBeep's li
 - **SID voice traces (`.voices`).** Pulse, saw and triangle in magenta, cyan and yellow, drawn still. The paths
   live once in `<g id="voices-art">`; reuse them anywhere with
   `<svg class="voices" viewBox="0 0 960 72" preserveAspectRatio="none" aria-hidden="true"><use href="#voices-art"/></svg>`.
-  Today the footer shows all three, and each of the rig's windows shows one as its still without JS (`viewBox`
+  The footer no longer shows them; each of the rig's windows shows one as its still without JS (`viewBox`
   `0 0 160 24`, `0 24 160 24` and `0 48 160 24`). Each trace repeats every 40 units.
 - **The cartridge.** Inline SVG of whole-cell paths on a 56 x 62 grid with `shape-rendering="crispEdges"`,
   shown at a whole number of pixels per cell (`--cell` on `.hero__art`: 4, 5, 6, 7 or 8 px by width). It powers

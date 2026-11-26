@@ -2001,11 +2001,10 @@ code {
 .footer {
   position: relative;
   margin-top: 40px;
-  padding: 0 0 40px;
+  padding: 40px 0;
   background: linear-gradient(180deg, transparent, rgba(137, 0, 137, 0.12));
   border-top: 1px solid var(--line);
 }
-.footer__voices { padding-top: 22px; }
 .footer__in {
   display: grid;
   gap: 32px;
