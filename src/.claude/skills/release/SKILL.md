@@ -100,6 +100,7 @@ Take every user-facing change since the last release (the same list the changelo
 - "No page change needed" is a stated outcome in the release PR description, never a skipped step.
 - When a changed feature has made a screenshot on the page wrong, say which one and ask the user for a new one. Make the site's copy by the recipe, privacy look and covers list in the Images section of `src/site/AGENTS.md`.
 - The page changes merge with the release PR and go live when the release is published, not before: the Pages workflow holds while `src/apps/Version.props` is ahead of the newest release, and publishes when the release workflow finishes.
+- The version, the date and the download links on the page are stamped by the Pages build from the newest release, never written by hand. Two things make that happen: Settings → Pages has Source set to GitHub Actions (`gh api repos/MetalHexx/TeensyROM-Suite/pages` answers, not 404), and `.github/workflows/pages.yml` is on `main`. Check both before the release is cut.
 
 #### Open the release PR
 
