@@ -94,11 +94,11 @@ When a feature in the notes is missing from `docs/` or the README, or the docs d
 
 #### Update the product page
 
-Take every user-facing change since the last release (the same list the changelog is written from) and decide what the page in `site/page/` needs: a card, a section, a screenshot, the How it works diagram, a TV channel, or the Get it facts. Page edits follow the rules in `site/AGENTS.md`: features only, at feature level, no internal project names, no counts that go stale, no version written by hand, and the AI tool Trom Agent runs in is never named.
+Take every user-facing change since the last release (the same list the changelog is written from) and decide what the page in `src/site/page/` needs: a card, a section, a screenshot, the How it works diagram, the DJ Mixer rig, a TV channel, or the Get it facts. The [product-page skill](../product-page/SKILL.md) holds the bar and the procedure for any page edit. Page edits follow the rules in `src/site/AGENTS.md`: features only, at feature level, no internal project names, no counts that go stale, no version written by hand, and the AI tool Trom Agent runs in is never named.
 
-- Show the changes on the local preview: start `node site/tools/site.mjs dev --offline` in the background, then open `http://127.0.0.1:8087/TeensyROM-Suite/` and `__dev/preview` (three widths side by side). Get the user's approval, stop the preview server this step started (the background process, by its PID), then run `node site/tools/site.mjs build && node site/tools/site.mjs check`.
+- Show the changes on the local preview: start `node src/site/tools/site.mjs dev --offline` in the background, then open `http://127.0.0.1:8087/TeensyROM-Suite/` and `__dev/preview` (three widths side by side). Get the user's approval, stop the preview server this step started (the background process, by its PID), then run `node src/site/tools/site.mjs build && node src/site/tools/site.mjs check`.
 - "No page change needed" is a stated outcome in the release PR description, never a skipped step.
-- When a changed feature has made a screenshot on the page wrong, say which one and ask the user for a new one. Make the site's copy by the recipe, privacy look and covers list in the Images section of `site/AGENTS.md`.
+- When a changed feature has made a screenshot on the page wrong, say which one and ask the user for a new one. Make the site's copy by the recipe, privacy look and covers list in the Images section of `src/site/AGENTS.md`.
 - The page changes merge with the release PR and go live when the release is published, not before: the Pages workflow holds while `src/apps/Version.props` is ahead of the newest release, and publishes when the release workflow finishes.
 
 #### Open the release PR
@@ -107,7 +107,7 @@ Put the doc updates, the version bump and the notes on a release branch, and ope
 
 ```bash
 git switch -c release/{version} origin/main
-git add docs/ README.md site/  # the doc and product page updates, if any
+git add docs/ README.md src/site/  # the doc and product page updates, if any
 git commit -m "docs: ..."
 git add src/apps/Version.props src/plugins/trom-agent/claude/.claude-plugin/plugin.json src/plugins/trom-agent/claude/skills/trom/SKILL.md CHANGELOG.md
 git commit -m "chore: bump version to {version}"
@@ -245,4 +245,4 @@ If you need to retry:
 
 - **Local test release** (no tagging/CI): the `release-local` skill (`.claude/skills/release-local/SKILL.md`)
 - **Packaging, the formula and the workflows in depth**: the `distribution` skill
-- **Product page, its preview loop and the Pages workflow**: `site/AGENTS.md`
+- **Product page, its preview loop and the Pages workflow**: `src/site/AGENTS.md`

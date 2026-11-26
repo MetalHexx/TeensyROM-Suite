@@ -1,12 +1,12 @@
 name: Pages
 
-# Publishes the product page in site/ to GitHub Pages, and never gets ahead of the download.
+# Publishes the product page in src/site/ to GitHub Pages, and never gets ahead of the download.
 #
 # ReBeep's trigger (workflow_run of its release workflow alone) doesn't carry over. Here release.yml
 # runs on a v* tag push, not on pushes to main, so a workflow_run of it can't be filtered to main, and
-# page-only fixes need their own push trigger on site/**. The release's version bump merges to main
+# page-only fixes need their own push trigger on src/site/**. The release's version bump merges to main
 # before the tag is pushed, so a page change in that merge must wait for the release: the gate (see
-# "Publish gate" in site/AGENTS.md) holds while src/apps/Version.props is ahead of the newest published
+# "Publish gate" in src/site/AGENTS.md) holds while src/apps/Version.props is ahead of the newest published
 # release. A release made with the built-in token starts no other workflow, which is why workflow_run
 # is the after-release trigger. The Release workflow's own conclusion does not gate this job; the gate
 # reads which releases actually exist.
@@ -20,7 +20,7 @@ on:
   push:
     branches: [main]
     paths:
-      - 'site/**'
+      - 'src/site/**'
       - '.github/workflows/pages.yml'
   workflow_dispatch: # re-publishes by hand; only main can publish
 
@@ -58,17 +58,17 @@ jobs:
         id: gate
         env:
           GITHUB_TOKEN: ${{ github.token }}
-        run: node site/tools/site.mjs gate
+        run: node src/site/tools/site.mjs gate
 
       - name: Build the site and stamp the latest release
         if: steps.gate.outputs.publish == 'true'
         env:
           GITHUB_TOKEN: ${{ github.token }}
-        run: node site/tools/site.mjs build
+        run: node src/site/tools/site.mjs build
 
       - name: Check the site
         if: steps.gate.outputs.publish == 'true'
-        run: node site/tools/site.mjs check
+        run: node src/site/tools/site.mjs check
 
       - name: Configure Pages
         if: steps.gate.outputs.publish == 'true'
@@ -78,7 +78,7 @@ jobs:
         if: steps.gate.outputs.publish == 'true'
         uses: actions/upload-pages-artifact@fc324d3547104276b827a68afc52ff2a11cc49c9 # v5.0.0
         with:
-          path: site/build
+          path: src/site/build
 
   deploy:
     name: deploy

@@ -7,6 +7,7 @@ on:
       - 'src/**'
       - '!src/apps/api/**'
       - '!src/apps/cli/**'
+      - '!src/site/**'
   workflow_dispatch:
 
 concurrency:

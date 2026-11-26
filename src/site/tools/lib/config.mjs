@@ -23,7 +23,7 @@ export const PACKAGES = {
 export const DEFAULT_API_BASE = 'https://api.github.com';
 
 const siteDir = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..', '..');
-const repoRoot = path.dirname(siteDir);
+const repoRoot = path.resolve(siteDir, '..', '..');
 
 /** Absolute paths the toolchain works with. */
 export const paths = {

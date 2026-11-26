@@ -110,7 +110,7 @@ export function stampPage(html, release) {
   for (const name of found.keys()) {
     if (!REGIONS.includes(name)) {
       throw new SiteError(`the page has a release region "${name}" that is not in REGIONS`, {
-        hint: 'Add it to REGIONS in site/tools/lib/config.mjs, or remove it from the page.',
+        hint: 'Add it to REGIONS in src/site/tools/lib/config.mjs, or remove it from the page.',
       });
     }
   }

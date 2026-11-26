@@ -3,7 +3,7 @@
 // are working material and never go in the repo. Windows, macOS or Linux, with Chrome or Edge and
 // ffmpeg; Node built-ins only (the DevTools protocol over Node's WebSocket).
 //
-//   node site/tools/record.mjs --url http://127.0.0.1:8087/TeensyROM-Suite/?clean --seconds 15 --out <folder>/cart
+//   node src/site/tools/record.mjs --url http://127.0.0.1:8087/TeensyROM-Suite/?clean --seconds 15 --out <folder>/cart
 //        [--at <selector>] [--crop] [--from-load] [--hover <selector>] [--width 1440] [--height 1000]
 //        [--reduced-motion] [--browser <path>]
 //

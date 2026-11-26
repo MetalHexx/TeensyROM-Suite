@@ -84,7 +84,7 @@ function listenError(err, port) {
  * (127.0.0.1 only) and rebuilds on every change under `src`, telling open pages to reload over
  * Server-Sent Events. The dev client is injected into served HTML only. `__dev/preview` shows the
  * page at desktop, tablet and phone widths side by side; `__dev/fonts/<file>` serves dev-only font
- * candidates from `site/tools/font-trial/`. Both are generated or read at request time, never part of
+ * candidates from `src/site/tools/font-trial/`. Both are generated or read at request time, never part of
  * the build. `release` is stamped on every rebuild; a failed rebuild is logged and the last good
  * build keeps being served. Port 0 picks a free one. `log` is `{ ok, warn, error }`, silent by default.
  * Resolves to `{ url, previewUrl, port, out, stamped, close }`; `close()` stops the watcher, the open

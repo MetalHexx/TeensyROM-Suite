@@ -40,7 +40,7 @@ const REFERRER_POLICY = 'strict-origin-when-cross-origin';
  */
 export function readSiteFiles(dir) {
   if (!fs.existsSync(dir) || !fs.statSync(dir).isDirectory()) {
-    throw new SiteError(`there is no build at ${dir}`, { hint: 'Run `node site/tools/site.mjs build` first.' });
+    throw new SiteError(`there is no build at ${dir}`, { hint: 'Run `node src/site/tools/site.mjs build` first.' });
   }
   return fs
     .readdirSync(dir, { recursive: true })

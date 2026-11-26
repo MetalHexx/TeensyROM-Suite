@@ -4,7 +4,7 @@ on:
   pull_request:
     types: [opened, synchronize, reopened]
     paths:
-      - 'site/**'
+      - 'src/site/**'
       - '.github/workflows/pages.yml'
       - '.github/workflows/pr-site-checks.yml'
   workflow_dispatch:
@@ -32,11 +32,11 @@ jobs:
           node-version: 22
 
       - name: Tests
-        run: node --test "site/tools/test/**/*.test.mjs"
+        run: node --test "src/site/tools/test/**/*.test.mjs"
 
       # Offline: a pull request never asks the GitHub API for the release; the page keeps its fallbacks.
       - name: Build
-        run: node site/tools/site.mjs build --offline
+        run: node src/site/tools/site.mjs build --offline
 
       - name: Check
-        run: node site/tools/site.mjs check
+        run: node src/site/tools/site.mjs check

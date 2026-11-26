@@ -813,6 +813,7 @@ code {
   max-width: min(1100px, max(480px, calc((100svh - 190px) * 1.78)));
   margin: 0 auto;
   position: relative;
+  container: tv / inline-size; /* each TV sizes its bezel, OSD and buttons by its own width */
 }
 .monitor::before {
   content: "";
@@ -841,7 +842,10 @@ code {
     0 0 56px -14px rgba(179, 51, 179, 0.6),
     0 0 90px -30px rgba(0, 247, 255, 0.35);
 }
-@media (min-width: 768px) {
+@container tv (min-width: 480px) {
+  .monitor__bezel { padding: 14px 14px 0; border-radius: 22px; }
+}
+@container tv (min-width: 700px) {
   .monitor__bezel { padding: 24px 24px 0; border-radius: 30px; }
 }
 .monitor__stand {
@@ -862,12 +866,13 @@ code {
   background: linear-gradient(180deg, #5a3763, #331d39);
   box-shadow: 0 10px 30px -6px rgba(179, 51, 179, 0.5), inset 0 1px 0 rgba(255, 200, 255, 0.25);
 }
-@media (min-width: 560px) {
+@container tv (min-width: 480px) {
   .monitor__neck { height: 22px; }
   .monitor__base { height: 12px; }
 }
 .monitor__screen {
   --over: 1.5%; /* the black border around the picture, like a CRT's overscan */
+  --crt-inset: var(--over);
   position: relative;
   aspect-ratio: 16 / 9;
   overflow: hidden;
@@ -881,7 +886,10 @@ code {
     0 0 26px -4px rgba(137, 0, 137, 0.7),
     0 0 64px -20px rgba(0, 247, 255, 0.4);
 }
-@media (min-width: 768px) {
+@container tv (min-width: 480px) {
+  .monitor__screen { --over: 2.4%; border-radius: 12px; }
+}
+@container tv (min-width: 700px) {
   .monitor__screen { --over: 3.4%; border-radius: 16px; }
 }
 .monitor__chin {
@@ -891,7 +899,10 @@ code {
   height: 40px;
   padding: 0 4px;
 }
-@media (min-width: 768px) {
+@container tv (min-width: 480px) {
+  .monitor__chin { height: 46px; padding: 0 8px; }
+}
+@container tv (min-width: 700px) {
   .monitor__chin { height: 52px; padding: 0 10px; }
 }
 .monitor__badge {
@@ -937,8 +948,9 @@ code {
   border-radius: inherit;
   background:
     linear-gradient(128deg, rgba(255, 255, 255, 0.075) 0%, rgba(255, 255, 255, 0.02) 24%, transparent 42%),
-    radial-gradient(ellipse 115% 100% at 50% 50%, transparent 60%, rgba(0, 0, 0, 0.55) 100%),
-    repeating-linear-gradient(180deg, transparent 0 2px, rgba(0, 0, 0, 0.2) 2px 3px);
+    radial-gradient(ellipse 115% 100% at 50% 50%, transparent 60%, rgba(0, 0, 0, 0.55) 100%);
+  /* trial: no scanlines, for a crisper picture. They were
+     repeating-linear-gradient(180deg, transparent 0 2px, rgba(0, 0, 0, 0.2) 2px 3px) */
 }
 .tv__glass::after {
   /* a faint highlight that drifts down the glass; it holds still with the channels (the pause button) */
@@ -954,7 +966,7 @@ code {
 .js .tv__glass::after { animation: sweep 7s linear infinite; }
 .tv.is-still .tv__glass::after { animation-play-state: paused; }
 .tv.is-playing .tv__glass { opacity: 0.5; }
-@media (max-width: 560px) {
+@container tv (max-width: 560px) {
   .tv__glass {
     background:
       linear-gradient(128deg, rgba(255, 255, 255, 0.06) 0%, transparent 40%),
@@ -962,40 +974,44 @@ code {
   }
 }
 
-.tv__beam {
+/* ---------- the CRT switch (the TV and the C64's screen in How it works) ----------
+   The host (.crt) takes is-off, is-dark and is-on from site.js's crtSwitch; its picture (.crt__pic), beam and dot play
+   the crt-* keyframes. The beam spans the picture (--crt-inset from the screen's edge); --crt-beam and --crt-dot size
+   the line and the dot. A .crt never sits inside another. The 460 ms and 420 ms are mirrored in site.js. */
+.crt__beam {
   position: absolute;
   z-index: 3;
-  left: var(--over);
-  right: var(--over);
+  left: var(--crt-inset, 0px);
+  right: var(--crt-inset, 0px);
   top: 50%;
-  height: 4px;
-  margin-top: -2px;
+  height: var(--crt-beam, 4px);
+  margin-top: calc(var(--crt-beam, 4px) / -2);
   border-radius: 2px;
   opacity: 0;
   pointer-events: none;
   background: linear-gradient(90deg, rgba(0, 247, 255, 0), #dcfdff 9%, #fff 50%, #dcfdff 91%, rgba(0, 247, 255, 0));
   box-shadow: 0 0 10px 2px rgba(0, 247, 255, 0.85), 0 0 36px 8px rgba(179, 51, 179, 0.6);
 }
-.tv__dot {
+.crt__dot {
   position: absolute;
   z-index: 3;
   left: 50%;
   top: 50%;
-  width: 44px;
-  height: 44px;
-  margin: -22px 0 0 -22px;
+  width: var(--crt-dot, 44px);
+  height: var(--crt-dot, 44px);
+  margin: calc(var(--crt-dot, 44px) / -2) 0 0 calc(var(--crt-dot, 44px) / -2);
   border-radius: 50%;
   opacity: 0;
   pointer-events: none;
   background: radial-gradient(circle, #fff 0 14%, rgba(200, 252, 255, 0.95) 24%, rgba(179, 51, 179, 0.55) 46%, transparent 70%);
 }
-.tv.is-dark .tv__channels { opacity: 0; }
-.tv.is-off .tv__channels { animation: crt-off-pic 460ms forwards; }
-.tv.is-off .tv__beam { animation: crt-off-beam 460ms forwards; }
-.tv.is-off .tv__dot { animation: crt-off-dot 460ms forwards; }
-.tv.is-on .tv__channels { animation: crt-on-pic 420ms both; }
-.tv.is-on .tv__beam { animation: crt-on-beam 420ms both; }
-.tv.is-on .tv__dot { animation: crt-on-dot 420ms both; }
+.crt.is-dark .crt__pic { opacity: 0; }
+.crt.is-off .crt__pic { animation: crt-off-pic 460ms forwards; }
+.crt.is-off .crt__beam { animation: crt-off-beam 460ms forwards; }
+.crt.is-off .crt__dot { animation: crt-off-dot 460ms forwards; }
+.crt.is-on .crt__pic { animation: crt-on-pic 420ms both; }
+.crt.is-on .crt__beam { animation: crt-on-beam 420ms both; }
+.crt.is-on .crt__dot { animation: crt-on-dot 420ms both; }
 .tv.is-off .monitor__led, .tv.is-on .monitor__led { animation: led-flick 460ms steps(1); }
 
 /* the on-screen display: the channel number shows for a moment after each change, then fades, as on an old set */
@@ -1015,7 +1031,7 @@ code {
   text-shadow: 0 0 2px rgba(190, 255, 255, 0.9), 0 0 12px rgba(0, 247, 255, 0.8);
   pointer-events: none;
 }
-@media (min-width: 768px) {
+@container tv (min-width: 700px) {
   .tv__osd { padding: 4px 10px 6px; font-size: 32px; }
 }
 .js .tv__osd { opacity: 0; transition: opacity 0.3s ease; }
@@ -1063,7 +1079,7 @@ code {
 .tv__btn--pause .i-play { display: none; }
 .tv__btn--pause[aria-pressed="true"] .i-play { display: inline; }
 .tv__btn--pause[aria-pressed="true"] .i-pause { display: none; }
-@media (min-width: 768px) {
+@container tv (min-width: 700px) {
   .tv__controls { gap: 10px; margin-left: 24px; }
   .tv__btn { width: 44px; height: 32px; }
   .tv__btn svg { width: 20px; height: 20px; }
@@ -1112,7 +1128,7 @@ code {
     inset 0 -4px 0 rgba(40, 0, 40, 0.5),
     0 0 56px 8px rgba(0, 247, 255, 0.45);
 }
-@media (min-width: 768px) {
+@container tv (min-width: 700px) {
   .video__play { width: 96px; height: 96px; }
   .video__play svg { width: 48px; height: 48px; }
 }
@@ -1133,10 +1149,10 @@ code {
   text-decoration: none;
 }
 .video__link:hover { color: var(--white); box-shadow: 0 0 0 1px var(--cyan), 0 0 18px -4px rgba(0, 247, 255, 0.6); }
-@media (min-width: 768px) {
+@container tv (min-width: 700px) {
   .video__link { top: 14px; right: 14px; font-size: 15px; padding: 5px 12px 6px; }
 }
-@media (min-width: 480px) and (max-width: 767px) {
+@container tv (min-width: 480px) and (max-width: 699px) {
   .video__link { top: 8px; right: 8px; font-size: 14px; padding: 4px 10px 5px; }
 }
 
@@ -1151,10 +1167,10 @@ code {
 
 /* ---------- how it works ----------
    Four nodes and the links between them, in HTML so the type stays real at every width: left to right from 720 px,
-   top to bottom below it (each link is drawn twice, once per layout, and the other is hidden). A signal travels each
-   link in turn and the node it reaches lights up, over one 6 s loop; the C64's three voices scroll. Only transform
-   and opacity move. The resting state, which is also the paused, reduced-motion and no-JS state, is every node lit
-   and every trace drawn. The 6 s and the percentages mirror the keyframes below; change them together. */
+   top to bottom below it (each link is drawn twice, once per layout, and the other is hidden). A packet travels each
+   link in turn, faster as it goes, and the node it reaches lights up; the C64's small screen switches to the next thing
+   launched. Only transform, opacity and filter move. The resting state, which is also the paused, reduced-motion and
+   no-JS state, is every node lit, no packet, and the screen still. The timeline is the custom properties on .flow. */
 
 .flow { margin: 0; }
 .flow__stage {
@@ -1172,6 +1188,7 @@ code {
   display: grid;
   grid-template-columns: minmax(0, 300px);
   justify-content: center;
+  align-items: center;
 }
 @media (min-width: 720px) {
   .flow__stage { padding: 36px 24px; }
@@ -1237,10 +1254,48 @@ code {
   font-size: 14px;
   line-height: 1.45;
 }
-.voices--scroll {
+/* the C64's screen: a small CRT in the TV's plum plastic, showing what was launched. Every frame is shown 4:3, as a
+   real screen draws the C64's picture. It switches with the TV's CRT effect as each packet lands (site.js). */
+.flow__screen {
   width: 100%;
-  height: 48px;
-  margin-top: 6px;
+  max-width: 184px;
+  padding: 6px;
+  border-radius: 12px;
+  background:
+    linear-gradient(180deg, rgba(255, 170, 255, 0.16), rgba(255, 170, 255, 0) 16%),
+    linear-gradient(180deg, #4b2c52, #3a2140 52%, #2a1730);
+  box-shadow:
+    inset 0 0 0 1px rgba(255, 190, 255, 0.2),
+    inset 0 -2px 0 rgba(10, 0, 14, 0.45),
+    0 0 0 1px rgba(0, 0, 0, 0.7),
+    0 10px 24px -12px rgba(0, 0, 0, 0.9),
+    0 0 26px -8px rgba(179, 51, 179, 0.7);
+}
+.flow__tube {
+  --crt-beam: 2px;
+  --crt-dot: 22px;
+  position: relative;
+  aspect-ratio: 4 / 3;
+  overflow: hidden;
+  border-radius: 7px / 9px;
+  background: #050206;
+  box-shadow: 0 0 0 1px rgba(179, 51, 179, 0.5), 0 0 16px -4px rgba(137, 0, 137, 0.8);
+}
+.flow__frames { position: absolute; inset: 0; transform-origin: 50% 50%; }
+/* a little lift, so the C64's colours glow through the glass the way a real tube's do */
+.flow__frames img { position: absolute; inset: 0; width: 100%; height: 100%; object-fit: fill; filter: saturate(1.2) brightness(1.1) contrast(1.04); }
+.flow__frames img[hidden] { display: none; }
+.flow__glass {
+  position: absolute;
+  inset: 0;
+  z-index: 2;
+  pointer-events: none;
+  background:
+    linear-gradient(128deg, rgba(255, 255, 255, 0.09) 0%, rgba(255, 255, 255, 0.02) 26%, transparent 44%),
+    radial-gradient(ellipse 125% 110% at 50% 50%, transparent 64%, rgba(0, 0, 0, 0.42) 100%),
+    repeating-linear-gradient(180deg, transparent 0 2px, rgba(0, 0, 0, 0.14) 2px 3px);
+  box-shadow: inset 0 0 0 2px #08040a, inset 0 0 14px rgba(179, 51, 179, 0.18);
+  border-radius: inherit;
 }
 
 .flow__link {
@@ -1326,19 +1381,38 @@ code {
   .flow__via { width: 104px; }
 }
 
-/* the motion: only while the page has JS (so there is a pause button) and the diagram is not paused */
-.js .flow:not(.is-paused) .flow__node::after { animation: 6s linear infinite; }
-.js .flow:not(.is-paused) .flow__node--apps::after { animation-name: lit-1; }
-.js .flow:not(.is-paused) .flow__node--api::after { animation-name: lit-2; }
-.js .flow:not(.is-paused) .flow__node--cart::after { animation-name: lit-3; }
-.js .flow:not(.is-paused) .flow__node--c64::after { animation-name: lit-4; }
-.js .flow:not(.is-paused) .flow__sig { animation: sig-h 6s linear infinite; }
-.js .flow:not(.is-paused) .flow__wire--v .flow__sig { animation-name: sig-v; }
-.js .flow:not(.is-paused) .flow__link--1 .flow__sig { animation-delay: 0.5s; }
-.js .flow:not(.is-paused) .flow__link--2 .flow__sig { animation-delay: 1.7s; }
-.js .flow:not(.is-paused) .flow__link--3 .flow__sig { animation-delay: 2.9s; }
-.js .flow:not(.is-paused) .flow__node--c64 .voices { animation: traces-on 6s linear infinite; }
-.js .flow:not(.is-paused) .voices__scroll { animation: voice-scroll 0.6s linear infinite; }
+/* the motion: one pass while site.js holds .is-run. It restarts the pass every 4.2 s, and drops the class (back to the
+   rest state) while the diagram is paused, off screen or in a hidden tab, or under reduced motion. The timeline: the
+   click lights Suite Apps; a packet leaves on each link at --go1, --go2 and --go3, speeding up over --hop and stretching
+   as it goes; the node it reaches lights and pings as it lands; everything fades at --fade. When the last packet lands
+   (the C64's ping), site.js launches the next picture on its screen with the CRT switch (1 s), which ends well before
+   --fade. */
+.flow { --hop: 0.38s; --go1: 0.25s; --go2: 0.75s; --go3: 1.25s; --fade: 3.7s; }
+.flow__node--apps { --at: 0.1s; }
+.flow__node--api { --at: calc(var(--go1) + var(--hop)); }
+.flow__node--cart { --at: calc(var(--go2) + var(--hop)); }
+.flow__node--c64 { --at: calc(var(--go3) + var(--hop)); }
+.flow__link--1 { --go: var(--go1); }
+.flow__link--2 { --go: var(--go2); }
+.flow__link--3 { --go: var(--go3); }
+.flow__node::before {
+  /* the ping as a packet lands: a ring of the node's colour that flares and spreads */
+  content: "";
+  position: absolute;
+  inset: -1px;
+  border-radius: inherit;
+  box-shadow: 0 0 0 2px var(--lit), 0 0 30px 2px var(--lit);
+  opacity: 0;
+  pointer-events: none;
+}
+.flow.is-run .flow__node::after { animation: lit-in 0.16s ease-out var(--at) backwards, lit-out 0.45s ease-in var(--fade) forwards; }
+.flow.is-run .flow__node::before { animation: ping 0.65s ease-out var(--at) both; }
+.flow.is-run .flow__sig { animation: sig-h var(--hop) cubic-bezier(0.55, 0, 1, 0.45) var(--go); }
+.flow.is-run .flow__wire--v .flow__sig { animation-name: sig-v; }
+.flow.is-run .flow__sig::after { animation: stretch-h var(--hop) cubic-bezier(0.55, 0, 1, 0.45) var(--go); }
+.flow.is-run .flow__wire--v .flow__sig::after { animation-name: stretch-v; }
+.flow__wire--h .flow__sig::after { transform-origin: 100% 50%; }
+.flow__wire--v .flow__sig::after { transform-origin: 50% 100%; }
 
 .steps3 {
   display: grid;
@@ -1391,6 +1465,253 @@ code {
 .flow__pause .i-play { display: none; }
 .flow__pause[aria-pressed="true"] .i-play { display: inline; }
 .flow__pause[aria-pressed="true"] .i-pause { display: none; }
+
+/* ---------- DJ Mixer: the rig ----------
+   The browser sends a deck's tune to the TeensyROM as ASID over USB, and the TeensyROM writes it to the SID chip, whose
+   three voices dance above it in the mixer's own wave windows. Layout and labels are HTML; the art is inline SVG at
+   whole cells; one canvas draws the three windows (rig.js, with the mixer's wave model and look). Each note's register
+   write rides the wires as a small chip, timed to land as the note plays, and lights the chip's address and data pins.
+   rig.js moves the chips through --p (0 to 1 along a wire). Stacked in one column below 720 px, like How it works, and
+   left to right from 720 px; the art is 1.5 or 2 px a cell. Without JS each window shows a still trace (#voices-art). */
+
+.rig { position: relative; margin: 0 0 72px; }
+.rig__stage {
+  --cell: 1.5px;
+  position: relative;
+  padding: 28px 16px 0;
+  border-radius: 24px;
+  border: 1px solid var(--line);
+  background:
+    radial-gradient(ellipse 46% 60% at 82% 40%, rgba(137, 0, 137, 0.22), transparent 70%),
+    radial-gradient(rgba(217, 207, 220, 0.07) 1px, transparent 1.5px) 0 0 / 16px 16px,
+    linear-gradient(180deg, #171218, #100c11);
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.04), 0 30px 60px -40px rgba(0, 0, 0, 0.9);
+}
+.rig__map {
+  /* below 900 px it stacks like the How it works diagram: one centred column, each label under its art */
+  display: grid;
+  grid-template-columns: minmax(0, 1fr);
+  grid-template-areas: "app" "appl" "w1" "cart" "cartl" "w2" "chip" "chipl" "scope";
+  align-items: center;
+  justify-items: center;
+  row-gap: 10px;
+}
+.rig__art { display: block; height: auto; }
+.rig__art--app { grid-area: app; width: calc(70 * var(--cell)); }
+.rig__art--cart {
+  grid-area: cart;
+  width: calc(56 * var(--cell));
+  filter: drop-shadow(0 0 10px rgba(179, 51, 179, 0.45));
+  transition: filter 0.45s ease-out;
+}
+.rig__art--cart.is-hit { filter: drop-shadow(0 0 14px rgba(0, 247, 255, 0.7)) brightness(1.12); transition: none; }
+.rig__chip { grid-area: chip; position: relative; }
+.rig__chip::before {
+  /* the sound rising off the chip into the windows above it */
+  content: "";
+  position: absolute;
+  left: 4%;
+  right: 4%;
+  bottom: 55%;
+  height: 70px;
+  background: radial-gradient(ellipse 58% 100% at 50% 100%, rgba(0, 247, 255, 0.13), rgba(179, 51, 179, 0.08) 45%, transparent 72%);
+  pointer-events: none;
+}
+.rig__art--chip { width: calc(98 * var(--cell)); filter: drop-shadow(0 6px 10px rgba(0, 0, 0, 0.6)); }
+.rig__pins rect { fill: var(--cyan); opacity: 0; transition: opacity 0.4s ease-out; }
+.rig__pins rect.is-hit { opacity: 1; transition: none; }
+.rig__pins { filter: drop-shadow(0 0 1.5px rgba(0, 247, 255, 0.9)); }
+.rig__mark {
+  position: absolute;
+  inset: 0;
+  display: grid;
+  place-items: center;
+  font-family: var(--font-display);
+  font-size: 16px;
+  line-height: 1;
+  color: #c8cdd6;
+  opacity: 0.85;
+  -webkit-font-smoothing: none;
+  pointer-events: none;
+}
+.rig__label { margin: 0; display: grid; gap: 2px; text-align: center; }
+.rig__label--app { grid-area: appl; }
+.rig__label--cart { grid-area: cartl; }
+.rig__label--chip { grid-area: chipl; }
+.rig__name {
+  font-family: var(--font-display);
+  font-size: var(--fs-label);
+  line-height: 1.2;
+  color: var(--white);
+  -webkit-font-smoothing: none;
+}
+.rig__sub { color: var(--text); font-size: 14px; line-height: 1.45; }
+
+/* the wires: a dashed line with a pixel arrowhead, and the chips that ride it */
+.rig__link { position: relative; display: grid; place-items: center; justify-self: stretch; align-self: stretch; }
+.rig__link--1 { grid-area: w1; }
+.rig__link--2 { grid-area: w2; }
+.rig__wire {
+  position: relative;
+  display: block;
+  width: 64px;
+  height: 76px;
+  overflow: hidden;
+  color: #8a7590;
+}
+.rig__wire::before {
+  content: "";
+  position: absolute;
+  top: 0;
+  bottom: 6px;
+  left: 31px;
+  width: 2px;
+  background: repeating-linear-gradient(180deg, currentColor 0 4px, transparent 4px 8px);
+}
+.rig__head { position: absolute; fill: currentColor; }
+.rig__head--h { display: none; }
+.rig__head--v { bottom: 0; left: 26px; width: 12px; height: 6px; }
+.rig__via {
+  position: absolute;
+  left: calc(50% + 30px);
+  top: 50%;
+  transform: translateY(-50%);
+  color: var(--text-soft);
+  font-size: 13px;
+  line-height: 1.25;
+  white-space: nowrap;
+}
+.rig__pkt {
+  /* a carrier the size of the wire, slid along it by --p; its chip sits on the carrier's leading edge */
+  position: absolute;
+  inset: 0 0 6px;
+  transform: translateY(calc(var(--p, 0) * 100%));
+  opacity: 0;
+}
+.rig__pkt.is-live { opacity: 1; }
+.rig__pkt b {
+  --lane: #d66ed6;
+  position: absolute;
+  left: 50%;
+  top: 0;
+  transform: translate(-50%, -50%);
+  padding: 3px 5px 3px;
+  border-radius: 3px;
+  background: #100c11;
+  box-shadow: 0 0 0 1px var(--lane), 0 0 12px -2px var(--lane);
+  color: var(--lane);
+  font: 600 12px/1 var(--font-mono);
+  letter-spacing: 0.02em;
+  white-space: nowrap;
+}
+.rig__pkt.is-v2 b { --lane: var(--cyan); }
+.rig__pkt.is-v3 b { --lane: var(--yellow); }
+
+/* the three wave windows: the canvas draws them over the still traces once it runs */
+.rig__scope {
+  grid-area: scope;
+  position: relative;
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 8px;
+  width: 100%;
+  max-width: 360px;
+  margin: 6px 0 -28px; /* the windows burst out of the bottom of the card */
+}
+.rig__win {
+  aspect-ratio: 76 / 44;
+  border: 1px solid #2b242e;
+  box-shadow: 0 0 0 1px rgba(0, 0, 0, 0.55), 0 14px 30px -14px rgba(0, 0, 0, 0.95), 0 0 26px -8px rgba(179, 51, 179, 0.55);
+  background:
+    linear-gradient(180deg, rgba(255, 255, 255, 0.07), rgba(255, 255, 255, 0) 42%),
+    radial-gradient(ellipse at 50% 50%, #1a1320, #08060a 110%);
+  display: grid;
+  align-items: center;
+}
+.rig__still { width: 100%; height: 58%; }
+.rig__waves { position: absolute; inset: 0; width: 100%; height: 100%; display: block; }
+.rig.is-live .rig__still { visibility: hidden; }
+
+/* no visible pause: the rig rests still under reduced motion and off screen, and this button shows only to the keyboard */
+.rig__pause:not(:focus-visible) {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  margin: -1px;
+  padding: 0;
+  overflow: hidden;
+  clip-path: inset(50%);
+  white-space: nowrap;
+}
+.rig__pause:focus-visible { position: absolute; z-index: 2; top: 16px; left: 16px; }
+@media (min-width: 400px) {
+  .rig__stage { --cell: 2px; padding: 32px 24px 0; }
+  .rig__mark { font-size: 32px; }
+}
+.rig__pause[hidden] { display: none; }
+.rig__pause .i-play { display: none; }
+.rig__pause[aria-pressed="true"] .i-play { display: inline; }
+.rig__pause[aria-pressed="true"] .i-pause { display: none; }
+
+@media (min-width: 720px) {
+  .rig { margin-top: 28px; }
+  .rig__stage { --cell: 1.5px; padding: 18px 24px 24px; }
+  .rig__map {
+    --scope: 260px;
+    grid-template-columns: auto minmax(72px, 1fr) auto minmax(72px, 1fr) var(--scope);
+    grid-template-areas:
+      "app  w1 cart w2 chip"
+      "appl .  cartl . chipl";
+    column-gap: 0;
+    row-gap: 8px;
+  }
+  /* the windows hang over the chip (the cart's 62 cells set the row; the chip's 40 sit in its middle) and burst out
+     through the top of the card */
+  .rig__scope {
+    grid-area: chip;
+    align-self: start;
+    max-width: none;
+    margin: 0;
+    gap: 10px;
+    transform: translateY(calc(-100% + 11 * var(--cell) - 10px));
+  }
+  .rig__link { align-self: center; }
+  .rig__link--1 { margin-inline: 14px 10px; }
+  /* the second wire runs on to the chip, which sits in the middle of the wider scope's column */
+  .rig__link--2 { margin-left: 10px; margin-right: calc((98 * var(--cell) - var(--scope)) / 2); }
+  .rig__wire { width: 100%; height: 24px; }
+  .rig__wire::before {
+    top: 11px;
+    bottom: auto;
+    left: 0;
+    right: 6px;
+    width: auto;
+    height: 2px;
+    background: repeating-linear-gradient(90deg, currentColor 0 4px, transparent 4px 8px);
+  }
+  .rig__head--h { display: block; right: 0; top: 6px; width: 6px; height: 12px; }
+  .rig__head--v { display: none; }
+  .rig__via { left: 50%; top: calc(50% + 20px); transform: translateX(-50%); }
+  .rig__pkt { inset: 0 6px 0 0; transform: translateX(calc(var(--p, 0) * 100%)); }
+  .rig__pkt b { left: 0; top: 50%; }
+  .rig__mark { font-size: 16px; }
+}
+@media (min-width: 900px) {
+  .rig__stage { --cell: 2px; padding: 26px 40px 28px; }
+  .rig__map { --scope: 340px; }
+  .rig__mark { font-size: 32px; }
+}
+@media (min-width: 1100px) {
+  .rig__map { --scope: 420px; }
+}
+
+/* the DJ TV beside its feature lines */
+.split--dj { margin-top: 0; }
+.monitor--small { max-width: 680px; margin: 0; }
+.featlist--first { margin-top: 0; }
+@media (min-width: 900px) {
+  .split--dj { grid-template-columns: minmax(0, 3fr) minmax(0, 2fr); }
+}
 
 /* ---------- two columns: copy beside pictures ---------- */
 
@@ -1854,26 +2175,20 @@ code {
 }
 @keyframes sweep { to { transform: translateY(340%); } }
 
-/* How it works, one 6 s loop. A signal runs 0.96 s along its link (sig-*, started 0.5 s, 1.7 s and 2.9 s in) and the
-   node it reaches lights as it arrives (lit-N, at 24 %, 44 % and 64 %; the first node lights at the "click", 5 %); all
-   hold until 88 %, fade, and the loop starts again. */
-@keyframes lit-1 { 0%, 5% { opacity: 0; } 8%, 88% { opacity: 1; } 96%, 100% { opacity: 0; } }
-@keyframes lit-2 { 0%, 24% { opacity: 0; } 27%, 88% { opacity: 1; } 96%, 100% { opacity: 0; } }
-@keyframes lit-3 { 0%, 44% { opacity: 0; } 47%, 88% { opacity: 1; } 96%, 100% { opacity: 0; } }
-@keyframes lit-4 { 0%, 64% { opacity: 0; } 67%, 88% { opacity: 1; } 96%, 100% { opacity: 0; } }
-@keyframes traces-on { 0%, 64% { opacity: 0.2; } 67%, 88% { opacity: 1; } 96%, 100% { opacity: 0.2; } }
-@keyframes sig-h {
-  0% { opacity: 1; transform: translateX(-100%); }
-  16% { opacity: 1; transform: translateX(0); }
-  16.1%, 100% { opacity: 0; transform: translateX(0); }
+/* How it works: one pass of the timeline in .flow (see "the motion"). A node is dark until its packet lands (lit-in,
+   held back by its delay), then lit until --fade (lit-out). A packet is shown only while it runs (sig-*), and its square
+   stretches behind it as it speeds up (stretch-*). */
+@keyframes lit-in { from { opacity: 0; } to { opacity: 1; } }
+@keyframes lit-out { from { opacity: 1; } to { opacity: 0; } }
+@keyframes ping {
+  0% { opacity: 0; transform: scale(1); }
+  10% { opacity: 1; transform: scale(1); }
+  100% { opacity: 0; transform: scale(1.08); }
 }
-@keyframes sig-v {
-  0% { opacity: 1; transform: translateY(-100%); }
-  16% { opacity: 1; transform: translateY(0); }
-  16.1%, 100% { opacity: 0; transform: translateY(0); }
-}
-/* the traces repeat every 40 units, so shifting them by 40 loops seamlessly; 0.6 s divides the 6 s loop */
-@keyframes voice-scroll { to { transform: translateX(-40px); } }
+@keyframes sig-h { from { opacity: 1; transform: translateX(-100%); } to { opacity: 1; transform: translateX(0); } }
+@keyframes sig-v { from { opacity: 1; transform: translateY(-100%); } to { opacity: 1; transform: translateY(0); } }
+@keyframes stretch-h { from { transform: scaleX(1); } to { transform: scaleX(2.6); } }
+@keyframes stretch-v { from { transform: scaleY(1); } to { transform: scaleY(2.6); } }
 @keyframes msg-in {
   from { opacity: 0; transform: translateY(10px); }
   to { opacity: 1; transform: none; }
@@ -1890,8 +2205,8 @@ code {
     transition-duration: 0.001ms !important;
   }
   .cursor, .tv__glass::after { animation: none !important; }
-  .flow__node::after, .flow__sig, .flow .voices, .voices__scroll, .chat .msg { animation: none !important; }
+  .flow__node::after, .flow__node::before, .flow__sig, .flow__sig::after, .chat .msg { animation: none !important; }
   .flow__pause { display: none; }
-  .tv__beam, .tv__dot { display: none; }
+  .crt__beam, .crt__dot { display: none; }
   .js [data-reveal].is-pending { opacity: 1; transform: none; }
 }

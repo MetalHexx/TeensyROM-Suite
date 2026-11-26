@@ -14,7 +14,7 @@ import {
 } from './lib/releases.mjs';
 import { DEFAULT_PORT, startSiteServer } from './lib/serve.mjs';
 
-const USAGE = `usage: node site/tools/site.mjs <command>
+const USAGE = `usage: node src/site/tools/site.mjs <command>
 
   build [--offline] [--src <dir>] [--out <dir>]   build the page, stamped with the newest release
   gate                                            print publish=true|false for the Pages workflow
@@ -126,7 +126,7 @@ async function check(args) {
     `\n${counted} checks passed (${result.files} files, ${kib(result.bytes)} KB, first screen ${(result.firstScreenBytes / 1000).toFixed(1)} KB)`,
   );
   if (checks.every((c) => c.ok)) return 0;
-  console.error('hint: Fix site/page/, then run build and check again.');
+  console.error('hint: Fix src/site/page/, then run build and check again.');
   return 1;
 }
 

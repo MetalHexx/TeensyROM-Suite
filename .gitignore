@@ -408,5 +408,5 @@ Source/Windows/TeensyRom.Ui/src/TeensyRom.Api/ClientApp/teensyrom-nx/apps/teensy
 /src/apps/api/.local-fixtures/
 
 # Product page build output
-/site/build/
-/site/build.staging-*/
+/src/site/build/
+/src/site/build.staging-*/
