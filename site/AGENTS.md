@@ -85,7 +85,7 @@ Every check runs and every problem is reported in one run.
 
 | Path | What |
 |------|------|
-| `index.html` | The whole page: head, skip link, sticky header, `<main>` (hero, then `#how` 01, `#trom-ui` 02, `#terminal` 03, `#agent` 04, `#api` 05 and `#get` 06), footer. Holds the inline-SVG art (`#cart-art`, `#voices-art`). |
+| `index.html` | The whole page: head, skip link, header (it scrolls away, as on ReBeep), `<main>` (hero, then `#how` 01, `#trom-ui` 02, `#terminal` 03, `#agent` 04, `#api` 05 and `#get` 06), footer. Holds the inline-SVG art (`#cart-art`, `#voices-art`). |
 | `css/site.css` | Tokens, base, components, header, hero, the TV, the diagram, Trom Terminal's frame, the chat, Get it, footer, keyframes, reduced motion, in that order. |
 | `js/site.js` | Adds the `js` class, scroll reveal, the cursor-following card glow, cursor blinking in view, the cartridge's replay on hover, the diagram's pause button, the Trom Agent conversation's entrance, the TV and its video facades. Progressive: the page reads without it. |
 | `img/` | `icon.svg` (the header icon, 16 cells), `favicon-32.png`, `apple-touch-icon.png`, `og-card.png`, `glow.svg` (the Web UI's background glows, fixed behind the page). |

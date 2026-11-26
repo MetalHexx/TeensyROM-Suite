@@ -46,10 +46,7 @@
   :root { --gutter: 28px; --fs-hero: 48px; }
 }
 @media (min-width: 1024px) {
-  :root { --gutter: 40px; --fs-h2: 48px; }
-}
-@media (min-width: 1280px) {
-  :root { --fs-hero: 64px; }
+  :root { --gutter: 40px; --fs-h2: 48px; --fs-hero: 64px; }
 }
 
 @font-face {
@@ -76,7 +73,6 @@ html {
   -webkit-text-size-adjust: 100%;
   text-size-adjust: 100%;
   scroll-behavior: smooth;
-  scroll-padding-top: 88px;
 }
 
 body {
@@ -174,7 +170,6 @@ code {
   gap: 10px;
   margin: 0 0 14px;
   font-size: var(--fs-label);
-  line-height: 1.2;
   text-transform: uppercase;
   color: var(--cyan);
 }
@@ -182,7 +177,7 @@ code {
   display: inline-grid;
   place-items: center;
   min-width: 2.4em;
-  padding: 3px 6px;
+  padding: 2px 6px;
   border: 1px solid rgba(179, 51, 179, 0.8);
   border-radius: 4px;
   background: rgba(137, 0, 137, 0.35);
@@ -200,13 +195,8 @@ code {
 /* ---------- top bar ---------- */
 
 .topbar {
-  position: sticky;
-  top: 0;
-  z-index: 30;
-  background: linear-gradient(180deg, rgba(137, 0, 137, 0.32), rgba(21, 17, 22, 0.86));
-  -webkit-backdrop-filter: blur(12px);
-  backdrop-filter: blur(12px);
-  border-bottom: 1px solid var(--line);
+  position: relative;
+  z-index: 5;
 }
 .topbar::before {
   /* a thin power line along the top edge */
@@ -219,20 +209,6 @@ code {
   background: linear-gradient(90deg, transparent, var(--plum) 20%, var(--magenta) 50%, var(--cyan) 80%, transparent);
   box-shadow: 0 0 14px rgba(179, 51, 179, 0.7);
 }
-.topbar::after {
-  /* a raster bar: the three voices as three hard lines */
-  content: "";
-  position: absolute;
-  left: 0;
-  right: 0;
-  bottom: -7px;
-  height: 6px;
-  background: linear-gradient(180deg, var(--magenta) 0 2px, var(--cyan) 2px 4px, var(--yellow) 4px 6px);
-  opacity: 0.8;
-  -webkit-mask-image: linear-gradient(90deg, transparent, #000 18%, #000 82%, transparent);
-  mask-image: linear-gradient(90deg, transparent, #000 18%, #000 82%, transparent);
-  pointer-events: none;
-}
 .topbar__in {
   display: flex;
   align-items: center;
@@ -241,7 +217,7 @@ code {
   min-height: 60px;
 }
 @media (min-width: 900px) {
-  .topbar__in { min-height: 68px; }
+  .topbar__in { min-height: 72px; }
 }
 .topbar__lead {
   display: flex;
@@ -298,11 +274,11 @@ code {
 
 .hero {
   position: relative;
-  padding: 36px 0 28px;
+  padding: 4px 0 72px;
   isolation: isolate;
 }
 @media (min-width: 900px) {
-  .hero { padding: 64px 0 40px; }
+  .hero { padding: 40px 0 112px; }
 }
 
 .hero__dots {
@@ -332,6 +308,8 @@ code {
   .hero__grid {
     grid-template-columns: minmax(0, 1.1fr) minmax(0, 0.9fr);
     gap: 40px;
+    /* the copy starts at the hero's top edge, as on ReBeep, so the heading sits the same distance under the bar */
+    align-items: start;
   }
 }
 
@@ -346,7 +324,7 @@ code {
 }
 
 .hero__title {
-  margin: 0 0 20px;
+  margin: 0 0 22px;
   font-size: var(--fs-hero);
   line-height: var(--display-leading);
   color: var(--white);
@@ -359,9 +337,9 @@ code {
 
 .hero__lede {
   max-width: 34em;
-  margin: 0 0 28px;
+  margin: 0 0 32px;
   color: var(--text);
-  font-size: 1.06em;
+  font-size: 1.08em;
   text-wrap: pretty;
 }
 
@@ -693,7 +671,7 @@ code {
   padding: 72px 0;
 }
 @media (min-width: 900px) {
-  .section { padding: 104px 0; }
+  .section { padding: 112px 0; }
 }
 .section::before {
   content: "";
