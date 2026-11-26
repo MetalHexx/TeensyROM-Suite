@@ -441,7 +441,7 @@
     pauseBtn.hidden = false;
     pauseBtn.addEventListener('click', function () {
       paused = !paused;
-      pauseBtn.setAttribute('aria-pressed', paused ? 'true' : 'false');
+      rig.classList.toggle('is-paused', paused);
       if (pauseLabel) pauseLabel.textContent = paused ? 'Play animation' : 'Pause animation';
       schedule();
     });
@@ -453,6 +453,21 @@
     }).observe(rig);
   }
   document.addEventListener('visibilitychange', schedule);
+  // A zoom, or a move to a screen of another density, changes the pixel ratio without resizing the windows, so
+  // redraw then too: listen on the ratio's own media query, and re-arm it on each change.
+  var watchDpr = function () {
+    if (!window.matchMedia) return;
+    var mq = window.matchMedia('(resolution: ' + (window.devicePixelRatio || 1) + 'dppx)');
+    var onChange = function () {
+      if (mq.removeEventListener) mq.removeEventListener('change', onChange);
+      else mq.removeListener(onChange);
+      redraw();
+      watchDpr();
+    };
+    if (mq.addEventListener) mq.addEventListener('change', onChange);
+    else mq.addListener(onChange);
+  };
+  watchDpr();
   if ('ResizeObserver' in window) {
     new ResizeObserver(redraw).observe(scope);
   } else {

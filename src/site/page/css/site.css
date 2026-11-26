@@ -949,8 +949,7 @@ code {
   background:
     linear-gradient(128deg, rgba(255, 255, 255, 0.075) 0%, rgba(255, 255, 255, 0.02) 24%, transparent 42%),
     radial-gradient(ellipse 115% 100% at 50% 50%, transparent 60%, rgba(0, 0, 0, 0.55) 100%);
-  /* trial: no scanlines, for a crisper picture. They were
-     repeating-linear-gradient(180deg, transparent 0 2px, rgba(0, 0, 0, 0.2) 2px 3px) */
+  /* no scanlines on the TVs, by choice, for a crisper picture */
 }
 .tv__glass::after {
   /* a faint highlight that drifts down the glass; it holds still with the channels (the pause button) */
@@ -1463,8 +1462,19 @@ code {
 }
 .flow__pause[hidden] { display: none; }
 .flow__pause .i-play { display: none; }
-.flow__pause[aria-pressed="true"] .i-play { display: inline; }
-.flow__pause[aria-pressed="true"] .i-pause { display: none; }
+.flow__pause.is-paused .i-play { display: inline; }
+.flow__pause.is-paused .i-pause { display: none; }
+/* no visible pause (the owner's call): the diagram loops on its own, so this button shows only to the keyboard */
+.flow__pause:not(:focus-visible) {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  margin: -1px;
+  padding: 0;
+  overflow: hidden;
+  clip-path: inset(50%);
+  white-space: nowrap;
+}
 
 /* ---------- DJ Mixer: the rig ----------
    The browser sends a deck's tune to the TeensyROM as ASID over USB, and the TeensyROM writes it to the SID chip, whose
@@ -1488,7 +1498,7 @@ code {
   box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.04), 0 30px 60px -40px rgba(0, 0, 0, 0.9);
 }
 .rig__map {
-  /* below 900 px it stacks like the How it works diagram: one centred column, each label under its art */
+  /* below 720 px it stacks like the How it works diagram: one centred column, each label under its art */
   display: grid;
   grid-template-columns: minmax(0, 1fr);
   grid-template-areas: "app" "appl" "w1" "cart" "cartl" "w2" "chip" "chipl" "scope";
@@ -1650,8 +1660,8 @@ code {
 }
 .rig__pause[hidden] { display: none; }
 .rig__pause .i-play { display: none; }
-.rig__pause[aria-pressed="true"] .i-play { display: inline; }
-.rig__pause[aria-pressed="true"] .i-pause { display: none; }
+.rig.is-paused .rig__pause .i-play { display: inline; }
+.rig.is-paused .rig__pause .i-pause { display: none; }
 
 @media (min-width: 720px) {
   .rig { margin-top: 28px; }

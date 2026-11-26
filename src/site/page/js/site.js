@@ -142,8 +142,7 @@
       flowPause.hidden = false;
       flowPause.addEventListener('click', function () {
         flowPaused = !flowPaused;
-        flow.classList.toggle('is-paused', flowPaused);
-        flowPause.setAttribute('aria-pressed', flowPaused ? 'true' : 'false');
+        flow.classList.toggle('is-paused', flowPaused); flowPause.classList.toggle('is-paused', flowPaused);
         if (flowLabel) flowLabel.textContent = flowPaused ? 'Play animation' : 'Pause animation';
         flowSchedule();
       });
@@ -159,6 +158,7 @@
         var next = (frame + 1) % frames.length;
         warmImg(frames[next]);
         crtSwitch(tube, function () {
+          if (!flowRunning()) return; // paused or hidden mid-switch: keep the frame that is showing
           frames[frame].hidden = true;
           frames[next].hidden = false;
           frame = next;

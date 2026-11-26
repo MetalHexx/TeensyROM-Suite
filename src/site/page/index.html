@@ -128,7 +128,7 @@
         </div>
       </div>
 
-      <!-- the three SID traces are defined here once, at zero size, and drawn with <use> by the diagram and the footer -->
+      <!-- the three SID traces are defined here once, at zero size, and drawn with <use> by the DJ rig's windows and the footer -->
       <svg class="voices-defs" width="0" height="0" viewBox="0 0 960 72" aria-hidden="true" focusable="false">
         <g id="voices-art" fill="none">
           <path class="voices__p voices__p--pulse" d="M0 21H14V3H26V21H40H54V3H66V21H80H94V3H106V21H120H134V3H146V21H160H174V3H186V21H200H214V3H226V21H240H254V3H266V21H280H294V3H306V21H320H334V3H346V21H360H374V3H386V21H400H414V3H426V21H440H454V3H466V21H480H494V3H506V21H520H534V3H546V21H560H574V3H586V21H600H614V3H626V21H640H654V3H666V21H680H694V3H706V21H720H734V3H746V21H760H774V3H786V21H800H814V3H826V21H840H854V3H866V21H880H894V3H906V21H920H934V3H946V21H960"/>
@@ -219,13 +219,13 @@
             <ol class="steps3">
               <li class="steps3__item"><span><b>You pick something</b> on your computer or phone, in the terminal, or just by asking.</span></li>
               <li class="steps3__item"><span><b>Trom API sends it</b> to your cartridge, over USB or your network.</span></li>
-              <li class="steps3__item"><span><b>Your C64 plays it</b> on real hardware, and you can hear it on your phone or laptop too.</span></li>
+              <li class="steps3__item"><span><b>Your C64 plays it</b> on real hardware, and you can hear it on your phone, tablet or laptop too.</span></li>
             </ol>
           </figcaption>
         </figure>
 
         <div class="flow__foot" data-reveal>
-          <button class="btn btn--ghost flow__pause" type="button" aria-pressed="false" aria-controls="flow-stage" hidden>
+          <button class="btn btn--ghost flow__pause" type="button" aria-controls="flow-stage" hidden>
             <svg class="btn__icon" viewBox="0 0 16 16" aria-hidden="true" focusable="false" shape-rendering="crispEdges"><path class="i-pause" fill="currentColor" d="M3 2h4v12H3zM9 2h4v12H9z"/><path class="i-play" fill="currentColor" d="M4 2h2v1h2v1h2v1h2v1h2v4h-2v1h-2v1H8v1H6v1H4z"/></svg>
             <span class="flow__pause-label">Pause animation</span>
           </button>
@@ -310,7 +310,7 @@
           <article class="card" data-glow data-reveal>
             <svg class="card__icon" viewBox="0 0 16 16" aria-hidden="true" shape-rendering="crispEdges"><path fill="#00f7ff" d="M3 1h7v1H3zM3 14h7v1H3zM3 2h1v12H3zM9 2h1v12H9zM6 12h1v1H6z"/><path fill="#d66ed6" d="M4 3h5v8H4zM13 3h1v1h-1zM14 4h1v2h-1zM15 6h1v4h-1zM14 10h1v2h-1zM13 12h1v1h-1z"/><path fill="#fbf6fc" d="M5 5h1v4H5zM6 6h1v2H6z"/><path fill="#f5e29e" d="M11 5h1v1h-1zM12 6h1v4h-1zM11 10h1v1h-1z"/></svg>
             <h3 class="card__title">Take it anywhere</h3>
-            <p class="card__text">Open Trom UI on your phone or laptop, and hear your C64 there too.</p>
+            <p class="card__text">Open Trom UI on your phone, tablet or laptop, and hear your C64 there too.</p>
           </article>
           <article class="card" data-glow data-reveal>
             <svg class="card__icon" viewBox="0 0 16 16" aria-hidden="true" shape-rendering="crispEdges"><path fill="#00f7ff" d="M1 2h6v2H1zM1 4h14v10H1z"/><path fill="#100c11" d="M2 5h12v8H2z"/><path fill="#d66ed6" d="M4 8h2v2H4z"/><path fill="#00f7ff" d="M7 8h2v2H7z"/><path fill="#f5e29e" d="M10 8h2v2h-2z"/></svg>
@@ -373,7 +373,7 @@
             </div>
           </div>
           <p class="sr-only" id="rig-desc">The DJ Mixer runs in your browser and sends each deck's tune to its TeensyROM as ASID messages over USB. The TeensyROM writes them to the SID chip in your C64, frame by frame, and the chip plays them on its three voices. Above the chip, a window for each voice draws its wave as it plays, as the mixer does.</p>
-          <button class="btn btn--ghost rig__pause" type="button" aria-pressed="false" aria-controls="rig-stage" hidden>
+          <button class="btn btn--ghost rig__pause" type="button" aria-controls="rig-stage" hidden>
             <svg class="btn__icon" viewBox="0 0 16 16" aria-hidden="true" focusable="false" shape-rendering="crispEdges"><path class="i-pause" fill="currentColor" d="M3 2h4v12H3zM9 2h4v12H9z"/><path class="i-play" fill="currentColor" d="M4 2h2v1h2v1h2v1h2v1h2v4h-2v1h-2v1H8v1H6v1H4z"/></svg>
             <span class="rig__pause-label">Pause animation</span>
           </button>

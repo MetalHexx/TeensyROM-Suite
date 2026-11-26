@@ -3,7 +3,7 @@
 The product page for https://metalhexx.github.io/TeensyROM-Suite/. A static page, built with a
 Node-only toolchain that stamps the newest release (version, date, download links) into it.
 
-It sits under `src/` but is not an Nx project: `src/.gitignore` names (`dist`, `tmp`, `out-tsc`, `node_modules`, `coverage`) also apply to it, and the Nx workspace skips it through `src/.nxignore`.
+It sits under `src/` but is not an Nx project: `src/.gitignore` names (`dist`, `tmp`, `out-tsc`, `node_modules`) also apply to it, and the Nx workspace skips it through `src/.nxignore`.
 
 ## Layout
 
@@ -162,7 +162,7 @@ between its pictures.
 
 - **Trom UI's TV** (`#tv`, channels in `#tv-channels`) fills section 02; the cards and the docs link sit under it.
   `__dev/preview#tv` relies on these ids.
-- **The DJ TV** (`#tv-dj`, channels in `#tv-dj-channels`, `.monitor--small`) sits beside the DJ Mixer's feature lines in
+- **The DJ TV** (`#tv-dj`, channels in `#tv-dj-channels`, `.monitor--small`) sits beside the DJ Mixer's feature lines from 900 px (above them below) in
   section 03.
 
 **Channels.** Each is a `.tv__ch` inside its TV's channels element, with `role="group"`, `aria-roledescription="slide"`
@@ -193,7 +193,7 @@ the DOM, and the on-screen number (`CH 01` and up) is the channel's position.
    channel is next. Removing a channel? Delete its image from `img/tv/` too, unless the other TV uses it.
 
 **Sizing.** `.monitor` is a size container (`container: tv / inline-size`), so each TV sizes its bezel, overscan, chin,
-OSD, buttons and play button by its own width (`@container tv`, steps at 480 and 700 px), not the viewport's.
+OSD, buttons and play button by its own width (`@container tv`, steps at 480 and 700 px, and a lighter glass at 560 px and below), not the viewport's. The TVs' glass has no scanlines, by choice; the C64 screen's glass keeps its own.
 
 **The CRT switch.** A channel change is the `.crt` block, which the C64's screen in How it works shares. The host (`.crt`)
 takes `is-off` (the picture squashes to a hot line, the line pinches to a dot, the dot fades), `is-dark` (a beat of
@@ -255,8 +255,7 @@ what was launched. Pixel icons are inline SVGs on a 16-cell grid, as in the card
   `crtSwitch` on the tube: off, dark, the next frame, on (1 s in all).
 - **Resting state = paused = reduced motion = no JS:** every node lit, no packet, the screen still (the first frame,
   or whichever was showing when paused). It is the base style; the animations ride on `.is-run`.
-- **Pause button** (`.flow__pause`): `hidden` until JS runs; never shown under reduced motion; toggles `.is-paused`,
-  `aria-pressed` and its label ("Pause animation" / "Play animation").
+- **Pause button** (`.flow__pause`): visible only to the keyboard, like the rig's (the owner's call): `hidden` until JS runs, and never under reduced motion. It toggles `.is-paused` and its label ("Pause animation" / "Play animation"), with no `aria-pressed`.
 - **Change a node.** Edit the node in `index.html`; if the order or count of nodes changes, the grid columns in
   `.flow__map` (7 tracks: node, link, node, link, node, link, node), each node's `--at` and each link's `--go` follow.
 
@@ -306,7 +305,7 @@ chip in your C64, whose three voices dance above it in the mixer's own wave wind
   paused; a pause holds the picture. The song clock advances by frame time (at most 100 ms a frame), so it never
   jumps. Under reduced motion it draws one held pose (the downbeat, at the mixer's held alpha of 0.6) and sends no
   chips. Without JS each window shows a still trace from `#voices-art` (`.rig__still`), which `.rig.is-live` hides.
-- **No visible pause, at the owner's request.** `.rig__pause` shows only on keyboard focus, like the skip link. The rig
+- **No visible pause, at the owner's request.** `.rig__pause` shows only on keyboard focus, like the skip link. It toggles `.rig.is-paused`, with no `aria-pressed`. The rig
   stops off screen and in a hidden tab, and holds still under reduced motion.
 - **Accessibility.** The stage is `role="img"` with a label and a `.sr-only` description (`#rig-desc`).
 
